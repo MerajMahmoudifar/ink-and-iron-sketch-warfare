@@ -393,6 +393,17 @@ class AuthManager {
   }
 
   notifyListeners() {
+    if (window.d1Service && window.gAuth && window.gAuth.profile) {
+      const p = window.gAuth.profile;
+      const uid = window.gAuth.user ? window.gAuth.user.uid : (p.uid || 'guest');
+      window.d1Service.syncSettings({
+        id: uid,
+        username: p.displayName || (p.email ? p.email.split('@')[0] : 'Commander'),
+        email: p.email || '',
+        wins: Number(p.wins || 0),
+        losses: Number(p.losses || 0)
+      });
+    }
     window.gAuth.listeners.forEach(fn => fn(window.gAuth));
   }
 }

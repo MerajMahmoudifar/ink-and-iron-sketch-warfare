@@ -3730,8 +3730,18 @@ window.deleteAdminUser = async function(id) {
 window.addEventListener('DOMContentLoaded', () => {
   new App();
 
-  // 1. Initial Settings Sync
-  d1Service.syncSettings().then(res => {
+  // 1. Initial Settings & Profile Sync
+  const authProf = (window.gAuth && window.gAuth.profile) ? window.gAuth.profile : null;
+  const initialUpdates = {};
+  if (authProf) {
+    if (window.gAuth.user && window.gAuth.user.uid) initialUpdates.id = window.gAuth.user.uid;
+    if (authProf.displayName) initialUpdates.username = authProf.displayName;
+    if (authProf.email) initialUpdates.email = authProf.email;
+    if (typeof authProf.wins === 'number') initialUpdates.wins = authProf.wins;
+    if (typeof authProf.losses === 'number') initialUpdates.losses = authProf.losses;
+  }
+
+  d1Service.syncSettings(initialUpdates).then(res => {
     const user = d1Service.user;
     const usernameInput = document.getElementById('input-username');
     if (usernameInput) usernameInput.value = user.username || '';
