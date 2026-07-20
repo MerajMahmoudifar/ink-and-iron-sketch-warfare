@@ -124,7 +124,7 @@ const UNIT_TYPES = {
     factionLock: 'VANGUARD_LEGION',
     description: 'Vanguard Legion Exclusive. Rapid hit-and-run raider with extreme mobility.',
     icon: 'RECON',
-    symbol: '⚡'
+    symbol: '🗲'
   }
 };
 
@@ -376,22 +376,34 @@ class Unit {
   static idCounter = 1;
 
   constructor(typeKey, ownerId, startX, startY) {
-    const template = UNIT_TYPES[typeKey];
+    const template = UNIT_TYPES[typeKey] || {
+      name: 'Rifle Squad',
+      category: 'INFANTRY',
+      maxHp: 100,
+      attack: 30,
+      moveRange: 2,
+      attackRange: 1,
+      visionRange: 2,
+      icon: 'RIFLE',
+      symbol: '✕',
+      description: 'Frontline Infantry'
+    };
     this.id = `U_${Unit.idCounter++}_P${ownerId}`;
     this.typeKey = typeKey;
-    this.name = template.name;
-    this.category = template.category;
+    this.name = template.name || 'Rifle Squad';
+    this.category = template.category || 'INFANTRY';
     this.owner = ownerId;
     this.x = startX;
     this.y = startY;
-    this.hp = template.maxHp;
-    this.maxHp = template.maxHp;
-    this.attack = template.attack;
-    this.moveRange = template.moveRange;
-    this.attackRange = template.attackRange;
-    this.visionRange = template.visionRange;
-    this.icon = template.icon;
-    this.description = template.description;
+    this.hp = template.maxHp || 100;
+    this.maxHp = template.maxHp || 100;
+    this.attack = template.attack || 30;
+    this.moveRange = template.moveRange || 2;
+    this.attackRange = template.attackRange || 1;
+    this.visionRange = template.visionRange || 2;
+    this.icon = template.icon || 'RIFLE';
+    this.symbol = template.symbol || '✕';
+    this.description = template.description || 'Tactical Unit';
     this.vehicleBonus = template.vehicleBonus || 1.0;
     this.infantryBonus = template.infantryBonus || 1.0;
 
@@ -483,7 +495,7 @@ class Combat {
   }
 
   static getDistance(p1, p2) {
-    return Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y);
+    return Math.max(Math.abs(p1.x - p2.x), Math.abs(p1.y - p2.y));
   }
 }
 
@@ -496,6 +508,7 @@ class GameEngine {
     this.player1Faction = config.p1Faction || FACTIONS.IRON_CORPS;
     this.player2Faction = config.p2Faction || FACTIONS.VANGUARD_LEGION;
     this.isSinglePlayer = config.isSinglePlayer !== false;
+    this.aiDifficulty = config.aiDifficulty || 'VETERAN';
     this.aiPersonality = config.aiPersonality || 'TACTICUS';
     this.audio = config.audio || null;
     this.playbackDurationConfig = config.playbackDuration || 3;
@@ -514,7 +527,7 @@ class GameEngine {
 
     this.players = {
       1: { id: 1, name: 'Player 1', faction: this.player1Faction, ink: 150, cp: 0, basePos: this.p1Base, units: [], zonesCaptured: 1 },
-      2: { id: 2, name: this.isSinglePlayer ? `AI (${this.aiPersonality})` : 'Player 2', faction: this.player2Faction, ink: 150, cp: 0, basePos: this.p2Base, units: [], zonesCaptured: 1 }
+      2: { id: 2, name: this.isSinglePlayer ? `AI (${this.aiDifficulty})` : 'Player 2', faction: this.player2Faction, ink: 150, cp: 0, basePos: this.p2Base, units: [], zonesCaptured: 1 }
     };
 
     // ACTIVE SPECIAL ABILITY EFFECTS ON GRID
@@ -611,6 +624,10 @@ class GameEngine {
     this.phase = GAME_PHASES.PLAYBACK;
     this.playbackTimeRemaining = this.playbackDurationConfig;
     this.currentPlaybackStep = 0;
+
+    if (this.isSinglePlayer) {
+      CommanderAI.processTurn(this, this.aiDifficulty, this.aiPersonality);
+    }
 
     this.getAllUnits().forEach(u => {
       u.prevX = u.x; u.prevY = u.y;
@@ -842,8 +859,13 @@ class GameEngine {
   setUnitStance(unitId, stanceId) {
     const u = this.getUnitById(unitId);
     if (u) {
+      const tile = this.grid[u.y][u.x];
+      const canAmbush = u.category === 'INFANTRY' && tile.id === 'FOREST';
+      if (stanceId === STANCES.AMBUSH.id && !canAmbush) {
+        return; // Ambush blocked if not infantry in a forest!
+      }
       u.setStance(stanceId);
-      u.isAmbusherHidden = (stanceId === STANCES.AMBUSH.id && this.grid[u.y][u.x].id === 'FOREST');
+      u.isAmbusherHidden = (stanceId === STANCES.AMBUSH.id && canAmbush);
     }
   }
 
@@ -851,7 +873,8 @@ class GameEngine {
     this.getAllUnits().forEach(u => {
       if (!u.isAlive()) return;
       const tile = this.grid[u.y][u.x];
-      if (tile.id === 'FOREST') {
+      // Ambush Stance is strictly restricted to Infantry inside Forest tiles
+      if (tile.id === 'FOREST' && u.category === 'INFANTRY') {
         u.stance = STANCES.AMBUSH.id;
         u.isAmbusherHidden = true;
       } else if (['CAPTURE_ZONE', 'MAIN_BASE', 'SUPPLY_ZONE'].includes(tile.id) || u.waypoints.length === 0) {
@@ -1190,42 +1213,161 @@ class GameEngine {
 }
 
 class CommanderAI {
-  static processTurn(engine, personality = 'TACTICUS') {
+  static processTurn(engine, difficulty = 'VETERAN', personality = 'TACTICUS') {
     const aiPlayer = engine.players[2];
     const humanPlayer = engine.players[1];
-    if (!aiPlayer || aiPlayer.units.length === 0) return;
+    if (!aiPlayer) return;
 
-    this.buyUnitsAI(engine, personality);
-    this.useAbilitiesAI(engine, personality);
+    // 1. Dynamic Counter Recruitment
+    this.buyUnitsAI(engine, difficulty, personality);
 
-    aiPlayer.units.forEach(unit => {
-      if (!unit.isAlive()) return;
-      if (personality === 'BLITZKRIEG') this.executeOrder(engine, unit, humanPlayer.basePos, STANCES.ADVANCE.id);
-      else if (personality === 'FORTRESS') this.executeFortress(engine, unit, humanPlayer);
-      else this.executeOrder(engine, unit, this.findClosestZone(engine, unit) || humanPlayer.basePos, STANCES.ADVANCE.id);
+    // 2. Honest Fog of War Ability Usage
+    this.useAbilitiesAI(engine, difficulty);
+
+    // 3. Dynamic Strategic Evaluation (Force Balance & Tactical State)
+    const aiVision = engine.calculateVision(2);
+    const visibleHumanUnits = humanPlayer.units.filter(u => u.isAlive() && (difficulty === 'RECRUIT' ? true : aiVision[u.y][u.x]));
+    const aiUnits = aiPlayer.units.filter(u => u.isAlive());
+
+    // Compute Force Power Ratio
+    let aiForce = aiUnits.reduce((acc, u) => acc + (u.hp * (u.attack / 30)), 0);
+    let humanForce = visibleHumanUnits.reduce((acc, u) => acc + (u.hp * (u.attack / 30)), 0);
+    if (humanForce === 0) humanForce = 50;
+
+    const forceRatio = aiForce / humanForce;
+
+    let macroStrategy = 'BALANCED';
+    if (forceRatio < 0.7) {
+      macroStrategy = 'DEFENSIVE_RECOVERY';
+    } else if (forceRatio > 1.3 && aiUnits.length >= 2) {
+      macroStrategy = 'OFFENSIVE_ASSAULT';
+    }
+
+    aiUnits.forEach(unit => {
+      const currentTile = engine.grid[unit.y][unit.x];
+
+      // Auto Stance Evaluation (Infantry in Forest only!)
+      if (currentTile.id === 'FOREST' && unit.category === 'INFANTRY') {
+        unit.setStance(STANCES.AMBUSH.id);
+        unit.isAmbusherHidden = true;
+      } else if (['CAPTURE_ZONE', 'MAIN_BASE'].includes(currentTile.id) && currentTile.owner === 2) {
+        unit.setStance(STANCES.DEFEND.id);
+        unit.isAmbusherHidden = false;
+      } else {
+        unit.setStance(STANCES.ADVANCE.id);
+        unit.isAmbusherHidden = false;
+      }
+
+      const isSittingOnBase = (unit.x === aiPlayer.basePos.x && unit.y === aiPlayer.basePos.y);
+
+      // LOW HP TACTICAL PRESERVATION
+      if (unit.getHpPercent() < 30 && macroStrategy !== 'OFFENSIVE_ASSAULT' && !isSittingOnBase) {
+        const forestTile = this.findNearbyForest(engine, unit);
+        const safeTarget = forestTile || aiPlayer.basePos;
+        this.executeOrder(engine, unit, safeTarget);
+        return;
+      }
+
+      if (difficulty === 'RECRUIT') {
+        const target = this.findUnownedZoneOrEnemyBase(engine, unit, humanPlayer);
+        this.executeOrder(engine, unit, target);
+      } else if (macroStrategy === 'OFFENSIVE_ASSAULT') {
+        const targetUnit = this.findBestCombatTarget(unit, visibleHumanUnits);
+        if (targetUnit) {
+          this.executeOrder(engine, unit, { x: targetUnit.x, y: targetUnit.y });
+        } else {
+          this.executeOrder(engine, unit, humanPlayer.basePos);
+        }
+      } else {
+        // BALANCED / DEFENSIVE: Always march to unowned capture zones to claim map control & clear base
+        const closestVisibleEnemy = this.findClosestVisibleEnemy(unit, visibleHumanUnits);
+        const distToEnemy = closestVisibleEnemy ? Math.max(Math.abs(unit.x - closestVisibleEnemy.x), Math.abs(unit.y - closestVisibleEnemy.y)) : 999;
+        
+        if (distToEnemy <= unit.attackRange + 1 && !isSittingOnBase) {
+          this.executeOrder(engine, unit, { x: closestVisibleEnemy.x, y: closestVisibleEnemy.y });
+        } else {
+          const target = this.findUnownedZoneOrEnemyBase(engine, unit, humanPlayer);
+          this.executeOrder(engine, unit, target);
+        }
+      }
     });
   }
 
-  static useAbilitiesAI(engine, personality) {
-    const ai = engine.players[2];
-    const p1Units = engine.players[1].units.filter(u => u.isAlive());
-
-    // AI Artillery Strike on player unit clusters
-    if (ai.cp >= 4 && p1Units.length > 0) {
-      const target = p1Units[Math.floor(Math.random() * p1Units.length)];
-      engine.useAbility(2, 'ARTILLERY_STRIKE', target.x, target.y);
+  static findUnownedZoneOrEnemyBase(engine, unit, humanPlayer) {
+    let closest = null; let minDist = Infinity;
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        if (engine.grid[r][c].id === 'CAPTURE_ZONE' && engine.grid[r][c].owner !== 2) {
+          const dist = Math.max(Math.abs(unit.x - c), Math.abs(unit.y - r));
+          if (dist < minDist) { minDist = dist; closest = { x: c, y: r }; }
+        }
+      }
     }
-    // AI Recon Flare on unknown territory
-    else if (ai.cp >= 2) {
-      engine.useAbility(2, 'RECON_FLARE', 2, 2);
-    }
+    return closest || humanPlayer.basePos;
   }
 
-  static buyUnitsAI(engine, personality) {
+  static findNearbyForest(engine, unit) {
+    let closest = null; let minDist = Infinity;
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        if (engine.grid[r][c].id === 'FOREST') {
+          const dist = Math.abs(unit.x - c) + Math.abs(unit.y - r);
+          if (dist < minDist) { minDist = dist; closest = { x: c, y: r }; }
+        }
+      }
+    }
+    return closest;
+  }
+
+  static findOwnedDefensePoint(engine, unit, aiPlayer) {
+    let closest = null; let minDist = Infinity;
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        if (engine.grid[r][c].owner === 2 && ['CAPTURE_ZONE', 'MAIN_BASE'].includes(engine.grid[r][c].id)) {
+          const dist = Math.abs(unit.x - c) + Math.abs(unit.y - r);
+          if (dist < minDist) { minDist = dist; closest = { x: c, y: r }; }
+        }
+      }
+    }
+    return closest;
+  }
+
+  static buyUnitsAI(engine, difficulty, personality) {
     const ai = engine.players[2];
+    const aiVision = engine.calculateVision(2);
+    const visibleHumanUnits = engine.players[1].units.filter(u => u.isAlive() && (difficulty === 'RECRUIT' ? true : aiVision[u.y][u.x]));
+
+    // Count player visible unit categories for counter-recruitment
+    let humanVehicleCount = 0;
+    let humanInfantryCount = 0;
+    let humanATCount = 0;
+
+    visibleHumanUnits.forEach(u => {
+      if (u.category === 'VEHICLE') humanVehicleCount++;
+      else if (u.typeKey === 'ANTI_TANK') humanATCount++;
+      else humanInfantryCount++;
+    });
+
     let targetType = 'RIFLEMAN';
-    if (personality === 'BLITZKRIEG') targetType = ai.faction.id === 'VANGUARD_LEGION' ? 'BLITZ_RECON' : 'LIGHT_VEHICLE';
-    else if (personality === 'FORTRESS') targetType = ai.ink >= 160 && ai.faction.id === 'IRON_CORPS' ? 'HEAVY_SIEGE_TANK' : 'ANTI_TANK';
+    if (difficulty === 'RECRUIT') {
+      const types = ['RIFLEMAN', 'SCOUT', 'LIGHT_VEHICLE'];
+      targetType = types[Math.floor(Math.random() * types.length)];
+    } else {
+      // Smart Counter-Recruitment logic for Veteran & General
+      if (humanVehicleCount > 0 && ai.ink >= UNIT_TYPES.ANTI_TANK.cost) {
+        targetType = 'ANTI_TANK'; // Hard counter to player armor
+      } else if (humanATCount > 0 && ai.ink >= UNIT_TYPES.RIFLEMAN.cost) {
+        targetType = 'RIFLEMAN'; // Hard counter to AT crew
+      } else if (ai.faction.id === 'IRON_CORPS' && ai.ink >= UNIT_TYPES.HEAVY_SIEGE_TANK.cost) {
+        targetType = 'HEAVY_SIEGE_TANK';
+      } else if (ai.faction.id === 'VANGUARD_LEGION' && ai.ink >= UNIT_TYPES.BLITZ_RECON.cost) {
+        targetType = 'BLITZ_RECON';
+      } else if (humanInfantryCount > 1 && ai.ink >= UNIT_TYPES.LIGHT_VEHICLE.cost) {
+        targetType = 'LIGHT_VEHICLE';
+      } else {
+        targetType = Math.random() > 0.5 ? 'RIFLEMAN' : 'SCOUT';
+      }
+    }
 
     const spawnPoints = engine.getOwnedSpawnPoints(2).filter(sp => !sp.isContested && !engine.getAllUnits().some(u => u.x === sp.x && u.y === sp.y && u.isAlive()));
     if (spawnPoints.length > 0 && ai.ink >= UNIT_TYPES[targetType].cost) {
@@ -1233,20 +1375,75 @@ class CommanderAI {
     }
   }
 
-  static executeOrder(engine, unit, target, stanceId) {
-    const path = engine.findValidPath(unit, target.x, target.y);
-    if (path.length > 0) {
-      engine.setUnitWaypoints(unit.id, path);
-      unit.setStance(stanceId);
+  static useAbilitiesAI(engine, difficulty) {
+    const ai = engine.players[2];
+    const aiVision = engine.calculateVision(2);
+    const visibleHumanUnits = engine.players[1].units.filter(u => u.isAlive() && (difficulty === 'RECRUIT' ? true : aiVision[u.y][u.x]));
+
+    if (difficulty === 'RECRUIT') {
+      if (ai.cp >= 4 && visibleHumanUnits.length > 0) {
+        const target = visibleHumanUnits[0];
+        engine.useAbility(2, 'ARTILLERY_STRIKE', target.x, target.y);
+      }
+      return;
+    }
+
+    // Veteran & General: Strategic Ability Execution
+    if (ai.cp >= 4 && visibleHumanUnits.length > 0) {
+      let bestTarget = visibleHumanUnits[0];
+      let maxHits = 0;
+      visibleHumanUnits.forEach(u => {
+        const hits = visibleHumanUnits.filter(other => Math.abs(other.x - u.x) <= 1 && Math.abs(other.y - u.y) <= 1).length;
+        if (hits > maxHits) { maxHits = hits; bestTarget = u; }
+      });
+      engine.useAbility(2, 'ARTILLERY_STRIKE', bestTarget.x, bestTarget.y);
+    } else if (ai.cp >= 3 && difficulty === 'GENERAL') {
+      const aiZones = [];
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          if (engine.grid[r][c].id === 'CAPTURE_ZONE' && engine.grid[r][c].owner === 2) {
+            aiZones.push({ x: c, y: r });
+          }
+        }
+      }
+      if (aiZones.length > 0) {
+        engine.useAbility(2, 'SMOKE_SCREEN', aiZones[0].x, aiZones[0].y);
+      }
+    } else if (ai.cp >= 2) {
+      const p1Base = engine.p1Base;
+      if (!aiVision[p1Base.y][p1Base.x]) {
+        engine.useAbility(2, 'RECON_FLARE', p1Base.x, p1Base.y);
+      }
     }
   }
 
-  static executeFortress(engine, unit, humanPlayer) {
-    const tile = engine.grid[unit.y][unit.x];
-    if (tile.id === 'FOREST') { unit.setStance(STANCES.AMBUSH.id); return; }
-    if (tile.id === 'CAPTURE_ZONE') { unit.setStance(STANCES.DEFEND.id); return; }
-    const target = this.findClosestZone(engine, unit) || humanPlayer.basePos;
-    this.executeOrder(engine, unit, target, STANCES.DEFEND.id);
+  static findBestCombatTarget(unit, visibleEnemies) {
+    let best = null; let bestScore = -999;
+    visibleEnemies.forEach(e => {
+      let score = 100 - (Math.abs(unit.x - e.x) + Math.abs(unit.y - e.y)) * 10;
+      if (unit.category === 'VEHICLE' && e.category === 'INFANTRY') score += 30;
+      if (unit.typeKey === 'ANTI_TANK' && e.category === 'VEHICLE') score += 50;
+      if (unit.typeKey === 'RIFLEMAN' && e.typeKey === 'ANTI_TANK') score += 40;
+      if (score > bestScore) { bestScore = score; best = e; }
+    });
+    return best;
+  }
+
+  static findClosestVisibleEnemy(unit, visibleEnemies) {
+    let closest = null; let minDist = Infinity;
+    visibleEnemies.forEach(e => {
+      const d = Math.abs(unit.x - e.x) + Math.abs(unit.y - e.y);
+      if (d < minDist) { minDist = d; closest = e; }
+    });
+    return closest;
+  }
+
+  static executeOrder(engine, unit, target) {
+    if (!target) return;
+    const path = engine.findValidPath(unit, target.x, target.y);
+    if (path.length > 0) {
+      engine.setUnitWaypoints(unit.id, path);
+    }
   }
 
   static findClosestZone(engine, unit) {
@@ -1639,10 +1836,9 @@ class SketchRenderer {
       this.ctx.beginPath(); this.ctx.moveTo(this.offsetX, this.offsetY + p); this.ctx.lineTo(this.offsetX + 560, this.offsetY + p); this.ctx.stroke();
     }
 
-    // Units multi-turn waypoints — only show P1's own units' plans, never enemy arrows
+    // Units multi-turn waypoints — show P1's own units' plans
     engine.players[1].units.forEach(unit => {
       if (unit.isAlive() && unit.waypoints.length > 0) {
-        // Only render if the unit itself is currently visible
         const gridC = Math.max(0, Math.min(7, Math.round(unit.renderX !== undefined ? unit.renderX : unit.x)));
         const gridR = Math.max(0, Math.min(7, Math.round(unit.renderY !== undefined ? unit.renderY : unit.y)));
         if (p1Vision[gridR][gridC] || isTerrainView) {
@@ -1650,7 +1846,15 @@ class SketchRenderer {
         }
       }
     });
-    // Enemy waypoints are NEVER drawn — they remain hidden from the player
+
+    // In GAME_OVER (See Map) mode: reveal all remaining enemy queued movement lines in red!
+    if (isTerrainView && engine.players[2]) {
+      engine.players[2].units.forEach(unit => {
+        if (unit.isAlive() && unit.waypoints.length > 0) {
+          this.drawMultiTurnWaypoints(unit, engine);
+        }
+      });
+    }
 
     // Render Living Units (Visible to P1) with Smooth Interpolation
     const allUnits = engine.getAllUnits();
@@ -1783,7 +1987,10 @@ class SketchRenderer {
       let segmentColor;
       let dashPattern;
 
-      if (turnIndex === 0) {
+      if (unit.owner === 2) {
+        segmentColor = '#ef4444';
+        dashPattern = [5, 3];
+      } else if (turnIndex === 0) {
         segmentColor = unit.owner === 1 ? FACTIONS.IRON_CORPS.color : FACTIONS.VANGUARD_LEGION.color;
         dashPattern = [6, 3];
       } else if (turnIndex === 1) {
@@ -1811,7 +2018,7 @@ class SketchRenderer {
       const arrowLen = 14;
 
       const lastTurnIndex = Math.floor((pts.length - 2) / unitSpeed);
-      const arrowColor = lastTurnIndex === 0 ? (unit.owner === 1 ? FACTIONS.IRON_CORPS.color : FACTIONS.VANGUARD_LEGION.color) : (lastTurnIndex === 1 ? '#d97706' : '#7c3aed');
+      const arrowColor = unit.owner === 2 ? '#ef4444' : (lastTurnIndex === 0 ? (unit.owner === 1 ? FACTIONS.IRON_CORPS.color : FACTIONS.VANGUARD_LEGION.color) : (lastTurnIndex === 1 ? '#d97706' : '#7c3aed'));
 
       this.ctx.setLineDash([]);
       this.ctx.fillStyle = arrowColor;
@@ -1915,13 +2122,15 @@ class SketchRenderer {
     this.ctx.fillStyle = symbolColor;
     this.ctx.lineWidth = 2;
 
-    if (unit.id === 'RIFLEMAN') {
+    const uType = unit.typeKey || unit.id || '';
+
+    if (uType === 'RIFLEMAN') {
       // NATO Infantry Crossed Rifles ✕
       this.ctx.beginPath();
       this.ctx.moveTo(cx - 9, cy - 7); this.ctx.lineTo(cx + 9, cy + 7);
       this.ctx.moveTo(cx + 9, cy - 7); this.ctx.lineTo(cx - 9, cy + 7);
       this.ctx.stroke();
-    } else if (unit.id === 'SCOUT') {
+    } else if (uType === 'SCOUT') {
       // NATO Scout Slash & Dots ⧟
       this.ctx.beginPath();
       this.ctx.moveTo(cx - 9, cy + 7); this.ctx.lineTo(cx + 9, cy - 7);
@@ -1930,7 +2139,7 @@ class SketchRenderer {
       this.ctx.arc(cx - 4, cy - 3, 2.5, 0, Math.PI * 2);
       this.ctx.arc(cx + 4, cy + 3, 2.5, 0, Math.PI * 2);
       this.ctx.fill();
-    } else if (unit.id === 'ANTI_TANK') {
+    } else if (uType === 'ANTI_TANK') {
       // NATO Anti-Tank Arrow Reticle ⌖
       this.ctx.beginPath();
       this.ctx.arc(cx, cy, 7, 0, Math.PI * 2);
@@ -1939,18 +2148,18 @@ class SketchRenderer {
       this.ctx.moveTo(cx - 11, cy); this.ctx.lineTo(cx + 11, cy);
       this.ctx.moveTo(cx, cy - 11); this.ctx.lineTo(cx, cy + 11);
       this.ctx.stroke();
-    } else if (unit.id === 'LIGHT_VEHICLE') {
+    } else if (uType === 'LIGHT_VEHICLE') {
       // NATO Armored Car Body & Wheels
       this.ctx.strokeRect(cx - 10, cy - 6, 20, 12);
       this.ctx.beginPath();
       this.ctx.arc(cx, cy, 3, 0, Math.PI * 2);
       this.ctx.fill();
-    } else if (unit.id === 'HEAVY_SIEGE_TANK') {
+    } else if (uType === 'HEAVY_SIEGE_TANK') {
       // NATO Tank Track & Gun Barrel
       this.ctx.strokeRect(cx - 11, cy - 7, 22, 14);
       this.ctx.fillRect(cx - 4, cy - 3, 8, 6);
       this.ctx.fillRect(cx + 4, cy - 2, 8, 4); // Gun barrel
-    } else if (unit.id === 'BLITZ_RECON') {
+    } else if (uType === 'BLITZ_RECON') {
       // NATO Recon Lightning Bolt
       this.ctx.beginPath();
       this.ctx.moveTo(cx + 2, cy - 9);
@@ -1962,10 +2171,10 @@ class SketchRenderer {
       this.ctx.closePath();
       this.ctx.fill();
     } else {
-      this.ctx.font = 'bold 11px Cinzel, serif';
+      this.ctx.font = 'bold 12px Cinzel, serif';
       this.ctx.textAlign = 'center';
       this.ctx.textBaseline = 'middle';
-      this.ctx.fillText(unit.symbol || unit.icon || 'U', cx, cy);
+      this.ctx.fillText(unit.symbol || 'U', cx, cy);
     }
 
     // Owner Tag Badge (P1 vs AI)
@@ -1977,24 +2186,24 @@ class SketchRenderer {
     this.ctx.textBaseline = 'middle';
     this.ctx.fillText(isP1 ? 'P1' : 'AI', x + 15, y + 10.5);
 
-    // Stance Tactical Badge (🛡️ DEFEND, 🌲 AMBUSH, ⚡ ADVANCE)
-    let stanceBadgeSymbol = '⚡';
+    // Stance Tactical Badge (DEF, AMB, ADV)
+    let stanceBadgeSymbol = 'ADV';
     let stanceBadgeBg = 'rgba(37,99,235,0.85)';
     if (unit.stance === 'DEFEND') {
-      stanceBadgeSymbol = '🛡️';
+      stanceBadgeSymbol = 'DEF';
       stanceBadgeBg = 'rgba(245,158,11,0.85)';
     } else if (unit.stance === 'AMBUSH') {
-      stanceBadgeSymbol = '🌲';
+      stanceBadgeSymbol = 'AMB';
       stanceBadgeBg = 'rgba(22,163,74,0.85)';
     }
     
     this.ctx.fillStyle = stanceBadgeBg;
-    this.ctx.fillRect(x + 48, y + 4, 18, 13);
-    this.ctx.font = '9px sans-serif';
+    this.ctx.fillRect(x + 44, y + 4, 22, 13);
+    this.ctx.font = 'bold 8px Inter, sans-serif';
     this.ctx.fillStyle = '#ffffff';
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'middle';
-    this.ctx.fillText(stanceBadgeSymbol, x + 57, y + 10.5);
+    this.ctx.fillText(stanceBadgeSymbol, x + 55, y + 10.5);
 
     // Health Bar
     const hpBarWidth = 36;
@@ -2454,7 +2663,7 @@ class UIManager {
 
     let html = '';
     if (!isTileVisible && !isTerrainView) {
-      html += `<div><h3 style="font-size:1.15rem; color:var(--text-secondary);">Sector (${sel.x}, ${sel.y}) &mdash; Fog of War</h3><p style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">☁️ Sector shrouded in Fog of War. Deploy Recon units or Flares to reveal area.</p></div>`;
+      html += `<div><h3 style="font-size:1.15rem; color:var(--text-secondary);">Sector (${sel.x}, ${sel.y}) &mdash; Fog of War</h3><p style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">Sector shrouded in Fog of War. Deploy Recon units or Flares to reveal area.</p></div>`;
     } else {
       html += `<div><h3 style="font-size:1.15rem;">Terrain: ${tile.name} (${sel.x}, ${sel.y})</h3><p style="font-size:0.85rem;">Defense: +${Math.round((tile.defenseBonus || 0) * 100)}%</p></div>`;
     }
@@ -2471,17 +2680,18 @@ class UIManager {
           ${allegianceBadge}
           <h3 style="font-size:1.05rem; font-family:var(--font-display);">${unitOnTile.symbol} ${unitOnTile.name}</h3>
           <p style="font-size:0.8rem; color:var(--text-secondary);">HP: ${unitOnTile.hp}/${unitOnTile.maxHp} | Move: ${unitOnTile.moveRange}</p>
-          ${waypointsCount > 0 ? `<p style="font-size:0.78rem; color:var(--blue-300); font-weight:bold;">Planned Path: ${waypointsCount} tiles queued</p>` : ''}
+          ${(isFriendly && waypointsCount > 0) ? `<p style="font-size:0.78rem; color:var(--blue-300); font-weight:bold;">Planned Path: ${waypointsCount} tiles queued</p>` : ''}
       `;
 
       if (unitOnTile.owner === 1 && engine.phase === 'PLANNING') {
+        const canAmbush = unitOnTile.category === 'INFANTRY' && tile.id === 'FOREST';
         html += `
           <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px;">
             <label style="font-size:0.75rem; font-weight:bold; font-family:var(--font-display);">Stance:</label>
             <div style="display: flex; gap: 4px;">
               <button id="stance-adv" class="btn-sketch ${unitOnTile.stance === 'ADVANCE' ? 'active' : ''}" style="font-size:0.75rem; padding:3px 6px;">Advance</button>
               <button id="stance-def" class="btn-sketch ${unitOnTile.stance === 'DEFEND' ? 'active' : ''}" style="font-size:0.75rem; padding:3px 6px;">Defend</button>
-              <button id="stance-amb" class="btn-sketch ${unitOnTile.stance === 'AMBUSH' ? 'active' : ''}" style="font-size:0.75rem; padding:3px 6px;">Ambush</button>
+              <button id="stance-amb" class="btn-sketch ${unitOnTile.stance === 'AMBUSH' ? 'active' : ''}" style="font-size:0.75rem; padding:3px 6px; ${!canAmbush ? 'opacity:0.4; cursor:not-allowed;' : ''}" ${!canAmbush ? 'disabled title="Ambush: Infantry in Forest only"' : ''}>Ambush</button>
             </div>
             <button id="btn-cancel-unit-plan" class="btn-sketch btn-danger" style="margin-top:4px; font-size:0.75rem; padding:4px;">
               Cancel Unit Plan
@@ -2675,6 +2885,7 @@ class App {
 
       const mapVal = document.getElementById('select-map')?.value || 'PRESET_1';
       const p1FactionKey = document.getElementById('select-p1-faction')?.value || 'IRON_CORPS';
+      const aiDiff = document.getElementById('select-ai-difficulty')?.value || window.gAiDifficulty || 'VETERAN';
       const aiPersonality = document.getElementById('select-ai-personality')?.value || 'TACTICUS';
       const gameMode = document.getElementById('select-game-mode')?.value || 'SINGLE_PLAYER';
       const timerDuration = parseInt(document.getElementById('select-timer-duration')?.value || '20', 10);
@@ -2687,6 +2898,7 @@ class App {
         p1Faction: FACTIONS[p1FactionKey],
         p2Faction: FACTIONS[p2FactionKey],
         isSinglePlayer: gameMode === 'SINGLE_PLAYER',
+        aiDifficulty: aiDiff,
         aiPersonality: aiPersonality,
         playbackDuration: playbackDuration,
         audio: this.audio
@@ -2695,7 +2907,7 @@ class App {
       this.engine.planningTimeRemaining = timerDuration;
       this.engine.subscribe(() => {
         if (this.engine.isSinglePlayer && this.engine.phase === 'PLAYBACK' && this.engine.playbackTimeRemaining === this.engine.playbackDurationConfig) {
-          CommanderAI.processTurn(this.engine, this.engine.aiPersonality);
+          CommanderAI.processTurn(this.engine, this.engine.aiDifficulty, this.engine.aiPersonality);
         }
         if (this.ui) this.ui.updateHUD(this.engine);
       });
@@ -2896,6 +3108,17 @@ window.handleSignUpSubmit = async function(e) {
   }
 };
 
+window.gAiDifficulty = localStorage.getItem('sketch_warfare_ai_difficulty') || 'VETERAN';
+
+window.setAiDifficulty = function(diff) {
+  window.gAiDifficulty = diff;
+  localStorage.setItem('sketch_warfare_ai_difficulty', diff);
+  const selectPlay = document.getElementById('select-ai-difficulty');
+  const selectSetting = document.getElementById('setting-ai-difficulty');
+  if (selectPlay) selectPlay.value = diff;
+  if (selectSetting) selectSetting.value = diff;
+};
+
 window.handleGoogleSignIn = async function() {
   if (window.gAuthManager) {
     const res = await window.gAuthManager.loginWithGoogle();
@@ -2988,7 +3211,7 @@ window.toggleAudioMute = function() {
     const isMuted = window.gApp.audio.toggleMute();
     const hudBtn = document.getElementById('btn-hud-audio');
     const settingsBtn = document.getElementById('btn-toggle-sound');
-    if (hudBtn) hudBtn.textContent = isMuted ? '🔇 Muted' : '🔊 SFX';
+    if (hudBtn) hudBtn.textContent = isMuted ? 'Muted' : 'SFX';
     if (settingsBtn) settingsBtn.textContent = isMuted ? 'SFX Muted' : 'SFX Enabled';
   }
 };
@@ -3003,6 +3226,18 @@ window.updateSFXVolume = function(val) {
   if (window.gApp && window.gApp.audio) {
     window.gApp.audio.setSFXVolume(val / 100);
   }
+};
+
+window.openCheatSheetModal = function() {
+  const modal = document.getElementById('cheatsheet-modal');
+  if (modal) modal.style.display = 'flex';
+  try { if (window.gApp && window.gApp.audio) window.gApp.audio.playPencilScratch(); } catch(e){}
+};
+
+window.closeCheatSheetModal = function() {
+  const modal = document.getElementById('cheatsheet-modal');
+  if (modal) modal.style.display = 'none';
+  try { if (window.gApp && window.gApp.audio) window.gApp.audio.playPencilScratch(); } catch(e){}
 };
 
 window.addEventListener('DOMContentLoaded', () => {

@@ -72,11 +72,20 @@
             </div>
 
             <div class="tab-grid-item">
-              <label class="setup-label">AI Personality</label>
+              <label class="setup-label">AI Difficulty Level</label>
+              <select id="select-ai-difficulty" class="btn-sketch" onchange="window.setAiDifficulty(this.value)">
+                <option value="RECRUIT">Recruit &mdash; Forgiving</option>
+                <option value="VETERAN" selected>Veteran &mdash; Dynamic Counters</option>
+                <option value="GENERAL">General &mdash; Tactical Hunter</option>
+              </select>
+            </div>
+
+            <div class="tab-grid-item">
+              <label class="setup-label">AI Commander Doctrine</label>
               <select id="select-ai-personality" class="btn-sketch">
                 <option value="TACTICUS">Tacticus &mdash; Balanced</option>
-                <option value="BLITZKRIEG">Blitzkrieg &mdash; Aggressive</option>
-                <option value="FORTRESS">Fortress &mdash; Defensive</option>
+                <option value="BLITZKRIEG">Blitzkrieg &mdash; Aggressive Raider</option>
+                <option value="FORTRESS">Fortress &mdash; Fortified Choke</option>
               </select>
             </div>
           </div>
@@ -125,37 +134,96 @@
         <div id="tab-pane-codex" class="tab-pane" style="display: none;">
           <div class="codex-grid">
             <div class="codex-card">
-              <h4>Turn &amp; Playback Structure</h4>
-              <p>Each round: <b>20s Planning Phase</b> (recruit, queue paths, use abilities) then a <b>3s Playback Phase</b> (simultaneous movement and auto-combat).</p>
+              <h4>Commander Ranks &amp; Progression</h4>
+              <p>Advance through <b>7 Rank Tiers</b> (Recruit → General). Promotions require meeting <b>both</b> Minimum Matches Played and Minimum Wins. Track live rank progress on your Profile tab.</p>
             </div>
 
             <div class="codex-card">
-              <h4>Multi-Turn Waypoints</h4>
-              <p>Draw long paths across the board. <b>Blue</b> = Turn 1 &bull; <b>Gold</b> = Turn 2 &bull; <b>Purple</b> = Turn 3+. Unconsumed waypoints carry over automatically.</p>
+              <h4>Smart Auto-Stances &amp; Badges</h4>
+              <p>Units automatically adopt tactical stances with canvas badges:<br>
+              <b>DEFEND (+25% Defense)</b> &mdash; On Bases, Capture Zones, or stationary.<br>
+              <b>AMBUSH (Stealth + 1.5x Dmg)</b> &mdash; Restricted strictly to <b>Infantry inside Forest tiles</b>.<br>
+              <b>ADVANCE (Max Speed)</b> &mdash; Moving along waypoints. (Manual override available in Inspector).</p>
             </div>
 
             <div class="codex-card">
-              <h4>Command Power &amp; Abilities</h4>
+              <h4>Faction Doctrines &amp; Exclusive Units</h4>
+              <p><b>Iron Corps:</b> Heavy Armor (+20% defense on fortified tiles) &amp; Heavy Siege Tank.<br>
+              <b>Vanguard Legion:</b> Blitz Mobility (+1 speed on open ground) &amp; Blitz Recon Car.</p>
+            </div>
+
+            <div class="codex-card">
+              <h4>Command Power &amp; Special Abilities</h4>
               <p>Earn CP by holding zones (+1/turn) and dealing damage (+1 per 25 dmg).<br>
               <b>Flare (2 CP)</b> &mdash; Reveals 3&times;3 fog for 1 turn.<br>
-              <b>Smoke (3 CP)</b> &mdash; Blocks attacks in 3&times;3 area.<br>
-              <b>Artillery (4 CP)</b> &mdash; 35 splash damage on 3&times;3 zone.</p>
+              <b>Smoke (3 CP)</b> &mdash; Blocks direct attacks in 3&times;3 area.<br>
+              <b>Artillery (4 CP)</b> &mdash; 35 splash damage on 3&times;3 area.</p>
             </div>
 
             <div class="codex-card">
-              <h4>Fog of War &amp; Forest Stealth</h4>
-              <p>Unrevealed tiles are hatched. Enemy units outside vision stay hidden. Troops in <b>Forests</b> stay invisible until they attack or an enemy steps adjacent.</p>
+              <h4>Fog of War &amp; Strict Recon</h4>
+              <p>Shrouded tiles completely hide enemy units on the map and in the Inspector panel. Units inside <b>Forests</b> remain invisible until attacking or an enemy steps adjacent.</p>
             </div>
 
             <div class="codex-card">
-              <h4>Grid Blocking &amp; Tie-Breakers</h4>
-              <p>Enemies are impassable barriers. Only <b>1 unit per tile</b> at turn end. Faster, more agile units claim contested tiles first.</p>
+              <h4>Victory Conditions &amp; Siege Lockout</h4>
+              <p><b>Victory:</b> Capture enemy Main Base or eliminate all enemy units.<br>
+              <b>Under Siege:</b> If an enemy is adjacent to your Base or Supply Zone, recruitment is locked until cleared.</p>
             </div>
 
-            <div class="codex-card">
-              <h4>Siege Lockout</h4>
-              <p>If an enemy stands on or adjacent to your Base or Supply Zone it is <b>Under Siege</b> and cannot recruit until cleared.</p>
+            <!-- UNIT COUNTER MATRIX CHEAT-SHEET -->
+            <div class="codex-matrix-card">
+              <h4 style="font-family:var(--font-display); font-size:0.78rem; color:var(--gold-400); text-transform:uppercase; margin-bottom:4px;">Tactical Unit Counter Cheat-Sheet</h4>
+              <table class="codex-table">
+                <thead>
+                  <tr>
+                    <th>Unit Type</th>
+                    <th>Category</th>
+                    <th>Best Counter Target</th>
+                    <th>Auto-Stance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><b>Rifle Squad</b></td>
+                    <td>Infantry</td>
+                    <td>Anti-Tank Squads</td>
+                    <td>DEFEND / ADVANCE</td>
+                  </tr>
+                  <tr>
+                    <td><b>Scout Infantry</b></td>
+                    <td>Infantry</td>
+                    <td>Recon &amp; Forest Ambush</td>
+                    <td>AMBUSH / ADVANCE</td>
+                  </tr>
+                  <tr>
+                    <td><b>Anti-Tank Squad</b></td>
+                    <td>Infantry</td>
+                    <td>Tanks &amp; Armored Cars (2x Dmg)</td>
+                    <td>DEFEND</td>
+                  </tr>
+                  <tr>
+                    <td><b>Armored Car</b></td>
+                    <td>Vehicle</td>
+                    <td>Infantry Clusters</td>
+                    <td>ADVANCE</td>
+                  </tr>
+                  <tr>
+                    <td><b>Heavy Siege Tank</b></td>
+                    <td>Vehicle (Iron Corps)</td>
+                    <td>Heavy Fortifications &amp; Frontlines</td>
+                    <td>DEFEND</td>
+                  </tr>
+                  <tr>
+                    <td><b>🗲 Blitz Recon Car</b></td>
+                    <td>Vehicle (Vanguard)</td>
+                    <td>Flanking Supply Zones (4 Move)</td>
+                    <td>ADVANCE</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
+
           </div>
         </div>
 
@@ -180,7 +248,7 @@
                 <span id="menu-stat-wins" class="stat-value green">0</span>
               </div>
               <div class="account-stat-box">
-                <span class="stat-label">Defeats</span>
+                <span class="stat-label">Losses</span>
                 <span id="menu-stat-losses" class="stat-value red">0</span>
               </div>
               <div class="account-stat-box">
@@ -189,22 +257,22 @@
               </div>
             </div>
 
-            <!-- Rank Progress Section -->
-            <div class="rank-progress-section" id="rank-progress-section">
+            <!-- Rank Progress Bar -->
+            <div id="rank-progress-section" class="rank-progress-box" style="margin-top: 10px;">
               <div class="rank-progress-header">
-                <span class="rank-progress-label" id="rank-progress-label">Progress to Corporal</span>
-                <span class="rank-progress-pct" id="rank-progress-pct">0%</span>
+                <span id="rank-progress-label">Progress to Corporal</span>
+                <span id="rank-progress-pct">0%</span>
               </div>
-              <div class="rank-progress-bar-track">
-                <div class="rank-progress-bar-fill" id="rank-progress-bar"></div>
+              <div class="rank-progress-track">
+                <div id="rank-progress-bar" class="rank-progress-fill" style="width: 0%;"></div>
               </div>
-              <div class="rank-next-reqs" id="rank-next-reqs">
-                <span id="rank-req-games">3 games needed</span>
-                <span id="rank-req-wr">30% win rate needed</span>
+              <div class="rank-requirements-row">
+                <span id="rank-req-games" class="rank-req-chip">0 games left</span>
+                <span id="rank-req-wr" class="rank-req-chip">0 wins left</span>
               </div>
             </div>
 
-            <div class="account-btn-row">
+            <div class="account-actions-row">
               <button id="btn-menu-open-auth" class="btn-sketch btn-sketch-lg victory-btn-menu" onclick="window.openAuthModal()">
                 Sign In / Register
               </button>
@@ -218,6 +286,14 @@
         <!-- TAB 5: SETTINGS -->
         <div id="tab-pane-settings" class="tab-pane" style="display: none;">
           <div class="settings-list">
+            <div class="setting-row">
+              <span>AI Difficulty Level</span>
+              <select id="setting-ai-difficulty" class="btn-sketch setting-select" onchange="window.setAiDifficulty(this.value)">
+                <option value="RECRUIT">Recruit (Forgiving)</option>
+                <option value="VETERAN" selected>Veteran (Dynamic Counters)</option>
+                <option value="GENERAL">General (Tactical Hunter)</option>
+              </select>
+            </div>
             <div class="setting-row">
               <span>Master Volume</span>
               <input type="range" id="slider-master-vol" class="setting-range" min="0" max="100" value="80" oninput="window.updateMasterVolume(this.value)">
@@ -448,10 +524,77 @@
           <button id="btn-resume-game" class="btn-sketch btn-sketch-lg victory-btn-menu">
             Resume Battle
           </button>
+          <button id="btn-pause-cheatsheet" class="btn-sketch btn-sketch-lg victory-btn-terrain" onclick="window.openCheatSheetModal()">
+            Tactical Cheat-Sheet
+          </button>
           <button id="btn-exit-to-main" class="btn-sketch btn-danger">
             Exit to Main Menu
           </button>
         </div>
+      </div>
+    </div>
+
+    <!-- DEDICATED TACTICAL CHEAT-SHEET MODAL -->
+    <div id="cheatsheet-modal" class="modal-overlay" style="display: none;" onclick="if(event.target === this) window.closeCheatSheetModal()">
+      <div class="modal-card" style="max-width: 620px;">
+        <button class="modal-close-btn" onclick="window.closeCheatSheetModal()" title="Close">&times;</button>
+        <h2 class="modal-title">Tactical Cheat-Sheet</h2>
+        <p class="modal-subtitle">Unit Counters, Combat Multipliers &amp; Auto-Stance Matrix</p>
+        
+        <div class="codex-matrix-card" style="margin-top: 14px;">
+          <table class="codex-table">
+            <thead>
+              <tr>
+                <th>Unit Type</th>
+                <th>Category</th>
+                <th>Best Counter Target</th>
+                <th>Auto-Stance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>✕ Rifle Squad</b></td>
+                <td>Infantry</td>
+                <td>Anti-Tank Squads</td>
+                <td>DEFEND / ADVANCE</td>
+              </tr>
+              <tr>
+                <td><b>⧟ Scout Infantry</b></td>
+                <td>Infantry</td>
+                <td>Recon &amp; Forest Ambush</td>
+                <td>AMBUSH / ADVANCE</td>
+              </tr>
+              <tr>
+                <td><b>⌖ Anti-Tank Squad</b></td>
+                <td>Infantry</td>
+                <td>Tanks &amp; Armored Cars (2x Dmg)</td>
+                <td>DEFEND</td>
+              </tr>
+              <tr>
+                <td><b>⬭ Armored Car</b></td>
+                <td>Vehicle</td>
+                <td>Infantry Clusters</td>
+                <td>ADVANCE</td>
+              </tr>
+              <tr>
+                <td><b>⬚ Heavy Siege Tank</b></td>
+                <td>Vehicle (Iron Corps)</td>
+                <td>Heavy Fortifications &amp; Frontlines</td>
+                <td>DEFEND</td>
+              </tr>
+              <tr>
+                <td><b>🗲 Blitz Recon Car</b></td>
+                <td>Vehicle (Vanguard)</td>
+                <td>Flanking Supply Zones (4 Move)</td>
+                <td>ADVANCE</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <button class="btn-sketch victory-btn-menu" style="margin-top: 14px;" onclick="window.closeCheatSheetModal()">
+          Back to Battle
+        </button>
       </div>
     </div>
 
