@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ink &amp; Iron: Sketch Warfare | Turn-Based Grid Strategy</title>
+  <meta name="description" content="Ink &amp; Iron: Sketch Warfare is a turn-based grid strategy game with hand-drawn paper aesthetics, unique factions, command abilities, and simultaneous combat playback.">
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+
+  <div id="app-wrapper">
+
+    <!-- Toast Notification Container -->
+    <div id="sketch-toast-container" class="sketch-toast-container"></div>
+
+    <!-- Terrain View Banner -->
+    <div id="terrain-view-banner">
+      TERRAIN VIEW &mdash; GAME OVER &mdash; ALL UNITS REVEALED
+      <button onclick="window.returnToMainMenu()">Return to Menu</button>
+    </div>
+
+    <!-- MAIN MENU OVERLAY -->
+    <div id="main-menu-overlay" class="main-menu-overlay">
+      <div class="menu-paper-card">
+
+        <!-- Hero Header -->
+        <header class="menu-hero-header">
+          <div class="menu-logo-badge">DIESELPUNK TACTICS &bull; TURN-BASED STRATEGY</div>
+          <h1 class="main-menu-title">Ink &amp; Iron</h1>
+          <p class="menu-subtitle">Sketch Warfare</p>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="menu-nav-tabs">
+          <button id="tab-btn-play" class="menu-tab-btn active" onclick="window.switchMenuTab('tab-btn-play', 'tab-pane-play')">Deploy</button>
+          <button id="tab-btn-factions" class="menu-tab-btn" onclick="window.switchMenuTab('tab-btn-factions', 'tab-pane-factions')">Factions</button>
+          <button id="tab-btn-codex" class="menu-tab-btn" onclick="window.switchMenuTab('tab-btn-codex', 'tab-pane-codex')">Field Manual</button>
+          <button id="tab-btn-account" class="menu-tab-btn" onclick="window.switchMenuTab('tab-btn-account', 'tab-pane-account')">Profile</button>
+          <button id="tab-btn-settings" class="menu-tab-btn" onclick="window.switchMenuTab('tab-btn-settings', 'tab-pane-settings')">Settings</button>
+        </nav>
+
+        <!-- TAB 1: BATTLE MATCH SETUP -->
+        <div id="tab-pane-play" class="tab-pane">
+          <div class="setup-section-title">Theater of War &mdash; Match Configuration</div>
+
+          <div class="tab-pane-grid">
+            <div class="tab-grid-item">
+              <label class="setup-label">Map Terrain</label>
+              <select id="select-map" class="btn-sketch">
+                <option value="PRESET_1">Divided Valley</option>
+                <option value="PRESET_2">Crossfire Swamps</option>
+                <option value="PRESET_3">Twin Peaks Fortress</option>
+                <option value="PROCEDURAL">Procedural Symmetrical</option>
+              </select>
+            </div>
+
+            <div class="tab-grid-item">
+              <label class="setup-label">Player 1 Faction</label>
+              <select id="select-p1-faction" class="btn-sketch">
+                <option value="IRON_CORPS">Iron Corps &mdash; Heavy Armor</option>
+                <option value="VANGUARD_LEGION">Vanguard Legion &mdash; Blitz</option>
+              </select>
+            </div>
+
+            <div class="tab-grid-item">
+              <label class="setup-label">Game Mode</label>
+              <select id="select-game-mode" class="btn-sketch">
+                <option value="SINGLE_PLAYER">Single Player vs AI</option>
+                <option value="PASS_AND_PLAY">Pass &amp; Play (Local 2P)</option>
+              </select>
+            </div>
+
+            <div class="tab-grid-item">
+              <label class="setup-label">AI Personality</label>
+              <select id="select-ai-personality" class="btn-sketch">
+                <option value="TACTICUS">Tacticus &mdash; Balanced</option>
+                <option value="BLITZKRIEG">Blitzkrieg &mdash; Aggressive</option>
+                <option value="FORTRESS">Fortress &mdash; Defensive</option>
+              </select>
+            </div>
+          </div>
+
+          <button id="btn-start-game" class="btn-sketch btn-sketch-lg btn-deploy-hero" onclick="window.deployGameFromMenu()">
+            Deploy onto Battlefield
+          </button>
+        </div>
+
+        <!-- TAB 2: FACTIONS -->
+        <div id="tab-pane-factions" class="tab-pane" style="display: none;">
+          <div class="codex-grid">
+            <div class="faction-preview-card iron-corps-card">
+              <div class="faction-card-header">
+                <div class="faction-icon">IC</div>
+                <div>
+                  <h3>Iron Corps</h3>
+                  <p class="faction-tagline">Heavy Armor &amp; Defensive Fortifications</p>
+                </div>
+              </div>
+              <ul class="faction-perks-list">
+                <li><b>Passive:</b> +20% defense bonus on Supply Zones, Forests &amp; Bases.</li>
+                <li><b>Exclusive Unit:</b> Heavy Siege Tank &mdash; massive HP &amp; splash firepower.</li>
+                <li><b>Doctrine:</b> Defensive choke points and holding victory centers.</li>
+              </ul>
+            </div>
+
+            <div class="faction-preview-card vanguard-legion-card">
+              <div class="faction-card-header">
+                <div class="faction-icon">VL</div>
+                <div>
+                  <h3>Vanguard Legion</h3>
+                  <p class="faction-tagline">Blitz Mobility &amp; Stealth Ambush</p>
+                </div>
+              </div>
+              <ul class="faction-perks-list">
+                <li><b>Passive:</b> +1 movement on open terrain &amp; ambush bonus in forests.</li>
+                <li><b>Exclusive Unit:</b> Blitz Recon Vehicle &mdash; 4-tile rapid raider.</li>
+                <li><b>Doctrine:</b> Fast flanks and surprise forest strikes.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: FIELD MANUAL -->
+        <div id="tab-pane-codex" class="tab-pane" style="display: none;">
+          <div class="codex-grid">
+            <div class="codex-card">
+              <h4>Turn &amp; Playback Structure</h4>
+              <p>Each round: <b>20s Planning Phase</b> (recruit, queue paths, use abilities) then a <b>3s Playback Phase</b> (simultaneous movement and auto-combat).</p>
+            </div>
+
+            <div class="codex-card">
+              <h4>Multi-Turn Waypoints</h4>
+              <p>Draw long paths across the board. <b>Blue</b> = Turn 1 &bull; <b>Gold</b> = Turn 2 &bull; <b>Purple</b> = Turn 3+. Unconsumed waypoints carry over automatically.</p>
+            </div>
+
+            <div class="codex-card">
+              <h4>Command Power &amp; Abilities</h4>
+              <p>Earn CP by holding zones (+1/turn) and dealing damage (+1 per 25 dmg).<br>
+              <b>Flare (2 CP)</b> &mdash; Reveals 3&times;3 fog for 1 turn.<br>
+              <b>Smoke (3 CP)</b> &mdash; Blocks attacks in 3&times;3 area.<br>
+              <b>Artillery (4 CP)</b> &mdash; 35 splash damage on 3&times;3 zone.</p>
+            </div>
+
+            <div class="codex-card">
+              <h4>Fog of War &amp; Forest Stealth</h4>
+              <p>Unrevealed tiles are hatched. Enemy units outside vision stay hidden. Troops in <b>Forests</b> stay invisible until they attack or an enemy steps adjacent.</p>
+            </div>
+
+            <div class="codex-card">
+              <h4>Grid Blocking &amp; Tie-Breakers</h4>
+              <p>Enemies are impassable barriers. Only <b>1 unit per tile</b> at turn end. Faster, more agile units claim contested tiles first.</p>
+            </div>
+
+            <div class="codex-card">
+              <h4>Siege Lockout</h4>
+              <p>If an enemy stands on or adjacent to your Base or Supply Zone it is <b>Under Siege</b> and cannot recruit until cleared.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 4: COMMANDER ACCOUNT PROFILE -->
+        <div id="tab-pane-account" class="tab-pane" style="display: none;">
+          <div id="menu-account-card" class="account-profile-card">
+            <div class="account-card-header">
+              <div class="account-avatar-badge" id="menu-account-avatar">C</div>
+              <div>
+                <h3 id="menu-account-name">Commander Guest</h3>
+                <p id="menu-account-rank" class="account-rank-tag">Rank: Recruit</p>
+              </div>
+            </div>
+
+            <div class="account-stats-grid">
+              <div class="account-stat-box">
+                <span class="stat-label">Matches</span>
+                <span id="menu-stat-matches" class="stat-value">0</span>
+              </div>
+              <div class="account-stat-box">
+                <span class="stat-label">Victories</span>
+                <span id="menu-stat-wins" class="stat-value green">0</span>
+              </div>
+              <div class="account-stat-box">
+                <span class="stat-label">Defeats</span>
+                <span id="menu-stat-losses" class="stat-value red">0</span>
+              </div>
+              <div class="account-stat-box">
+                <span class="stat-label">Win Rate</span>
+                <span id="menu-stat-winrate" class="stat-value gold">0%</span>
+              </div>
+            </div>
+
+            <!-- Rank Progress Section -->
+            <div class="rank-progress-section" id="rank-progress-section">
+              <div class="rank-progress-header">
+                <span class="rank-progress-label" id="rank-progress-label">Progress to Corporal</span>
+                <span class="rank-progress-pct" id="rank-progress-pct">0%</span>
+              </div>
+              <div class="rank-progress-bar-track">
+                <div class="rank-progress-bar-fill" id="rank-progress-bar"></div>
+              </div>
+              <div class="rank-next-reqs" id="rank-next-reqs">
+                <span id="rank-req-games">3 games needed</span>
+                <span id="rank-req-wr">30% win rate needed</span>
+              </div>
+            </div>
+
+            <div class="account-btn-row">
+              <button id="btn-menu-open-auth" class="btn-sketch btn-sketch-lg victory-btn-menu" onclick="window.openAuthModal()">
+                Sign In / Register
+              </button>
+              <button id="btn-menu-logout" class="btn-sketch btn-danger" style="display: none;" onclick="window.logoutCommander()">
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 5: SETTINGS -->
+        <div id="tab-pane-settings" class="tab-pane" style="display: none;">
+          <div class="settings-list">
+            <div class="setting-row">
+              <span>Master Volume</span>
+              <input type="range" id="slider-master-vol" class="setting-range" min="0" max="100" value="80" oninput="window.updateMasterVolume(this.value)">
+            </div>
+            <div class="setting-row">
+              <span>Tactical SFX Volume</span>
+              <input type="range" id="slider-sfx-vol" class="setting-range" min="0" max="100" value="100" oninput="window.updateSFXVolume(this.value)">
+            </div>
+            <div class="setting-row">
+              <span>Audio Mute State</span>
+              <button id="btn-toggle-sound" class="btn-sketch setting-btn" onclick="window.toggleAudioMute()">SFX Enabled</button>
+            </div>
+            <div class="setting-row">
+              <span>Planning Phase Duration</span>
+              <select id="select-timer-duration" class="btn-sketch setting-select">
+                <option value="20" selected>20s &mdash; Standard</option>
+                <option value="15">15s &mdash; Blitz</option>
+                <option value="30">30s &mdash; Relaxed</option>
+              </select>
+            </div>
+            <div class="setting-row">
+              <span>Playback Phase Speed</span>
+              <select id="select-playback-duration" class="btn-sketch setting-select">
+                <option value="3" selected>3s &mdash; Standard (Fast)</option>
+                <option value="5">5s &mdash; Moderate</option>
+                <option value="10">10s &mdash; Extended</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- MAIN GAME CONTAINER -->
+    <div id="game-container" class="game-container">
+
+      <!-- Header HUD -->
+      <header class="hud-header">
+        <div class="game-title">
+          <div class="game-title-icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+            </svg>
+          </div>
+          <div>
+            <h1>Ink &amp; Iron</h1>
+            <div class="game-title-sub">Sketch Warfare</div>
+          </div>
+        </div>
+
+        <div class="phase-container">
+          <div id="phase-badge" class="phase-badge">Planning Phase &mdash; 20s</div>
+          <div class="timer-bar-wrapper">
+            <div id="timer-bar-fill" class="timer-bar-fill"></div>
+          </div>
+        </div>
+
+        <div class="ink-display">
+          <div id="hud-profile-badge" class="player-ink-badge profile-hud-btn" onclick="window.openAuthModal()">
+            <span id="hud-user-name">Commander Guest</span>
+          </div>
+          <div class="player-ink-badge p1-badge">
+            <span id="p1-ink">Ink: 150</span>
+          </div>
+          <div class="player-ink-badge cp-badge">
+            <span id="p1-cp">CP: 0/10</span>
+          </div>
+          <button id="btn-hud-audio" class="btn-sketch menu-btn-hud" onclick="window.toggleAudioMute()">
+            🔊 SFX
+          </button>
+          <button id="btn-open-menu" class="btn-sketch menu-btn-hud">
+            Menu
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Game Layout -->
+      <main class="main-game-layout">
+
+        <!-- Left Sidebar: Commander Log -->
+        <aside class="panel-card sidebar-panel">
+          <div class="panel-header-flex">
+            <h2 class="panel-title">Commander Log</h2>
+            <div class="log-filter-chips">
+              <button id="log-filter-all" class="log-filter-btn active">All</button>
+              <button id="log-filter-combat" class="log-filter-btn">Combat</button>
+              <button id="log-filter-deploy" class="log-filter-btn">Deploy</button>
+            </div>
+          </div>
+          <div id="action-log-box" class="action-log-box">
+            <div class="log-entry">Match started. Good luck, Commander.</div>
+          </div>
+        </aside>
+
+        <!-- Center: Canvas Battlefield -->
+        <section class="canvas-wrapper">
+          <canvas id="sketch-canvas"></canvas>
+        </section>
+
+        <!-- Right Sidebar: Controls, Inspector, Abilities, Recruitment -->
+        <aside class="panel-card sidebar-panel">
+          <div class="turn-control-bar">
+            <button id="btn-halt-all" class="btn-sketch btn-halt" title="Cancel movement paths for all friendly units">
+              Halt All
+            </button>
+            <span id="turn-counter" class="turn-counter-badge">Turn 1</span>
+            <button id="btn-end-turn" class="btn-sketch btn-end-phase">
+              End Phase
+            </button>
+          </div>
+
+          <!-- Unit / Terrain Inspector -->
+          <div id="inspector-card" class="inspector-card">
+            <div id="inspector-content">
+              <p class="inspector-placeholder">Click any grid square to inspect terrain or issue unit orders.</p>
+            </div>
+          </div>
+
+          <!-- Special Abilities Deck -->
+          <h3 class="section-subheading">Command Abilities</h3>
+          <div class="ability-deck-grid">
+            <button id="btn-ability-flare" class="ability-btn flare-btn" title="Reveals a 3x3 fog area for 1 turn">
+              <span class="ability-title">Flare</span>
+              <span class="ability-cost">2 CP</span>
+            </button>
+            <button id="btn-ability-smoke" class="ability-btn smoke-btn" title="Blocks direct attacks in a 3x3 area">
+              <span class="ability-title">Smoke</span>
+              <span class="ability-cost">3 CP</span>
+            </button>
+            <button id="btn-ability-artillery" class="ability-btn strike-btn" title="Target 3x3 area for 35 splash damage">
+              <span class="ability-title">Artillery</span>
+              <span class="ability-cost">4 CP</span>
+            </button>
+          </div>
+
+          <!-- Recruitment Store -->
+          <h3 class="section-subheading">Recruit Troops</h3>
+          <div id="unit-store-container" class="store-grid">
+            <!-- Populated dynamically -->
+          </div>
+        </aside>
+
+      </main>
+    </div>
+
+    <!-- AUTHENTICATION & AUTHORIZATION MODAL -->
+    <div id="auth-modal" class="modal-overlay" style="display: none;" onclick="if(event.target === this) window.closeAuthModal()">
+      <div class="modal-card auth-modal-card">
+        <button class="modal-close-btn" onclick="window.closeAuthModal()" title="Close">&times;</button>
+        <h2 class="modal-title">Commander Authorization</h2>
+        <p class="modal-subtitle">Access Headquarters &bull; Firebase Authentication</p>
+
+        <!-- Auth Tabs -->
+        <div class="auth-nav-tabs">
+          <button id="auth-tab-signin" class="auth-tab-btn active" onclick="window.switchAuthTab('signin')">Sign In</button>
+          <button id="auth-tab-signup" class="auth-tab-btn" onclick="window.switchAuthTab('signup')">Create Account</button>
+        </div>
+
+        <!-- Sign In Form -->
+        <form id="auth-form-signin" class="auth-form-pane" onsubmit="window.handleSignInSubmit(event)">
+          <div class="auth-input-group">
+            <label class="setup-label">Email Address</label>
+            <input type="email" id="auth-signin-email" class="auth-input" placeholder="commander@base.com" required>
+          </div>
+          <div class="auth-input-group">
+            <label class="setup-label">Password</label>
+            <input type="password" id="auth-signin-pass" class="auth-input" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" required>
+          </div>
+          <button type="submit" class="btn-sketch btn-sketch-lg victory-btn-menu auth-submit-btn">
+            Sign Into Command
+          </button>
+        </form>
+
+        <!-- Sign Up Form -->
+        <form id="auth-form-signup" class="auth-form-pane" style="display: none;" onsubmit="window.handleSignUpSubmit(event)">
+          <div class="auth-input-group">
+            <label class="setup-label">Commander Name</label>
+            <input type="text" id="auth-signup-name" class="auth-input" placeholder="Commander Name" required>
+          </div>
+          <div class="auth-input-group">
+            <label class="setup-label">Email Address</label>
+            <input type="email" id="auth-signup-email" class="auth-input" placeholder="commander@base.com" required>
+          </div>
+          <div class="auth-input-group">
+            <label class="setup-label">Password</label>
+            <input type="password" id="auth-signup-pass" class="auth-input" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" required minlength="6">
+          </div>
+          <button type="submit" class="btn-sketch btn-sketch-lg victory-btn-terrain auth-submit-btn">
+            Enlist New Account
+          </button>
+        </form>
+
+        <div class="auth-divider"><span>OR</span></div>
+
+        <button class="btn-sketch auth-google-btn" onclick="window.handleGoogleSignIn()">
+          Sign In with Google
+        </button>
+
+        <div class="auth-footer-row">
+          <button class="auth-link-btn" onclick="window.closeAuthModal()">
+            Close &amp; Return to Game
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEPLOYMENT LOCATION PICKER -->
+    <div id="deploy-picker-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card">
+        <h2 id="deploy-picker-title" class="modal-title">Select Deployment Point</h2>
+        <p id="deploy-picker-sub" class="modal-subtitle">Where should this unit enter the battlefield?</p>
+        <div id="deploy-picker-list" class="spawn-picker-grid"></div>
+        <button id="btn-cancel-deploy" class="btn-sketch btn-danger" style="margin-top: 14px;">
+          Cancel Deployment
+        </button>
+      </div>
+    </div>
+
+    <!-- IN-GAME PAUSE MENU -->
+    <div id="in-game-menu-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card">
+        <h2 class="modal-title">Game Paused</h2>
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+          <button id="btn-resume-game" class="btn-sketch btn-sketch-lg victory-btn-menu">
+            Resume Battle
+          </button>
+          <button id="btn-exit-to-main" class="btn-sketch btn-danger">
+            Exit to Main Menu
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- VICTORY / DEFEAT MODAL -->
+    <div id="victory-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card">
+        <h2 id="victory-title" class="modal-title">Victory</h2>
+        <p id="victory-sub" class="modal-subtitle">You captured the enemy Main Base.</p>
+        <div class="victory-btn-row">
+          <button id="btn-victory-see-terrain" class="btn-sketch btn-sketch-lg victory-btn-terrain" onclick="window.enterTerrainView()">
+            View Terrain
+          </button>
+          <button id="btn-victory-main-menu" class="btn-sketch btn-sketch-lg victory-btn-menu" onclick="window.returnToMainMenu()">
+            Return to Menu
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="src/firebase-config.js"></script>
+  <script src="src/game.js"></script>
+</body>
+</html>

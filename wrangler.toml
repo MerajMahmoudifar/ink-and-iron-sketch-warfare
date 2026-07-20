@@ -1,0 +1,9 @@
+name = "ink-and-iron"               # choose a unique name (will become the sub‑domain)
+type = "javascript"
+account_id = "a9e8a56837c8224180346cb877c73b84"    # copy from `wrangler whoami` output
+workers_dev = true
+compatibility_date = "2024-08-01"
+
+[site]
+bucket = "./"      # all files (index.html, app.js, style.css) are in this folder
+entry-point = "."  # required field even though we don’t use a Worker script

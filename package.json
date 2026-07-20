@@ -1,0 +1,8 @@
+{
+  "name": "ink-and-iron-sketch-warfare",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "deploy": "npx wrangler@3 pages deploy . --project-name=ink-and-iron-sketch-warfare"
+  }
+}
