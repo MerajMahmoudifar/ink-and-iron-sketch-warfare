@@ -143,7 +143,7 @@ const GAME_PHASES = {
 // SPECIAL ABILITIES DEFINITIONS
 const ABILITIES = {
   RECON_FLARE: { id: 'RECON_FLARE', name: 'Recon Flare', cpCost: 2, desc: 'Reveals a 3x3 area in the Fog of War for 1 turn.' },
-  SMOKE_SCREEN: { id: 'SMOKE_SCREEN', name: 'Smoke Screen', cpCost: 3, desc: 'Blocks direct attacks in a 3x3 area for 1 turn.' },
+  SMOKE_SCREEN: { id: 'SMOKE_SCREEN', name: 'Smoke Screen', cpCost: 3, desc: 'Neutral physical cloud. Blocks line-of-sight & direct attacks for ALL units inside a 3x3 area for 2 turns.' },
   ARTILLERY_STRIKE: { id: 'ARTILLERY_STRIKE', name: 'Artillery Strike', cpCost: 4, desc: 'Targets 3x3 area for a 35 splash damage bombardment.' }
 };
 
@@ -513,9 +513,10 @@ class Combat {
 class GameEngine {
   constructor(config = {}) {
     this.mapType = config.mapType || 'PRESET_1';
+    this.isTutorialMode = !!config.isTutorialMode;
     this.player1Faction = config.p1Faction || FACTIONS.IRON_CORPS;
     this.player2Faction = config.p2Faction || FACTIONS.VANGUARD_LEGION;
-    this.isSinglePlayer = config.isSinglePlayer !== false;
+    this.isSinglePlayer = config.isSinglePlayer !== undefined ? config.isSinglePlayer : true;
     this.aiDifficulty = config.aiDifficulty || 'VETERAN';
     this.aiPersonality = config.aiPersonality || 'TACTICUS';
     this.audio = config.audio || null;
@@ -552,6 +553,13 @@ class GameEngine {
   }
 
   spawnInitialUnits() {
+    if (this.isTutorialMode) {
+      // In Tutorial Mode, P1 starts with 0 units so Step 1 (recruiting at Base) triggers first!
+      const u3 = new Unit('RIFLEMAN', 2, this.p2Base.x - 1, this.p2Base.y);
+      this.players[2].units.push(u3);
+      return;
+    }
+
     const u1 = new Unit('RIFLEMAN', 1, this.p1Base.x + 1, this.p1Base.y);
     const u2 = new Unit('SCOUT', 1, this.p1Base.x, Math.min(7, this.p1Base.y + 1));
     const u3 = new Unit('RIFLEMAN', 2, this.p2Base.x - 1, this.p2Base.y);
@@ -1225,6 +1233,17 @@ class CommanderAI {
     const aiPlayer = engine.players[2];
     const humanPlayer = engine.players[1];
     if (!aiPlayer) return;
+
+    // TUTORIAL MODE: STRICTLY PASSIVE AI (No recruitment, no abilities, holds defense position)
+    if (engine.isTutorialMode) {
+      aiPlayer.units.forEach(unit => {
+        if (unit.isAlive()) {
+          unit.setStance(STANCES.DEFEND.id);
+          unit.setWaypoints([]);
+        }
+      });
+      return;
+    }
 
     // 1. Dynamic Counter & Doctrine Recruitment
     this.buyUnitsAI(engine, difficulty, personality);
@@ -2122,12 +2141,28 @@ class SketchRenderer {
         this.ctx.fillStyle = 'rgba(14, 165, 233, 0.25)'; this.ctx.fillRect(x, y, 70, 70);
         break;
       case 'CAPTURE_ZONE':
-        this.ctx.fillStyle = tile.owner === 1 ? 'rgba(43, 76, 126, 0.18)' : (tile.owner === 2 ? 'rgba(139, 38, 27, 0.18)' : 'rgba(234, 179, 8, 0.2)');
+        this.ctx.fillStyle = tile.owner === 1 ? 'rgba(37, 99, 235, 0.18)' : (tile.owner === 2 ? 'rgba(220, 38, 38, 0.18)' : 'rgba(234, 179, 8, 0.22)');
         this.ctx.fillRect(x, y, 70, 70);
+        this.ctx.strokeStyle = tile.owner === 1 ? '#3b82f6' : (tile.owner === 2 ? '#ef4444' : '#f59e0b');
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(x + 2, y + 2, 66, 66);
+
+        this.ctx.font = 'bold 9px Inter, sans-serif';
+        this.ctx.fillStyle = tile.owner === 1 ? '#93c5fd' : (tile.owner === 2 ? '#fca5a5' : '#fef08a');
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('+10 INK', x + 35, y + 14);
         break;
       case 'MAIN_BASE':
-        this.ctx.fillStyle = tile.owner === 1 ? 'rgba(43, 76, 126, 0.25)' : 'rgba(139, 38, 27, 0.25)';
+        this.ctx.fillStyle = tile.owner === 1 ? 'rgba(37, 99, 235, 0.25)' : 'rgba(220, 38, 38, 0.25)';
         this.ctx.fillRect(x, y, 70, 70);
+        this.ctx.strokeStyle = tile.owner === 1 ? '#2563eb' : '#dc2626';
+        this.ctx.lineWidth = 3;
+        this.ctx.strokeRect(x + 2, y + 2, 66, 66);
+
+        this.ctx.font = 'bold 9px Inter, sans-serif';
+        this.ctx.fillStyle = tile.owner === 1 ? '#60a5fa' : '#f87171';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(tile.owner === 1 ? 'P1 HQ BASE' : 'AI HQ BASE', x + 35, y + 14);
         break;
     }
 
@@ -2586,6 +2621,28 @@ class UIManager {
       });
     }
 
+    const tutorialBox = document.getElementById('tutorial-hint-box');
+    const tutorialText = document.getElementById('tutorial-hint-text');
+    if (tutorialBox && tutorialText) {
+      if (engine.isTutorialMode) {
+        tutorialBox.style.display = 'block';
+        const p1Units = engine.players[1].units.filter(u => u.isAlive());
+        const hasQueuedMoves = p1Units.some(u => u.waypoints.length > 0);
+
+        if (p1Units.length === 0) {
+          tutorialText.innerHTML = '<b>Step 1:</b> Click "Rifle Squad" in the Recruit Store below to deploy your first unit at your HQ Base (Blue Ring).';
+        } else if (!hasQueuedMoves) {
+          tutorialText.innerHTML = '<b>Step 2:</b> Click your troop on the map grid (Blue Ring), then click adjacent tiles to draw a movement path towards the Gold Supply Zone (+10 Ink/Turn).';
+        } else if (engine.phase === 'PLANNING') {
+          tutorialText.innerHTML = '<b>Step 3:</b> Great job! Now click "End Phase" on the top right to execute simultaneous movement.';
+        } else {
+          tutorialText.innerHTML = '<b>Step 4:</b> Perfect! Capture Gold Supply Zones (+10 Ink/turn) and destroy the Red AI HQ Base to win!';
+        }
+      } else {
+        tutorialBox.style.display = 'none';
+      }
+    }
+
     if (engine.winner && !engine.victoryShown) {
       engine.victoryShown = true;
       if (window.gAuthManager) {
@@ -2943,10 +3000,11 @@ class App {
       if (this.engine) this.engine.pauseTimer();
 
       const mapVal = document.getElementById('select-map')?.value || 'PRESET_1';
-      const p1FactionKey = document.getElementById('select-p1-faction')?.value || 'IRON_CORPS';
-      const aiDiff = document.getElementById('select-ai-difficulty')?.value || window.gAiDifficulty || 'VETERAN';
-      const aiPersonality = document.getElementById('select-ai-personality')?.value || 'TACTICUS';
       const gameMode = document.getElementById('select-game-mode')?.value || 'SINGLE_PLAYER';
+      const isTutorial = gameMode === 'PRACTICE_TUTORIAL';
+      const p1FactionKey = document.getElementById('select-p1-faction')?.value || 'IRON_CORPS';
+      const aiDiff = isTutorial ? 'RECRUIT' : (document.getElementById('select-ai-difficulty')?.value || window.gAiDifficulty || 'VETERAN');
+      const aiPersonality = document.getElementById('select-ai-personality')?.value || 'TACTICUS';
       const timerDuration = parseInt(document.getElementById('select-timer-duration')?.value || '20', 10);
       const playbackDuration = parseInt(document.getElementById('select-playback-duration')?.value || '3', 10);
 
@@ -2956,13 +3014,15 @@ class App {
         mapType: mapVal,
         p1Faction: FACTIONS[p1FactionKey],
         p2Faction: FACTIONS[p2FactionKey],
-        isSinglePlayer: gameMode === 'SINGLE_PLAYER',
+        isSinglePlayer: (gameMode === 'SINGLE_PLAYER' || isTutorial),
+        isTutorialMode: isTutorial,
         aiDifficulty: aiDiff,
         aiPersonality: aiPersonality,
         playbackDuration: playbackDuration,
         audio: this.audio
       });
 
+      this.engine.isTutorialMode = isTutorial;
       this.engine.planningTimeRemaining = timerDuration;
       this.engine.subscribe(() => {
         if (this.engine.isSinglePlayer && this.engine.phase === 'PLAYBACK' && this.engine.playbackTimeRemaining === this.engine.playbackDurationConfig) {
@@ -3296,6 +3356,35 @@ window.openCheatSheetModal = function() {
 window.closeCheatSheetModal = function() {
   const modal = document.getElementById('cheatsheet-modal');
   if (modal) modal.style.display = 'none';
+  try { if (window.gApp && window.gApp.audio) window.gApp.audio.playPencilScratch(); } catch(e){}
+};
+
+window.toggleMapLegend = function() {
+  const content = document.getElementById('map-legend-content');
+  const arrow = document.getElementById('legend-toggle-arrow');
+  if (!content) return;
+  const isHidden = content.classList.contains('legend-hidden');
+  if (isHidden) {
+    content.classList.remove('legend-hidden');
+    content.classList.add('legend-expanded');
+    if (arrow) arrow.textContent = '▾';
+  } else {
+    content.classList.remove('legend-expanded');
+    content.classList.add('legend-hidden');
+    if (arrow) arrow.textContent = '▸';
+  }
+  try { if (window.gApp && window.gApp.audio) window.gApp.audio.playPencilScratch(); } catch(e){}
+};
+
+window.switchCodexSubtab = function(subtabKey, btnEl) {
+  const subpanes = ['quickstart', 'rules', 'matrix'];
+  subpanes.forEach(key => {
+    const pane = document.getElementById(`codex-subpane-${key}`);
+    if (pane) pane.style.display = key === subtabKey ? 'block' : 'none';
+  });
+  const btns = document.querySelectorAll('.codex-subtab-bar .subtab-btn');
+  btns.forEach(b => b.classList.remove('active'));
+  if (btnEl) btnEl.classList.add('active');
   try { if (window.gApp && window.gApp.audio) window.gApp.audio.playPencilScratch(); } catch(e){}
 };
 

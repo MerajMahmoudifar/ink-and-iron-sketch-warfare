@@ -67,6 +67,7 @@
               <label class="setup-label">Game Mode</label>
               <select id="select-game-mode" class="btn-sketch">
                 <option value="SINGLE_PLAYER">Single Player vs AI</option>
+                <option value="PRACTICE_TUTORIAL">Practice Tutorial (Guided Passive AI)</option>
                 <option value="PASS_AND_PLAY">Pass &amp; Play (Local 2P)</option>
               </select>
             </div>
@@ -132,46 +133,106 @@
 
         <!-- TAB 3: FIELD MANUAL -->
         <div id="tab-pane-codex" class="tab-pane" style="display: none;">
-          <div class="codex-grid">
-            <div class="codex-card">
-              <h4>Commander Ranks &amp; Progression</h4>
-              <p>Advance through <b>7 Rank Tiers</b> (Recruit → General). Promotions require meeting <b>both</b> Minimum Matches Played and Minimum Wins. Track live rank progress on your Profile tab.</p>
-            </div>
+          
+          <!-- SUB-TAB NAVIGATION BAR -->
+          <div class="codex-subtab-bar">
+            <button class="subtab-btn active" onclick="window.switchCodexSubtab('quickstart', this)">Quick-Start &amp; FAQ</button>
+            <button class="subtab-btn" onclick="window.switchCodexSubtab('rules', this)">Battle Rules &amp; Doctrines</button>
+            <button class="subtab-btn" onclick="window.switchCodexSubtab('matrix', this)">Unit Counter Matrix</button>
+          </div>
 
-            <div class="codex-card">
-              <h4>Smart Auto-Stances &amp; Badges</h4>
-              <p>Units automatically adopt tactical stances with canvas badges:<br>
-              <b>DEFEND (+25% Defense)</b> &mdash; On Bases, Capture Zones, or stationary.<br>
-              <b>AMBUSH (Stealth + 1.5x Dmg)</b> &mdash; Restricted strictly to <b>Infantry inside Forest tiles</b>.<br>
-              <b>ADVANCE (Max Speed)</b> &mdash; Moving along waypoints. (Manual override available in Inspector).</p>
-            </div>
+          <!-- SUBTAB 1: QUICK-START & FAQ -->
+          <div id="codex-subpane-quickstart" class="codex-subpane">
+            <div style="background:rgba(30,41,59,0.7); border:1px solid var(--border-glowing); padding:14px; border-radius:10px;">
+              <h3 style="font-family:var(--font-display); font-size:1.05rem; color:var(--gold-400); margin-bottom:6px;">
+                Quick-Start Commander Guide &amp; FAQ
+              </h3>
+              <p style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:10px; line-height:1.4;">
+                New to Sketch Warfare? Here is everything you need to know about commanding your army:
+              </p>
 
-            <div class="codex-card">
-              <h4>Faction Doctrines &amp; Exclusive Units</h4>
-              <p><b>Iron Corps:</b> Heavy Armor (+20% defense on fortified tiles) &amp; Heavy Siege Tank.<br>
-              <b>Vanguard Legion:</b> Blitz Mobility (+1 speed on open ground) &amp; Blitz Recon Car.</p>
-            </div>
+              <!-- 4-STEP VISUAL WALKTHROUGH -->
+              <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-bottom:12px;">
+                <div style="background:rgba(15,23,42,0.6); padding:8px; border-radius:6px; border-left:3px solid var(--blue-400);">
+                  <b style="color:var(--blue-300); font-size:0.78rem; display:block; margin-bottom:2px;">1. Recruit Troops</b>
+                  <span style="font-size:0.75rem; color:var(--text-muted);">Buy troops at your Base (Blue ring) from left store.</span>
+                </div>
+                <div style="background:rgba(15,23,42,0.6); padding:8px; border-radius:6px; border-left:3px solid var(--gold-400);">
+                  <b style="color:var(--gold-400); font-size:0.78rem; display:block; margin-bottom:2px;">2. Draw Waypoints</b>
+                  <span style="font-size:0.75rem; color:var(--text-muted);">Click troop, then click adjacent tiles to draw paths.</span>
+                </div>
+                <div style="background:rgba(15,23,42,0.6); padding:8px; border-radius:6px; border-left:3px solid #10b981;">
+                  <b style="color:#34d399; font-size:0.78rem; display:block; margin-bottom:2px;">3. Simultaneous Turns</b>
+                  <span style="font-size:0.75rem; color:var(--text-muted);">Press End Turn. 20s Planning ends &amp; troops move!</span>
+                </div>
+                <div style="background:rgba(15,23,42,0.6); padding:8px; border-radius:6px; border-left:3px solid #ef4444;">
+                  <b style="color:#f87171; font-size:0.78rem; display:block; margin-bottom:2px;">4. Capture &amp; Destroy</b>
+                  <span style="font-size:0.75rem; color:var(--text-muted);">Capture Gold Supply Zones (+10 Ink). Destroy AI Base (Red)!</span>
+                </div>
+              </div>
 
-            <div class="codex-card">
-              <h4>Command Power &amp; Special Abilities</h4>
-              <p>Earn CP by holding zones (+1/turn) and dealing damage (+1 per 25 dmg).<br>
-              <b>Flare (2 CP)</b> &mdash; Reveals 3&times;3 fog for 1 turn.<br>
-              <b>Smoke (3 CP)</b> &mdash; Blocks direct attacks in 3&times;3 area.<br>
-              <b>Artillery (4 CP)</b> &mdash; 35 splash damage on 3&times;3 area.</p>
+              <!-- FAQ ANSWERS TO ALL 8 PLAYER QUESTIONS -->
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <div style="font-size:0.76rem; background:rgba(15,23,42,0.4); padding:6px 10px; border-radius:6px; border:1px solid rgba(255,255,255,0.05);">
+                  <b style="color:var(--gold-300); display:block;">Q: What do I do?</b>
+                  <span style="color:var(--text-secondary);">Capture the enemy Main Base or eliminate all enemy troops to win.</span>
+                </div>
+                <div style="font-size:0.76rem; background:rgba(15,23,42,0.4); padding:6px 10px; border-radius:6px; border:1px solid rgba(255,255,255,0.05);">
+                  <b style="color:var(--gold-300); display:block;">Q: Where do I click?</b>
+                  <span style="color:var(--text-secondary);">Click unit cards to buy; click troops then adjacent tiles to draw paths.</span>
+                </div>
+                <div style="font-size:0.76rem; background:rgba(15,23,42,0.4); padding:6px 10px; border-radius:6px; border:1px solid rgba(255,255,255,0.05);">
+                  <b style="color:var(--gold-300); display:block;">Q: Which tiles are mine vs enemy?</b>
+                  <span style="color:var(--text-secondary);">Blue Ring = Your Base (Top-Left); Red Ring = AI Base (Bottom-Right); Gold = Neutral.</span>
+                </div>
+                <div style="font-size:0.76rem; background:rgba(15,23,42,0.4); padding:6px 10px; border-radius:6px; border:1px solid rgba(255,255,255,0.05);">
+                  <b style="color:var(--gold-300); display:block;">Q: How do I earn Ink?</b>
+                  <span style="color:var(--text-secondary);">You earn +50 base Ink/turn + +10 bonus Ink/turn for each captured Supply Zone.</span>
+                </div>
+                <div style="font-size:0.76rem; background:rgba(15,23,42,0.4); padding:6px 10px; border-radius:6px; border:1px solid rgba(255,255,255,0.05);">
+                  <b style="color:var(--gold-300); display:block;">Q: Does it have rounds?</b>
+                  <span style="color:var(--text-secondary);">Yes! 20-second Planning Phase (queue moves) followed by 3-second Playback.</span>
+                </div>
+                <div style="font-size:0.76rem; background:rgba(15,23,42,0.4); padding:6px 10px; border-radius:6px; border:1px solid rgba(255,255,255,0.05);">
+                  <b style="color:var(--gold-300); display:block;">Q: Do troops move by themselves?</b>
+                  <span style="color:var(--text-secondary);">No! Troops follow your exact drawn waypoints and auto-attack enemies.</span>
+                </div>
+              </div>
             </div>
+          </div>
 
-            <div class="codex-card">
-              <h4>Fog of War &amp; Strict Recon</h4>
-              <p>Shrouded tiles completely hide enemy units on the map and in the Inspector panel. Units inside <b>Forests</b> remain invisible until attacking or an enemy steps adjacent.</p>
+          <!-- SUBTAB 2: BATTLE RULES & DOCTRINES -->
+          <div id="codex-subpane-rules" class="codex-subpane" style="display: none;">
+            <div class="codex-grid">
+              <div class="codex-card">
+                <h4>Commander Ranks &amp; Progression</h4>
+                <p>Advance through <b>7 Rank Tiers</b> (Recruit → General). Promotions require meeting <b>both</b> Minimum Matches Played and Minimum Wins.</p>
+              </div>
+
+              <div class="codex-card">
+                <h4>Smart Auto-Stances &amp; Badges</h4>
+                <p><b>DEFEND (+25% Defense)</b> &mdash; On Bases, Capture Zones, or stationary.<br>
+                <b>AMBUSH (Stealth + 1.5x Dmg)</b> &mdash; Restricted strictly to <b>Infantry in Forests</b>.<br>
+                <b>ADVANCE (Max Speed)</b> &mdash; Moving along waypoints.</p>
+              </div>
+
+              <div class="codex-card">
+                <h4>Faction Doctrines &amp; Exclusive Units</h4>
+                <p><b>Iron Corps:</b> Heavy Armor (+20% defense on fortified tiles) &amp; Heavy Siege Tank.<br>
+                <b>Vanguard Legion:</b> Blitz Mobility (+1 speed on open ground) &amp; Blitz Recon Car.</p>
+              </div>
+
+              <div class="codex-card">
+                <h4>Command Power &amp; Special Abilities</h4>
+                <p><b>Flare (2 CP)</b> &mdash; Reveals 3&times;3 fog for 1 turn.<br>
+                <b>Smoke (3 CP)</b> &mdash; Neutral physical cloud. Blocks line-of-sight &amp; direct attacks for 2 turns.<br>
+                <b>Artillery (4 CP)</b> &mdash; 35 splash damage on 3&times;3 area.</p>
+              </div>
             </div>
+          </div>
 
-            <div class="codex-card">
-              <h4>Victory Conditions &amp; Siege Lockout</h4>
-              <p><b>Victory:</b> Capture enemy Main Base or eliminate all enemy units.<br>
-              <b>Under Siege:</b> If an enemy is adjacent to your Base or Supply Zone, recruitment is locked until cleared.</p>
-            </div>
-
-            <!-- UNIT COUNTER MATRIX CHEAT-SHEET -->
+          <!-- SUBTAB 3: UNIT COUNTER MATRIX -->
+          <div id="codex-subpane-matrix" class="codex-subpane" style="display: none;">
             <div class="codex-matrix-card">
               <h4 style="font-family:var(--font-display); font-size:0.78rem; color:var(--gold-400); text-transform:uppercase; margin-bottom:4px;">Tactical Unit Counter Cheat-Sheet</h4>
               <table class="codex-table">
@@ -223,8 +284,8 @@
                 </tbody>
               </table>
             </div>
-
           </div>
+
         </div>
 
         <!-- TAB 4: COMMANDER ACCOUNT PROFILE -->
@@ -286,14 +347,6 @@
         <!-- TAB 5: SETTINGS -->
         <div id="tab-pane-settings" class="tab-pane" style="display: none;">
           <div class="settings-list">
-            <div class="setting-row">
-              <span>AI Difficulty Level</span>
-              <select id="setting-ai-difficulty" class="btn-sketch setting-select" onchange="window.setAiDifficulty(this.value)">
-                <option value="RECRUIT">Recruit (Forgiving)</option>
-                <option value="VETERAN" selected>Veteran (Dynamic Counters)</option>
-                <option value="GENERAL">General (Tactical Hunter)</option>
-              </select>
-            </div>
             <div class="setting-row">
               <span>Master Volume</span>
               <input type="range" id="slider-master-vol" class="setting-range" min="0" max="100" value="80" oninput="window.updateMasterVolume(this.value)">
@@ -406,6 +459,16 @@
             </button>
           </div>
 
+          <!-- Practice Tutorial Guided Callout Box (Only visible in Tutorial Mode) -->
+          <div id="tutorial-hint-box" class="tutorial-hint-card" style="display: none;">
+            <div class="tutorial-hint-header">
+              <span class="tutorial-badge">PRACTICE TUTORIAL</span>
+            </div>
+            <p id="tutorial-hint-text" class="tutorial-hint-text">
+              Step 1: Click "Rifle Squad" in the recruit store below to deploy at your HQ Base (Blue Ring).
+            </p>
+          </div>
+
           <!-- Unit / Terrain Inspector -->
           <div id="inspector-card" class="inspector-card">
             <div id="inspector-content">
@@ -420,7 +483,7 @@
               <span class="ability-title">Flare</span>
               <span class="ability-cost">2 CP</span>
             </button>
-            <button id="btn-ability-smoke" class="ability-btn smoke-btn" title="Blocks direct attacks in a 3x3 area">
+            <button id="btn-ability-smoke" class="ability-btn smoke-btn" title="Neutral physical cloud: Blocks line-of-sight &amp; direct attacks for ALL units inside 3x3 area for 2 turns">
               <span class="ability-title">Smoke</span>
               <span class="ability-cost">3 CP</span>
             </button>
