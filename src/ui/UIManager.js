@@ -63,13 +63,33 @@ export class UIManager {
   }
 
   setupAdminShortcut() {
+    // 1. Hotkey Trigger: Alt + Shift + A (or Option + Shift + A)
     window.addEventListener('keydown', (e) => {
-      // Use Ctrl + Shift + X (or Cmd + Shift + X) to avoid browser extension conflicts
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'X' || e.key === 'x')) {
+      if (e.altKey && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
         e.preventDefault();
         this.openAdminAuthModal();
       }
     });
+
+    // 2. Secret Logo Badge 3-Click Trigger
+    let logoClickCount = 0;
+    let logoClickTimer = null;
+    const logoBadge = document.getElementById('menu-logo-badge');
+    if (logoBadge) {
+      logoBadge.addEventListener('click', () => {
+        logoClickCount++;
+        if (logoClickTimer) clearTimeout(logoClickTimer);
+
+        if (logoClickCount >= 3) {
+          logoClickCount = 0;
+          this.openAdminAuthModal();
+        } else {
+          logoClickTimer = setTimeout(() => {
+            logoClickCount = 0;
+          }, 1000);
+        }
+      });
+    }
   }
 
   openAdminAuthModal() {
