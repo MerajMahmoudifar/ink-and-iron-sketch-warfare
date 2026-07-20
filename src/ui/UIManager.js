@@ -53,10 +53,10 @@ export class UIManager {
     const badge = document.getElementById('d1-sync-badge');
     if (badge) {
       if (res && res.offline) {
-        badge.innerHTML = "⚡ Local Mode";
+        badge.innerHTML = "Local Mode";
         badge.classList.add("offline");
       } else {
-        badge.innerHTML = "☁️ Synced to D1";
+        badge.innerHTML = "Synced to D1";
         badge.classList.remove("offline");
       }
     }
@@ -282,9 +282,9 @@ export class UIManager {
           <td>${statusBadge}</td>
           <td>
             <div class="admin-action-btns">
-              <button class="btn-sketch btn-xs" onclick="window.openAdminEditModal('${u.id}')">✏️ Edit</button>
-              <button class="btn-sketch btn-xs" onclick="window.toggleBanAdminUser('${u.id}', ${isBanned})">${isBanned ? '🔓 Unban' : '🚫 Ban'}</button>
-              <button class="btn-sketch btn-xs" style="color:#f87171; border-color:#f87171;" onclick="window.deleteAdminUser('${u.id}')">🗑️ Delete</button>
+              <button class="btn-sketch btn-xs" onclick="window.openAdminEditModal('${u.id}')">Edit</button>
+              <button class="btn-sketch btn-xs" onclick="window.toggleBanAdminUser('${u.id}', ${isBanned})">${isBanned ? 'Unban' : 'Ban'}</button>
+              <button class="btn-sketch btn-xs" style="color:#f87171; border-color:#f87171;" onclick="window.deleteAdminUser('${u.id}')">Delete</button>
             </div>
           </td>
         </tr>
