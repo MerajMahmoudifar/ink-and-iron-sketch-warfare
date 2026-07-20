@@ -1,4 +1,5 @@
 import { UNIT_TYPES, STANCES, FACTIONS } from '../engine/Types.js';
+import { d1Service } from '../engine/D1Service.js';
 
 export class UIManager {
   constructor(app) {
@@ -19,8 +20,258 @@ export class UIManager {
     this.storeContainer = document.getElementById('unit-store-container');
     this.actionLogBox = document.getElementById('action-log-box');
 
+    this.allAdminUsers = [];
+
     this.setupListeners();
     this.setupMenuTabs();
+    this.initD1Settings();
+    this.setupAdminShortcut();
+    this.bindGlobalWindowHandlers();
+  }
+
+  async initD1Settings() {
+    const res = await d1Service.syncSettings();
+    const user = d1Service.user;
+
+    const usernameInput = document.getElementById('input-username');
+    if (usernameInput) usernameInput.value = user.username || '';
+
+    const masterSlider = document.getElementById('slider-master-vol');
+    if (masterSlider) masterSlider.value = user.master_volume;
+    if (this.app && this.app.audio) this.app.audio.setMasterVolume(user.master_volume / 100);
+
+    const sfxSlider = document.getElementById('slider-sfx-vol');
+    if (sfxSlider) sfxSlider.value = user.sfx_volume;
+    if (this.app && this.app.audio) this.app.audio.setSFXVolume(user.sfx_volume / 100);
+
+    const timerSelect = document.getElementById('select-timer-duration');
+    if (timerSelect) timerSelect.value = user.planning_duration;
+
+    const speedSelect = document.getElementById('select-playback-duration');
+    if (speedSelect) speedSelect.value = user.playback_speed;
+
+    const badge = document.getElementById('d1-sync-badge');
+    if (badge) {
+      if (res && res.offline) {
+        badge.innerHTML = "⚡ Local Mode";
+        badge.classList.add("offline");
+      } else {
+        badge.innerHTML = "☁️ Synced to D1";
+        badge.classList.remove("offline");
+      }
+    }
+  }
+
+  setupAdminShortcut() {
+    window.addEventListener('keydown', (e) => {
+      // Use Ctrl + Shift + X (or Cmd + Shift + X) to avoid browser extension conflicts
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'X' || e.key === 'x')) {
+        e.preventDefault();
+        this.openAdminAuthModal();
+      }
+    });
+  }
+
+  openAdminAuthModal() {
+    const modal = document.getElementById('admin-auth-modal');
+    if (modal) {
+      modal.style.display = 'flex';
+      const input = document.getElementById('input-admin-passcode');
+      if (input) {
+        input.value = '';
+        input.focus();
+      }
+      const err = document.getElementById('admin-auth-error');
+      if (err) err.style.display = 'none';
+    }
+  }
+
+  bindGlobalWindowHandlers() {
+    window.updateUsername = (val) => {
+      d1Service.syncSettings({ username: val });
+    };
+
+    window.updateMasterVolume = (val) => {
+      if (this.app && this.app.audio) this.app.audio.setMasterVolume(val / 100);
+      d1Service.syncSettings({ master_volume: Number(val) });
+    };
+
+    window.updateSFXVolume = (val) => {
+      if (this.app && this.app.audio) this.app.audio.setSFXVolume(val / 100);
+      d1Service.syncSettings({ sfx_volume: Number(val) });
+    };
+
+    window.toggleAudioMute = () => {
+      if (this.app && this.app.audio) {
+        const muted = this.app.audio.toggleMute();
+        const btn = document.getElementById('btn-toggle-sound');
+        if (btn) btn.textContent = muted ? 'Disabled (Muted)' : 'SFX Enabled';
+        d1Service.syncSettings({ audio_muted: muted });
+      }
+    };
+
+    window.updatePlanningDuration = (val) => {
+      d1Service.syncSettings({ planning_duration: Number(val) });
+    };
+
+    window.updatePlaybackSpeed = (val) => {
+      d1Service.syncSettings({ playback_speed: Number(val) });
+    };
+
+    window.closeAdminAuthModal = () => {
+      const modal = document.getElementById('admin-auth-modal');
+      if (modal) modal.style.display = 'none';
+    };
+
+    window.submitAdminAuth = async () => {
+      const passcode = document.getElementById('input-admin-passcode').value.trim();
+      const errDiv = document.getElementById('admin-auth-error');
+      try {
+        await d1Service.loginAdmin(passcode);
+        window.closeAdminAuthModal();
+        this.openAdminPanel();
+      } catch (err) {
+        if (errDiv) {
+          errDiv.textContent = err.message || "Invalid Admin Passcode";
+          errDiv.style.display = 'block';
+        }
+      }
+    };
+
+    window.closeAdminPanel = () => {
+      const overlay = document.getElementById('admin-panel-overlay');
+      if (overlay) overlay.style.display = 'none';
+    };
+
+    window.refreshAdminUserTable = async () => {
+      const tbody = document.getElementById('admin-user-table-body');
+      if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Fetching users from Cloudflare D1...</td></tr>';
+      try {
+        this.allAdminUsers = await d1Service.fetchAllUsers();
+        this.renderAdminUserTable(this.allAdminUsers);
+      } catch (err) {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #f87171; padding: 20px;">Error: ${err.message}</td></tr>`;
+      }
+    };
+
+    window.filterAdminUserTable = (query) => {
+      const q = query.toLowerCase();
+      const filtered = this.allAdminUsers.filter(u => 
+        (u.username && u.username.toLowerCase().includes(q)) || 
+        (u.id && u.id.toLowerCase().includes(q))
+      );
+      this.renderAdminUserTable(filtered);
+    };
+
+    window.openAdminEditModal = (id) => {
+      const user = this.allAdminUsers.find(u => u.id === id);
+      if (!user) return;
+
+      document.getElementById('edit-user-id').value = user.id;
+      document.getElementById('edit-user-username').value = user.username || '';
+      document.getElementById('edit-user-master-vol').value = user.master_volume;
+      document.getElementById('edit-user-sfx-vol').value = user.sfx_volume;
+      document.getElementById('edit-user-planning').value = user.planning_duration;
+      document.getElementById('edit-user-speed').value = user.playback_speed;
+      document.getElementById('edit-user-wins').value = user.wins;
+      document.getElementById('edit-user-losses').value = user.losses;
+      document.getElementById('edit-user-banned').value = String(Boolean(user.is_banned));
+
+      const modal = document.getElementById('admin-edit-modal');
+      if (modal) modal.style.display = 'flex';
+    };
+
+    window.closeAdminEditModal = () => {
+      const modal = document.getElementById('admin-edit-modal');
+      if (modal) modal.style.display = 'none';
+    };
+
+    window.saveAdminUserEdit = async () => {
+      const id = document.getElementById('edit-user-id').value;
+      const updates = {
+        username: document.getElementById('edit-user-username').value.trim(),
+        master_volume: Number(document.getElementById('edit-user-master-vol').value),
+        sfx_volume: Number(document.getElementById('edit-user-sfx-vol').value),
+        planning_duration: Number(document.getElementById('edit-user-planning').value),
+        playback_speed: Number(document.getElementById('edit-user-speed').value),
+        wins: Number(document.getElementById('edit-user-wins').value),
+        losses: Number(document.getElementById('edit-user-losses').value),
+        is_banned: document.getElementById('edit-user-banned').value === 'true'
+      };
+
+      try {
+        await d1Service.updateUser(id, updates);
+        window.closeAdminEditModal();
+        window.refreshAdminUserTable();
+      } catch (err) {
+        alert("Failed to update user: " + err.message);
+      }
+    };
+
+    window.toggleBanAdminUser = async (id, currentBanned) => {
+      try {
+        await d1Service.updateUser(id, { is_banned: !currentBanned });
+        window.refreshAdminUserTable();
+      } catch (err) {
+        alert("Failed to toggle suspension: " + err.message);
+      }
+    };
+
+    window.deleteAdminUser = async (id) => {
+      if (!confirm(`Are you sure you want to permanently delete user record ${id}?`)) return;
+      try {
+        await d1Service.deleteUser(id);
+        window.refreshAdminUserTable();
+      } catch (err) {
+        alert("Failed to delete user: " + err.message);
+      }
+    };
+  }
+
+  async openAdminPanel() {
+    const overlay = document.getElementById('admin-panel-overlay');
+    if (overlay) {
+      overlay.style.display = 'flex';
+      window.refreshAdminUserTable();
+    }
+  }
+
+  renderAdminUserTable(users) {
+    const tbody = document.getElementById('admin-user-table-body');
+    if (!tbody) return;
+
+    if (!users || users.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">No user records found in Cloudflare D1.</td></tr>';
+      return;
+    }
+
+    let html = '';
+    users.forEach(u => {
+      const isBanned = Boolean(u.is_banned);
+      const statusBadge = isBanned 
+        ? `<span class="admin-badge-status banned">Banned</span>`
+        : `<span class="admin-badge-status active">Active</span>`;
+
+      html += `
+        <tr>
+          <td><b>${u.username || 'Commander'}</b></td>
+          <td><code style="font-size:0.75rem;">${u.id}</code></td>
+          <td>${u.master_volume}% / ${u.sfx_volume}%</td>
+          <td>${u.planning_duration}s / ${u.playback_speed}s</td>
+          <td><span style="color:#34d399; font-weight:600;">${u.wins}W</span> - <span style="color:#f87171; font-weight:600;">${u.losses}L</span></td>
+          <td>${statusBadge}</td>
+          <td>
+            <div class="admin-action-btns">
+              <button class="btn-sketch btn-xs" onclick="window.openAdminEditModal('${u.id}')">✏️ Edit</button>
+              <button class="btn-sketch btn-xs" onclick="window.toggleBanAdminUser('${u.id}', ${isBanned})">${isBanned ? '🔓 Unban' : '🚫 Ban'}</button>
+              <button class="btn-sketch btn-xs" style="color:#f87171; border-color:#f87171;" onclick="window.deleteAdminUser('${u.id}')">🗑️ Delete</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = html;
   }
 
   setupListeners() {
@@ -84,56 +335,25 @@ export class UIManager {
         }
       });
     }
-
-    // 7. Victory Modal Return to Main Menu
-    const victoryMainBtn = document.getElementById('btn-victory-main-menu');
-    if (victoryMainBtn) {
-      victoryMainBtn.addEventListener('click', () => {
-        document.getElementById('victory-modal').style.display = 'none';
-        this.mainMenuOverlay.style.display = 'flex';
-      });
-    }
-
-    // 8. Sound Toggle
-    const soundBtn = document.getElementById('btn-toggle-sound');
-    if (soundBtn) {
-      soundBtn.addEventListener('click', () => {
-        const muted = this.app.audio.toggleMute();
-        soundBtn.textContent = muted ? 'Disabled (Muted)' : 'Enabled';
-        soundBtn.style.background = muted ? '#fecdd3' : '#bbf7d0';
-      });
-    }
   }
 
   setupMenuTabs() {
-    const tabs = [
-      { btn: 'tab-btn-play', pane: 'tab-pane-play' },
-      { btn: 'tab-btn-codex', pane: 'tab-pane-codex' },
-      { btn: 'tab-btn-armory', pane: 'tab-pane-armory' },
-      { btn: 'tab-btn-settings', pane: 'tab-pane-settings' }
-    ];
+    window.switchMenuTab = (btnId, paneId) => {
+      this.app.audio.playPencilScratch();
+      document.querySelectorAll('.menu-tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
 
-    tabs.forEach(t => {
-      const btnEl = document.getElementById(t.btn);
-      const paneEl = document.getElementById(t.pane);
-      if (btnEl && paneEl) {
-        btnEl.addEventListener('click', () => {
-          this.app.audio.playPencilScratch();
-          tabs.forEach(other => {
-            document.getElementById(other.btn)?.classList.remove('active');
-            const otherPane = document.getElementById(other.pane);
-            if (otherPane) otherPane.style.display = 'none';
-          });
-          btnEl.classList.add('active');
-          paneEl.style.display = 'flex';
-        });
-      }
-    });
+      const activeBtn = document.getElementById(btnId);
+      const activePane = document.getElementById(paneId);
+
+      if (activeBtn) activeBtn.classList.add('active');
+      if (activePane) activePane.style.display = 'block';
+    };
   }
 
   openInGameMenu() {
     if (this.app.engine) {
-      this.app.engine.pauseTimer(); // Pause game timer while menu is active
+      this.app.engine.pauseTimer();
     }
     this.gameContainer.classList.add('game-blurred');
     this.inGameMenuModal.style.display = 'flex';
@@ -143,14 +363,13 @@ export class UIManager {
     this.inGameMenuModal.style.display = 'none';
     this.gameContainer.classList.remove('game-blurred');
     if (this.app.engine && this.app.engine.phase !== 'GAME_OVER') {
-      this.app.engine.startTurnTimer(); // Resume game timer
+      this.app.engine.startTurnTimer();
     }
   }
 
   updateHUD(engine) {
     if (!engine) return;
 
-    // 1. Turn & Phase Badge
     this.turnCounter.textContent = `Turn ${engine.turnNumber}`;
 
     if (engine.phase === 'PLANNING') {
@@ -168,20 +387,13 @@ export class UIManager {
       this.timerBarFill.style.width = '0%';
     }
 
-    // 2. Ink Currency
     this.p1InkDisplay.textContent = `P1 Ink: ✒️ ${engine.players[1].ink}`;
     this.p2InkDisplay.textContent = `${engine.players[2].name}: ✒️ ${engine.players[2].ink}`;
 
-    // 3. Render Unit Store
     this.renderUnitStore(engine);
-
-    // 4. Render Inspector
     this.renderInspector(engine);
-
-    // 5. Update Action Logs
     this.updateActionLogs(engine);
 
-    // 6. Victory Screen
     if (engine.winner) {
       this.showVictoryModal(engine.winner, engine);
     }
@@ -219,6 +431,13 @@ export class UIManager {
         if (res.success) {
           this.app.audio.playSpawnSound();
           this.log(`Recruited ${uType.name} at (${targetX}, ${targetY})`);
+        } else {
+          alert(`Cannot recruit: ${res.reason}`);
+        }
+      });
+
+      this.storeContainer.appendChild(btn);
+    });
   }
 
   updateTimerBar(ratio) {
@@ -238,12 +457,12 @@ export class UIManager {
 
     const { r, c } = selectedTile;
     const tile = engine.grid[r][c];
-    const unitOnTile = engine.getUnitAt(r, c);
+    const unitOnTile = engine.getUnitAt ? engine.getUnitAt(r, c) : null;
 
     let html = `
       <div style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 6px; margin-bottom: 8px;">
         <h4 style="color:var(--text-primary); font-size:1rem;">HEX TILE (${r}, ${c})</h4>
-        <p style="font-size:0.85rem; color:var(--text-muted);">Terrain: <b>${tile.terrain}</b></p>
+        <p style="font-size:0.85rem; color:var(--text-muted);">Terrain: <b>${tile ? tile.name : 'Clear'}</b></p>
       </div>
     `;
 
@@ -291,12 +510,14 @@ export class UIManager {
     if (!this.actionLogBox) return;
     this.actionLogBox.innerHTML = '';
 
-    engine.combatLogs.forEach(log => {
-      const div = document.createElement('div');
-      div.className = 'log-entry';
-      div.innerHTML = `⚔️ <b>${log.attackerId}</b> struck <b>${log.defenderId}</b> for <span style="color:#dc2626; font-weight:bold;">${log.damageDealt} HP</span>${log.isAmbushStrike ? ' (AMBUSH STRIKE!)' : ''}`;
-      this.actionLogBox.appendChild(div);
-    });
+    if (engine.combatLogs) {
+      engine.combatLogs.forEach(log => {
+        const div = document.createElement('div');
+        div.className = 'log-entry';
+        div.innerHTML = `⚔️ <b>${log.attackerId}</b> struck <b>${log.defenderId}</b> for <span style="color:#dc2626; font-weight:bold;">${log.damageDealt} HP</span>${log.isAmbushStrike ? ' (AMBUSH STRIKE!)' : ''}`;
+        this.actionLogBox.appendChild(div);
+      });
+    }
   }
 
   log(msg) {
