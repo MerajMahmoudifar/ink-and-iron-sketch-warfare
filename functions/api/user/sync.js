@@ -14,6 +14,7 @@ export async function onRequestPost({ request, env }) {
     const {
       id,
       username,
+      email,
       master_volume,
       sfx_volume,
       audio_muted,
@@ -41,6 +42,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     const cleanUsername = username || (existing ? existing.username : "Commander");
+    const cleanEmail = email !== undefined ? email : (existing ? existing.email : "");
     const masterVol = typeof master_volume === "number" ? master_volume : (existing ? existing.master_volume : 80);
     const sfxVol = typeof sfx_volume === "number" ? sfx_volume : (existing ? existing.sfx_volume : 100);
     const muted = audio_muted ? 1 : 0;
@@ -52,15 +54,15 @@ export async function onRequestPost({ request, env }) {
     if (existing) {
       await db.prepare(`
         UPDATE users 
-        SET username = ?, master_volume = ?, sfx_volume = ?, audio_muted = ?, 
+        SET username = ?, email = ?, master_volume = ?, sfx_volume = ?, audio_muted = ?, 
             planning_duration = ?, playback_speed = ?, wins = ?, losses = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-      `).bind(cleanUsername, masterVol, sfxVol, muted, planDur, playSpd, winCount, lossCount, id).run();
+      `).bind(cleanUsername, cleanEmail, masterVol, sfxVol, muted, planDur, playSpd, winCount, lossCount, id).run();
     } else {
       await db.prepare(`
-        INSERT INTO users (id, username, master_volume, sfx_volume, audio_muted, planning_duration, playback_speed, wins, losses)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).bind(id, cleanUsername, masterVol, sfxVol, muted, planDur, playSpd, winCount, lossCount).run();
+        INSERT INTO users (id, username, email, master_volume, sfx_volume, audio_muted, planning_duration, playback_speed, wins, losses)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(id, cleanUsername, cleanEmail, masterVol, sfxVol, muted, planDur, playSpd, winCount, lossCount).run();
     }
 
     const updatedUser = await db.prepare("SELECT * FROM users WHERE id = ?").bind(id).first();

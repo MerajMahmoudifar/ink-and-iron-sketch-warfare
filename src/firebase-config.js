@@ -70,6 +70,15 @@ class AuthManager {
           window.gAuth.user = user;
           window.gAuth.isGuest = false;
           window.gAuth.profile = await this.fetchUserProfile(user.uid, user.displayName, user.email);
+
+          // Sync Firebase User to Cloudflare D1 Database
+          if (window.d1Service) {
+            window.d1Service.syncSettings({
+              id: user.uid,
+              username: user.displayName || (user.email ? user.email.split('@')[0] : 'Commander'),
+              email: user.email || ''
+            });
+          }
         } else {
           this.setGuestState();
         }

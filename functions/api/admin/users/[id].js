@@ -32,6 +32,7 @@ export async function onRequestPut({ params, request, env }) {
     }
 
     const username = body.username !== undefined ? body.username : existing.username;
+    const email = body.email !== undefined ? body.email : existing.email;
     const masterVol = body.master_volume !== undefined ? Number(body.master_volume) : existing.master_volume;
     const sfxVol = body.sfx_volume !== undefined ? Number(body.sfx_volume) : existing.sfx_volume;
     const audioMuted = body.audio_muted !== undefined ? (body.audio_muted ? 1 : 0) : existing.audio_muted;
@@ -43,10 +44,10 @@ export async function onRequestPut({ params, request, env }) {
 
     await db.prepare(`
       UPDATE users 
-      SET username = ?, master_volume = ?, sfx_volume = ?, audio_muted = ?, 
+      SET username = ?, email = ?, master_volume = ?, sfx_volume = ?, audio_muted = ?, 
           planning_duration = ?, playback_speed = ?, wins = ?, losses = ?, is_banned = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).bind(username, masterVol, sfxVol, audioMuted, planDur, playSpd, wins, losses, isBanned, id).run();
+    `).bind(username, email, masterVol, sfxVol, audioMuted, planDur, playSpd, wins, losses, isBanned, id).run();
 
     const updated = await db.prepare("SELECT * FROM users WHERE id = ?").bind(id).first();
 

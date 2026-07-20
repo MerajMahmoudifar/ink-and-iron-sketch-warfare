@@ -3408,6 +3408,7 @@ const d1Service = {
     const newUser = {
       id: 'usr_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36),
       username: 'Commander ' + Math.floor(100 + Math.random() * 900),
+      email: '',
       master_volume: 80,
       sfx_volume: 100,
       audio_muted: false,
@@ -3532,6 +3533,7 @@ const d1Service = {
   }
 };
 
+window.d1Service = d1Service;
 window.gAllAdminUsers = [];
 
 window.updateUsername = function(val) {
@@ -3610,6 +3612,7 @@ window.filterAdminUserTable = function(query) {
   const q = query.toLowerCase();
   const filtered = (window.gAllAdminUsers || []).filter(u => 
     (u.username && u.username.toLowerCase().includes(q)) || 
+    (u.email && u.email.toLowerCase().includes(q)) || 
     (u.id && u.id.toLowerCase().includes(q))
   );
   window.renderAdminUserTable(filtered);
@@ -3633,7 +3636,10 @@ window.renderAdminUserTable = function(users) {
 
     html += `
       <tr>
-        <td><b>${u.username || 'Commander'}</b></td>
+        <td>
+          <b>${u.username || 'Commander'}</b>
+          ${u.email ? `<br><small style="color:var(--text-muted); font-size:0.75rem;">${u.email}</small>` : ''}
+        </td>
         <td><code style="font-size:0.75rem;">${u.id}</code></td>
         <td>${u.master_volume}% / ${u.sfx_volume}%</td>
         <td>${u.planning_duration}s / ${u.playback_speed}s</td>
@@ -3659,6 +3665,8 @@ window.openAdminEditModal = function(id) {
 
   document.getElementById('edit-user-id').value = user.id;
   document.getElementById('edit-user-username').value = user.username || '';
+  const emailInput = document.getElementById('edit-user-email');
+  if (emailInput) emailInput.value = user.email || '';
   document.getElementById('edit-user-master-vol').value = user.master_volume;
   document.getElementById('edit-user-sfx-vol').value = user.sfx_volume;
   document.getElementById('edit-user-planning').value = user.planning_duration;
@@ -3678,8 +3686,10 @@ window.closeAdminEditModal = function() {
 
 window.saveAdminUserEdit = async function() {
   const id = document.getElementById('edit-user-id').value;
+  const emailInput = document.getElementById('edit-user-email');
   const updates = {
     username: document.getElementById('edit-user-username').value.trim(),
+    email: emailInput ? emailInput.value.trim() : '',
     master_volume: Number(document.getElementById('edit-user-master-vol').value),
     sfx_volume: Number(document.getElementById('edit-user-sfx-vol').value),
     planning_duration: Number(document.getElementById('edit-user-planning').value),
