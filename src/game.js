@@ -3388,6 +3388,394 @@ window.switchCodexSubtab = function(subtabKey, btnEl) {
   try { if (window.gApp && window.gApp.audio) window.gApp.audio.playPencilScratch(); } catch(e){}
 };
 
+// ==========================================
+// CLOUDFLARE D1 & ADMIN PORTAL INTEGRATION
+// ==========================================
+const d1Service = {
+  storageKey: 'sketch_user_profile_v1',
+  adminTokenKey: 'sketch_admin_token_v1',
+  user: null,
+
+  loadOrCreateLocalUser() {
+    try {
+      const saved = localStorage.getItem(this.storageKey);
+      if (saved) {
+        this.user = JSON.parse(saved);
+        return this.user;
+      }
+    } catch(e){}
+
+    const newUser = {
+      id: 'usr_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36),
+      username: 'Commander ' + Math.floor(100 + Math.random() * 900),
+      master_volume: 80,
+      sfx_volume: 100,
+      audio_muted: false,
+      planning_duration: 20,
+      playback_speed: 3,
+      wins: 0,
+      losses: 0,
+      is_banned: false
+    };
+
+    this.saveLocalUser(newUser);
+    return newUser;
+  },
+
+  saveLocalUser(userObj) {
+    this.user = { ...this.user, ...userObj };
+    try {
+      localStorage.setItem(this.storageKey, JSON.stringify(this.user));
+    } catch(e){}
+  },
+
+  async syncSettings(updates = {}) {
+    if (!this.user) this.loadOrCreateLocalUser();
+    this.saveLocalUser(updates);
+
+    try {
+      const res = await fetch('/api/user/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(this.user)
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          this.saveLocalUser({
+            ...data.user,
+            audio_muted: Boolean(data.user.audio_muted),
+            is_banned: Boolean(data.user.is_banned)
+          });
+        }
+        return { success: true, user: this.user };
+      } else if (res.status === 403) {
+        const data = await res.json();
+        if (data.is_banned) {
+          this.user.is_banned = true;
+          this.saveLocalUser(this.user);
+          return { success: false, is_banned: true };
+        }
+      }
+    } catch(err) {
+      console.log("Offline mode or sync error:", err.message);
+    }
+    return { success: true, offline: true, user: this.user };
+  },
+
+  async loginAdmin(passcode) {
+    const res = await fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passcode })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Invalid passcode');
+    }
+
+    sessionStorage.setItem(this.adminTokenKey, passcode);
+    return await res.json();
+  },
+
+  getAdminAuthHeader() {
+    const passcode = sessionStorage.getItem(this.adminTokenKey) || "admin123";
+    return {
+      'Authorization': `Bearer ${passcode}`,
+      'Content-Type': 'application/json'
+    };
+  },
+
+  async fetchAllUsers() {
+    const res = await fetch('/api/admin/users', {
+      headers: this.getAdminAuthHeader()
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to fetch users');
+    }
+
+    const data = await res.json();
+    return data.users || [];
+  },
+
+  async updateUser(id, updates) {
+    const res = await fetch(`/api/admin/users/${id}`, {
+      method: 'PUT',
+      headers: this.getAdminAuthHeader(),
+      body: JSON.stringify(updates)
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to update user');
+    }
+
+    return await res.json();
+  },
+
+  async deleteUser(id) {
+    const res = await fetch(`/api/admin/users/${id}`, {
+      method: 'DELETE',
+      headers: this.getAdminAuthHeader()
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to delete user');
+    }
+
+    return await res.json();
+  }
+};
+
+window.gAllAdminUsers = [];
+
+window.updateUsername = function(val) {
+  d1Service.syncSettings({ username: val });
+};
+
+window.updatePlanningDuration = function(val) {
+  d1Service.syncSettings({ planning_duration: Number(val) });
+};
+
+window.updatePlaybackSpeed = function(val) {
+  d1Service.syncSettings({ playback_speed: Number(val) });
+};
+
+window.openAdminAuthModal = function() {
+  const modal = document.getElementById('admin-auth-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+    const input = document.getElementById('input-admin-passcode');
+    if (input) {
+      input.value = '';
+      input.focus();
+    }
+    const err = document.getElementById('admin-auth-error');
+    if (err) err.style.display = 'none';
+  }
+};
+
+window.closeAdminAuthModal = function() {
+  const modal = document.getElementById('admin-auth-modal');
+  if (modal) modal.style.display = 'none';
+};
+
+window.submitAdminAuth = async function() {
+  const passcode = document.getElementById('input-admin-passcode').value.trim();
+  const errDiv = document.getElementById('admin-auth-error');
+  try {
+    await d1Service.loginAdmin(passcode);
+    window.closeAdminAuthModal();
+    window.openAdminPanel();
+  } catch (err) {
+    if (errDiv) {
+      errDiv.textContent = err.message || "Invalid Admin Passcode";
+      errDiv.style.display = 'block';
+    }
+  }
+};
+
+window.openAdminPanel = function() {
+  const overlay = document.getElementById('admin-panel-overlay');
+  if (overlay) {
+    overlay.style.display = 'flex';
+    window.refreshAdminUserTable();
+  }
+};
+
+window.closeAdminPanel = function() {
+  const overlay = document.getElementById('admin-panel-overlay');
+  if (overlay) overlay.style.display = 'none';
+};
+
+window.refreshAdminUserTable = async function() {
+  const tbody = document.getElementById('admin-user-table-body');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Fetching users from Cloudflare D1...</td></tr>';
+  try {
+    window.gAllAdminUsers = await d1Service.fetchAllUsers();
+    window.renderAdminUserTable(window.gAllAdminUsers);
+  } catch (err) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #f87171; padding: 20px;">Error: ${err.message}</td></tr>`;
+  }
+};
+
+window.filterAdminUserTable = function(query) {
+  const q = query.toLowerCase();
+  const filtered = (window.gAllAdminUsers || []).filter(u => 
+    (u.username && u.username.toLowerCase().includes(q)) || 
+    (u.id && u.id.toLowerCase().includes(q))
+  );
+  window.renderAdminUserTable(filtered);
+};
+
+window.renderAdminUserTable = function(users) {
+  const tbody = document.getElementById('admin-user-table-body');
+  if (!tbody) return;
+
+  if (!users || users.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">No user records found in Cloudflare D1.</td></tr>';
+    return;
+  }
+
+  let html = '';
+  users.forEach(u => {
+    const isBanned = Boolean(u.is_banned);
+    const statusBadge = isBanned 
+      ? `<span class="admin-badge-status banned">Banned</span>`
+      : `<span class="admin-badge-status active">Active</span>`;
+
+    html += `
+      <tr>
+        <td><b>${u.username || 'Commander'}</b></td>
+        <td><code style="font-size:0.75rem;">${u.id}</code></td>
+        <td>${u.master_volume}% / ${u.sfx_volume}%</td>
+        <td>${u.planning_duration}s / ${u.playback_speed}s</td>
+        <td><span style="color:#34d399; font-weight:600;">${u.wins}W</span> - <span style="color:#f87171; font-weight:600;">${u.losses}L</span></td>
+        <td>${statusBadge}</td>
+        <td>
+          <div class="admin-action-btns">
+            <button class="btn-sketch btn-xs" onclick="window.openAdminEditModal('${u.id}')">✏️ Edit</button>
+            <button class="btn-sketch btn-xs" onclick="window.toggleBanAdminUser('${u.id}', ${isBanned})">${isBanned ? '🔓 Unban' : '🚫 Ban'}</button>
+            <button class="btn-sketch btn-xs" style="color:#f87171; border-color:#f87171;" onclick="window.deleteAdminUser('${u.id}')">🗑️ Delete</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  });
+
+  tbody.innerHTML = html;
+};
+
+window.openAdminEditModal = function(id) {
+  const user = (window.gAllAdminUsers || []).find(u => u.id === id);
+  if (!user) return;
+
+  document.getElementById('edit-user-id').value = user.id;
+  document.getElementById('edit-user-username').value = user.username || '';
+  document.getElementById('edit-user-master-vol').value = user.master_volume;
+  document.getElementById('edit-user-sfx-vol').value = user.sfx_volume;
+  document.getElementById('edit-user-planning').value = user.planning_duration;
+  document.getElementById('edit-user-speed').value = user.playback_speed;
+  document.getElementById('edit-user-wins').value = user.wins;
+  document.getElementById('edit-user-losses').value = user.losses;
+  document.getElementById('edit-user-banned').value = String(Boolean(user.is_banned));
+
+  const modal = document.getElementById('admin-edit-modal');
+  if (modal) modal.style.display = 'flex';
+};
+
+window.closeAdminEditModal = function() {
+  const modal = document.getElementById('admin-edit-modal');
+  if (modal) modal.style.display = 'none';
+};
+
+window.saveAdminUserEdit = async function() {
+  const id = document.getElementById('edit-user-id').value;
+  const updates = {
+    username: document.getElementById('edit-user-username').value.trim(),
+    master_volume: Number(document.getElementById('edit-user-master-vol').value),
+    sfx_volume: Number(document.getElementById('edit-user-sfx-vol').value),
+    planning_duration: Number(document.getElementById('edit-user-planning').value),
+    playback_speed: Number(document.getElementById('edit-user-speed').value),
+    wins: Number(document.getElementById('edit-user-wins').value),
+    losses: Number(document.getElementById('edit-user-losses').value),
+    is_banned: document.getElementById('edit-user-banned').value === 'true'
+  };
+
+  try {
+    await d1Service.updateUser(id, updates);
+    window.closeAdminEditModal();
+    window.refreshAdminUserTable();
+  } catch (err) {
+    alert("Failed to update user: " + err.message);
+  }
+};
+
+window.toggleBanAdminUser = async function(id, currentBanned) {
+  try {
+    await d1Service.updateUser(id, { is_banned: !currentBanned });
+    window.refreshAdminUserTable();
+  } catch (err) {
+    alert("Failed to toggle suspension: " + err.message);
+  }
+};
+
+window.deleteAdminUser = async function(id) {
+  if (!confirm(`Are you sure you want to permanently delete user record ${id}?`)) return;
+  try {
+    await d1Service.deleteUser(id);
+    window.refreshAdminUserTable();
+  } catch (err) {
+    alert("Failed to delete user: " + err.message);
+  }
+};
+
 window.addEventListener('DOMContentLoaded', () => {
   new App();
+
+  // 1. Initial Settings Sync
+  d1Service.syncSettings().then(res => {
+    const user = d1Service.user;
+    const usernameInput = document.getElementById('input-username');
+    if (usernameInput) usernameInput.value = user.username || '';
+
+    const masterSlider = document.getElementById('slider-master-vol');
+    if (masterSlider) masterSlider.value = user.master_volume;
+    if (window.gApp && window.gApp.audio) window.gApp.audio.setMasterVolume(user.master_volume / 100);
+
+    const sfxSlider = document.getElementById('slider-sfx-vol');
+    if (sfxSlider) sfxSlider.value = user.sfx_volume;
+    if (window.gApp && window.gApp.audio) window.gApp.audio.setSFXVolume(user.sfx_volume / 100);
+
+    const timerSelect = document.getElementById('select-timer-duration');
+    if (timerSelect) timerSelect.value = user.planning_duration;
+
+    const speedSelect = document.getElementById('select-playback-duration');
+    if (speedSelect) speedSelect.value = user.playback_speed;
+
+    const badge = document.getElementById('d1-sync-badge');
+    if (badge) {
+      if (res && res.offline) {
+        badge.innerHTML = "⚡ Local Mode";
+        badge.classList.add("offline");
+      } else {
+        badge.innerHTML = "☁️ Synced to D1";
+        badge.classList.remove("offline");
+      }
+    }
+  });
+
+  // 2. Hotkey Trigger: Alt + Shift + A (or Option + Shift + A)
+  window.addEventListener('keydown', (e) => {
+    if (e.altKey && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+      e.preventDefault();
+      window.openAdminAuthModal();
+    }
+  });
+
+  // 3. Secret Logo Badge 3-Click Trigger
+  let logoClickCount = 0;
+  let logoClickTimer = null;
+  const logoBadge = document.getElementById('menu-logo-badge');
+  if (logoBadge) {
+    logoBadge.addEventListener('click', () => {
+      logoClickCount++;
+      if (logoClickTimer) clearTimeout(logoClickTimer);
+
+      if (logoClickCount >= 3) {
+        logoClickCount = 0;
+        window.openAdminAuthModal();
+      } else {
+        logoClickTimer = setTimeout(() => {
+          logoClickCount = 0;
+        }, 1000);
+      }
+    });
+  }
 });
+
