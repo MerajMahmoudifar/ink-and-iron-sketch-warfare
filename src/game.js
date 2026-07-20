@@ -3549,6 +3549,7 @@ window.updatePlaybackSpeed = function(val) {
 window.openAdminAuthModal = function() {
   const modal = document.getElementById('admin-auth-modal');
   if (modal) {
+    modal.style.zIndex = '99999';
     modal.style.display = 'flex';
     const input = document.getElementById('input-admin-passcode');
     if (input) {
@@ -3583,6 +3584,7 @@ window.submitAdminAuth = async function() {
 window.openAdminPanel = function() {
   const overlay = document.getElementById('admin-panel-overlay');
   if (overlay) {
+    overlay.style.zIndex = '99999';
     overlay.style.display = 'flex';
     window.refreshAdminUserTable();
   }

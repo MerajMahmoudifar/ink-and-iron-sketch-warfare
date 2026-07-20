@@ -1751,6 +1751,12 @@ select.btn-sketch {
 }
 
 /* Admin Modals */
+#admin-auth-modal,
+#admin-panel-overlay,
+#admin-edit-modal {
+  z-index: 99999 !important;
+}
+
 .sketch-admin-card {
   max-width: 420px;
   width: 90%;
