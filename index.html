@@ -384,7 +384,10 @@
             <input type="email" id="auth-signin-email" class="auth-input" placeholder="commander@base.com" required>
           </div>
           <div class="auth-input-group">
-            <label class="setup-label">Password</label>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label class="setup-label">Password</label>
+              <button type="button" class="auth-link-btn" style="font-size:0.7rem; color:var(--blue-300);" onclick="window.handleForgotPassword()">Forgot Password?</button>
+            </div>
             <input type="password" id="auth-signin-pass" class="auth-input" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" required>
           </div>
           <button type="submit" class="btn-sketch btn-sketch-lg victory-btn-menu auth-submit-btn">

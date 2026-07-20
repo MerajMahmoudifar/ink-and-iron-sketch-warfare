@@ -527,6 +527,7 @@ class GameEngine {
     this.listeners = [];
 
     this.spawnInitialUnits();
+    this.evaluateAutoStances();
   }
 
   spawnInitialUnits() {
@@ -840,7 +841,27 @@ class GameEngine {
 
   setUnitStance(unitId, stanceId) {
     const u = this.getUnitById(unitId);
-    if (u) u.setStance(stanceId);
+    if (u) {
+      u.setStance(stanceId);
+      u.isAmbusherHidden = (stanceId === STANCES.AMBUSH.id && this.grid[u.y][u.x].id === 'FOREST');
+    }
+  }
+
+  evaluateAutoStances() {
+    this.getAllUnits().forEach(u => {
+      if (!u.isAlive()) return;
+      const tile = this.grid[u.y][u.x];
+      if (tile.id === 'FOREST') {
+        u.stance = STANCES.AMBUSH.id;
+        u.isAmbusherHidden = true;
+      } else if (['CAPTURE_ZONE', 'MAIN_BASE', 'SUPPLY_ZONE'].includes(tile.id) || u.waypoints.length === 0) {
+        u.stance = STANCES.DEFEND.id;
+        u.isAmbusherHidden = false;
+      } else {
+        u.stance = STANCES.ADVANCE.id;
+        u.isAmbusherHidden = false;
+      }
+    });
   }
 
   getUnitPriorityScore(unit) {
@@ -943,6 +964,7 @@ class GameEngine {
           unit.targetX = nextTile.x;
           unit.targetY = nextTile.y;
           unit.hasMovedThisTurn = true;
+          this.evaluateAutoStances();
           if (this.audio && unit.owner === 1) this.audio.playMarching(unit.category === 'VEHICLE');
         } else {
           unit.waypoints = [];
@@ -1955,6 +1977,25 @@ class SketchRenderer {
     this.ctx.textBaseline = 'middle';
     this.ctx.fillText(isP1 ? 'P1' : 'AI', x + 15, y + 10.5);
 
+    // Stance Tactical Badge (🛡️ DEFEND, 🌲 AMBUSH, ⚡ ADVANCE)
+    let stanceBadgeSymbol = '⚡';
+    let stanceBadgeBg = 'rgba(37,99,235,0.85)';
+    if (unit.stance === 'DEFEND') {
+      stanceBadgeSymbol = '🛡️';
+      stanceBadgeBg = 'rgba(245,158,11,0.85)';
+    } else if (unit.stance === 'AMBUSH') {
+      stanceBadgeSymbol = '🌲';
+      stanceBadgeBg = 'rgba(22,163,74,0.85)';
+    }
+    
+    this.ctx.fillStyle = stanceBadgeBg;
+    this.ctx.fillRect(x + 48, y + 4, 18, 13);
+    this.ctx.font = '9px sans-serif';
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText(stanceBadgeSymbol, x + 57, y + 10.5);
+
     // Health Bar
     const hpBarWidth = 36;
     const hpPercent = unit.getHpPercent() / 100;
@@ -2011,17 +2052,39 @@ class UIManager {
 
     const toast = document.createElement('div');
     toast.className = 'sketch-toast';
+    toast.style.cursor = 'pointer';
     toast.innerHTML = `
-      <div>
+      <div style="flex:1;">
         <div class="sketch-toast-title">${title}</div>
         <div class="sketch-toast-desc">${message}</div>
       </div>
+      <button class="sketch-toast-dismiss" title="Dismiss">&times;</button>
     `;
+
+    const removeToast = () => {
+      if (!toast.parentNode) return;
+      toast.style.animation = 'toastFadeOut 0.2s ease-in forwards';
+      setTimeout(() => {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+      }, 180);
+    };
+
+    const dismissBtn = toast.querySelector('.sketch-toast-dismiss');
+    if (dismissBtn) {
+      dismissBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeToast();
+      });
+    }
+
+    toast.addEventListener('click', () => {
+      removeToast();
+    });
 
     container.appendChild(toast);
     setTimeout(() => {
-      if (toast.parentNode) toast.parentNode.removeChild(toast);
-    }, 3000);
+      removeToast();
+    }, 4500);
   }
 
   setupListeners() {
@@ -2381,9 +2444,20 @@ class UIManager {
       return;
     }
     const tile = engine.grid[sel.y][sel.x];
-    const unitOnTile = engine.getAllUnits().find(u => u.x === sel.x && u.y === sel.y);
+    const isTerrainView = engine.phase === 'GAME_OVER';
+    const p1Vision = isTerrainView ? Array(8).fill(null).map(() => Array(8).fill(true)) : engine.calculateVision(1);
+    const isTileVisible = p1Vision[sel.y][sel.x];
 
-    let html = `<div><h3 style="font-size:1.15rem;">Terrain: ${tile.name} (${sel.x}, ${sel.y})</h3><p style="font-size:0.85rem;">Defense: +${Math.round((tile.defenseBonus || 0) * 100)}%</p></div>`;
+    // Mask enemy units on tiles shrouded by Fog of War
+    const rawUnit = engine.getAllUnits().find(u => u.x === sel.x && u.y === sel.y && u.isAlive());
+    const unitOnTile = (rawUnit && (rawUnit.owner === 1 || isTileVisible)) ? rawUnit : null;
+
+    let html = '';
+    if (!isTileVisible && !isTerrainView) {
+      html += `<div><h3 style="font-size:1.15rem; color:var(--text-secondary);">Sector (${sel.x}, ${sel.y}) &mdash; Fog of War</h3><p style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">☁️ Sector shrouded in Fog of War. Deploy Recon units or Flares to reveal area.</p></div>`;
+    } else {
+      html += `<div><h3 style="font-size:1.15rem;">Terrain: ${tile.name} (${sel.x}, ${sel.y})</h3><p style="font-size:0.85rem;">Defense: +${Math.round((tile.defenseBonus || 0) * 100)}%</p></div>`;
+    }
     
     if (unitOnTile) {
       const isFriendly = unitOnTile.owner === 1;
@@ -2774,6 +2848,32 @@ window.handleSignInSubmit = async function(e) {
       if (window.gApp && window.gApp.ui) window.gApp.ui.showToast('Auth Success', 'Signed in as Commander!');
     } else {
       if (window.gApp && window.gApp.ui) window.gApp.ui.showToast('Auth Error', res.error);
+    }
+  }
+};
+
+window.handleForgotPassword = async function() {
+  const emailInput = document.getElementById('auth-signin-email');
+  const email = emailInput?.value?.trim();
+  
+  if (!email) {
+    if (window.gApp && window.gApp.ui) {
+      window.gApp.ui.showToast('Email Required', 'Please type your registered email address in the Email field first.');
+    }
+    emailInput?.focus();
+    return;
+  }
+
+  if (window.gAuthManager) {
+    const res = await window.gAuthManager.resetPassword(email);
+    if (res.success) {
+      if (window.gApp && window.gApp.ui) {
+        window.gApp.ui.showToast('Reset Link Sent', res.message);
+      }
+    } else {
+      if (window.gApp && window.gApp.ui) {
+        window.gApp.ui.showToast('Reset Error', res.error);
+      }
     }
   }
 };

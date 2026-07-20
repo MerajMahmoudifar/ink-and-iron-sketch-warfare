@@ -1177,6 +1177,11 @@ select.btn-sketch {
   to   { transform: translateX(0); opacity: 1; }
 }
 
+@keyframes toastFadeOut {
+  from { transform: translateX(0); opacity: 1; }
+  to   { transform: translateX(110%); opacity: 0; }
+}
+
 .sketch-toast-title {
   font-family: var(--font-display);
   font-size: 0.78rem;
@@ -1190,6 +1195,26 @@ select.btn-sketch {
   color: var(--text-secondary);
   margin-top: 2px;
   line-height: 1.35;
+}
+
+.sketch-toast-dismiss {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  font-weight: 300;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: var(--r-sm);
+  transition: all var(--t-fast);
+  flex-shrink: 0;
+  margin-left: 6px;
+}
+
+.sketch-toast-dismiss:hover {
+  color: var(--red-400);
+  background: rgba(239, 68, 68, 0.15);
 }
 
 /* ============================================

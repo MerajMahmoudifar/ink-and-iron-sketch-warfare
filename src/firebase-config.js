@@ -46,11 +46,11 @@ class AuthManager {
   async initFirebase() {
     try {
       const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js');
-      const { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut, GoogleAuthProvider, signInWithPopup } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
+      const { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut, GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
       
       this.firebaseApp = initializeApp(firebaseConfig);
       this.auth = getAuth(this.firebaseApp);
-      this.sdk = { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut, GoogleAuthProvider, signInWithPopup };
+      this.sdk = { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut, GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail };
 
       // Dynamically load Firestore and Realtime Database
       try {
@@ -234,10 +234,24 @@ class AuthManager {
     if (code.includes('weak-password')) {
       return 'Password must be at least 6 characters long.';
     }
-    if (code.includes('user-not-found') || code.includes('wrong-password') || code.includes('invalid-credential')) {
+    if (code.includes('user-not-found')) {
+      return 'No Commander account found with this email address.';
+    }
+    if (code.includes('wrong-password') || code.includes('invalid-credential')) {
       return 'Invalid email address or password.';
     }
     return e.message || 'Authentication failed.';
+  }
+
+  async resetPassword(email) {
+    if (!this.auth) return { success: false, error: 'Firebase Auth not initialized' };
+    if (!email) return { success: false, error: 'Please enter your account email address.' };
+    try {
+      await this.sdk.sendPasswordResetEmail(this.auth, email);
+      return { success: true, message: `Password reset link sent to ${email}! Check your inbox.` };
+    } catch (e) {
+      return { success: false, error: this.formatAuthError(e) };
+    }
   }
 
   async register(email, password, displayName) {
