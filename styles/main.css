@@ -1703,3 +1703,172 @@ select.btn-sketch {
   padding: 2px 8px;
   letter-spacing: 0.04em;
 }
+
+/* ==========================================================================
+   ADMIN PORTAL & CLOUDFLARE D1 STYLES
+   ========================================================================== */
+
+.setting-input {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  padding: 6px 12px;
+  border-radius: var(--r-sm);
+  font-family: inherit;
+  font-size: 0.85rem;
+  width: 200px;
+}
+
+.setting-input:focus {
+  outline: none;
+  border-color: var(--blue-400);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+}
+
+.d1-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 12px;
+}
+
+.d1-badge.offline {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+}
+
+.shortcut-hint-row {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-subtle);
+}
+
+/* Admin Modals */
+.sketch-admin-card {
+  max-width: 420px;
+  width: 90%;
+  border-left: 4px solid var(--gold-400);
+}
+
+.sketch-admin-panel-card {
+  max-width: 960px;
+  width: 95%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  border-left: 4px solid var(--blue-500);
+}
+
+.admin-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 15px;
+}
+
+.admin-auth-form .setting-input {
+  width: 100%;
+}
+
+.admin-error-text {
+  color: #f87171;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.admin-auth-btn-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.admin-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.admin-toolbar {
+  display: flex;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.admin-search-input {
+  flex: 1;
+}
+
+.admin-table-container {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 55vh;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.admin-user-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.8rem;
+}
+
+.admin-user-table th, .admin-user-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.admin-user-table th {
+  background: var(--bg-card);
+  color: var(--gold-400);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.72rem;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.admin-user-table tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.admin-badge-status {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.admin-badge-status.active {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.admin-badge-status.banned {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.admin-action-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-xs {
+  padding: 3px 8px;
+  font-size: 0.72rem;
+}
+

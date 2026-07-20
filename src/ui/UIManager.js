@@ -219,31 +219,31 @@ export class UIManager {
         if (res.success) {
           this.app.audio.playSpawnSound();
           this.log(`Recruited ${uType.name} at (${targetX}, ${targetY})`);
-        } else {
-          alert(`Cannot recruit: ${res.reason}`);
-        }
-      });
+  }
 
-      this.storeContainer.appendChild(btn);
-    });
+  updateTimerBar(ratio) {
+    if (this.timerBarFill) {
+      this.timerBarFill.style.width = `${Math.max(0, Math.min(100, ratio * 100))}%`;
+    }
   }
 
   renderInspector(engine) {
     if (!this.inspectorContent) return;
 
-    const selTile = this.app.renderer.selectedTile;
-    if (!selTile) {
-      this.inspectorContent.innerHTML = `<p class="handwriting" style="font-size:1.1rem; color:#6b7280;">Click any grid square to inspect terrain or give unit orders.</p>`;
+    const selectedTile = engine.selectedTile;
+    if (!selectedTile) {
+      this.inspectorContent.innerHTML = '<p class="text-muted">Select any grid hex to view terrain dynamics or unit directives.</p>';
       return;
     }
 
-    const tile = engine.grid[selTile.y][selTile.x];
-    const unitOnTile = engine.getAllUnits().find(u => u.x === selTile.x && u.y === selTile.y);
+    const { r, c } = selectedTile;
+    const tile = engine.grid[r][c];
+    const unitOnTile = engine.getUnitAt(r, c);
 
     let html = `
-      <div style="border-bottom: 1px dashed #9ca3af; padding-bottom: 8px;">
-        <h3 style="font-size:1.3rem;">Terrain: ${tile.name} (${tile.x}, ${tile.y})</h3>
-        <p style="font-size:0.85rem; color:#4b5563;">Defense Bonus: +${Math.round((tile.defenseBonus || 0) * 100)}%</p>
+      <div style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 6px; margin-bottom: 8px;">
+        <h4 style="color:var(--text-primary); font-size:1rem;">HEX TILE (${r}, ${c})</h4>
+        <p style="font-size:0.85rem; color:var(--text-muted);">Terrain: <b>${tile.terrain}</b></p>
       </div>
     `;
 
@@ -314,6 +314,11 @@ export class UIManager {
       const winnerName = engine.players[winnerId].name;
       document.getElementById('victory-title').textContent = `🎉 ${winnerName} Victorious!`;
       document.getElementById('victory-sub').textContent = `The enemy Main Base has been captured in Turn ${engine.turnNumber}!`;
+      if (winnerId === 1) {
+        d1Service.syncSettings({ wins: (d1Service.user.wins || 0) + 1 });
+      } else {
+        d1Service.syncSettings({ losses: (d1Service.user.losses || 0) + 1 });
+      }
     }
   }
 }
