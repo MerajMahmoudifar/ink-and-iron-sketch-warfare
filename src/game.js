@@ -73,11 +73,11 @@ const UNIT_TYPES = {
     cost: 80,
     maxHp: 80,
     attack: 55,
-    vehicleBonus: 2.2,
+    vehicleBonus: 2.5,
     moveRange: 1,
     attackRange: 2,
     visionRange: 2,
-    description: 'Slow heavy artillery crew. Devastating against enemy armor.',
+    description: 'Essential anti-armor crew. 2.5x penetration obliterates enemy tanks!',
     icon: 'ANTI-TANK',
     symbol: '⌖'
   },
@@ -437,15 +437,23 @@ class Combat {
     let baseDamage = attacker.attack;
     let counterNote = '';
 
-    if (defender.category === 'VEHICLE' && attacker.vehicleBonus > 1.0) {
-      baseDamage *= attacker.vehicleBonus;
-      counterNote = 'Heavy Anti-Tank Shell!';
-    } else if (defender.category === 'INFANTRY' && attacker.infantryBonus > 1.0) {
-      baseDamage *= attacker.infantryBonus;
-      counterNote = 'Armored Vehicle Anti-Infantry Crush!';
-    } else if (attacker.typeKey === 'RIFLEMAN' && defender.typeKey === 'ANTI_TANK') {
-      baseDamage *= 1.3;
-      counterNote = 'Riflemen Counter AT Crew!';
+    // ROCK-PAPER-SCISSORS COMBAT MATRIX
+    if (defender.category === 'VEHICLE') {
+      if (attacker.typeKey === 'ANTI_TANK') {
+        baseDamage *= 2.5; // Heavy Anti-Tank Armor Penetration (Obliterates armor in 1-2 hits!)
+        counterNote = 'Heavy Anti-Tank Penetration (2.5x Dmg)!';
+      } else if (attacker.category === 'INFANTRY') {
+        baseDamage *= 0.50; // Small-arms bullets bounce off vehicle armor plating!
+        counterNote = 'Small-Arms Deflected by Armor (50% Dmg)!';
+      }
+    } else if (defender.category === 'INFANTRY') {
+      if (attacker.category === 'VEHICLE') {
+        baseDamage *= 1.5; // Armored vehicle machine guns & cannons crush infantry!
+        counterNote = 'Armored Vehicle Anti-Infantry Crush (1.5x Dmg)!';
+      } else if (attacker.typeKey === 'RIFLEMAN' && defender.typeKey === 'ANTI_TANK') {
+        baseDamage *= 1.5; // Riflemen flank slow static AT crews!
+        counterNote = 'Riflemen Flank AT Crew (1.5x Dmg)!';
+      }
     }
 
     let isAmbushStrike = false;
@@ -1218,11 +1226,11 @@ class CommanderAI {
     const humanPlayer = engine.players[1];
     if (!aiPlayer) return;
 
-    // 1. Dynamic Counter Recruitment
+    // 1. Dynamic Counter & Doctrine Recruitment
     this.buyUnitsAI(engine, difficulty, personality);
 
-    // 2. Honest Fog of War Ability Usage
-    this.useAbilitiesAI(engine, difficulty);
+    // 2. Honest Fog of War Ability Usage based on Doctrine
+    this.useAbilitiesAI(engine, difficulty, personality);
 
     // 3. Dynamic Strategic Evaluation (Force Balance & Tactical State)
     const aiVision = engine.calculateVision(2);
@@ -1260,34 +1268,60 @@ class CommanderAI {
 
       const isSittingOnBase = (unit.x === aiPlayer.basePos.x && unit.y === aiPlayer.basePos.y);
 
-      // LOW HP TACTICAL PRESERVATION
-      if (unit.getHpPercent() < 30 && macroStrategy !== 'OFFENSIVE_ASSAULT' && !isSittingOnBase) {
+      // LOW HP TACTICAL PRESERVATION (Skip preservation for Blitzkrieg aggressive raiders)
+      if (unit.getHpPercent() < 30 && macroStrategy !== 'OFFENSIVE_ASSAULT' && personality !== 'BLITZKRIEG' && !isSittingOnBase) {
         const forestTile = this.findNearbyForest(engine, unit);
         const safeTarget = forestTile || aiPlayer.basePos;
         this.executeOrder(engine, unit, safeTarget);
         return;
       }
 
-      if (difficulty === 'RECRUIT') {
-        const target = this.findUnownedZoneOrEnemyBase(engine, unit, humanPlayer);
-        this.executeOrder(engine, unit, target);
-      } else if (macroStrategy === 'OFFENSIVE_ASSAULT') {
-        const targetUnit = this.findBestCombatTarget(unit, visibleHumanUnits);
-        if (targetUnit) {
-          this.executeOrder(engine, unit, { x: targetUnit.x, y: targetUnit.y });
-        } else {
-          this.executeOrder(engine, unit, humanPlayer.basePos);
-        }
-      } else {
-        // BALANCED / DEFENSIVE: Always march to unowned capture zones to claim map control & clear base
+      // DOCTRINE SPECIFIC MOVEMENT BEHAVIOR
+      if (personality === 'BLITZKRIEG') {
+        // BLITZKRIEG DOCTRINE: Relentless mobility, direct rush on human base & supply zones
+        unit.setStance(STANCES.ADVANCE.id); // Max speed
         const closestVisibleEnemy = this.findClosestVisibleEnemy(unit, visibleHumanUnits);
-        const distToEnemy = closestVisibleEnemy ? Math.max(Math.abs(unit.x - closestVisibleEnemy.x), Math.abs(unit.y - closestVisibleEnemy.y)) : 999;
-        
-        if (distToEnemy <= unit.attackRange + 1 && !isSittingOnBase) {
+        if (closestVisibleEnemy && (unit.category === 'VEHICLE' || unit.typeKey === 'SCOUT')) {
+          // Fast raiders flank or strike directly
           this.executeOrder(engine, unit, { x: closestVisibleEnemy.x, y: closestVisibleEnemy.y });
         } else {
+          // Rush furthest supply zone or human base
+          this.executeOrder(engine, unit, humanPlayer.basePos);
+        }
+      } else if (personality === 'FORTRESS') {
+        // FORTRESS DOCTRINE: Secure supply zone chokes and hold position with DEFEND stance
+        const ownedOrNeutralZone = this.findClosestZone(engine, unit) || aiPlayer.basePos;
+        const distToZone = Math.max(Math.abs(unit.x - ownedOrNeutralZone.x), Math.abs(unit.y - ownedOrNeutralZone.y));
+
+        if (distToZone === 0) {
+          // Already holding choke point: lock down in DEFEND stance
+          unit.setStance(STANCES.DEFEND.id);
+          this.executeOrder(engine, unit, { x: unit.x, y: unit.y });
+        } else {
+          this.executeOrder(engine, unit, ownedOrNeutralZone);
+        }
+      } else {
+        // TACTICUS DOCTRINE (Balanced Mastermind)
+        if (difficulty === 'RECRUIT') {
           const target = this.findUnownedZoneOrEnemyBase(engine, unit, humanPlayer);
           this.executeOrder(engine, unit, target);
+        } else if (macroStrategy === 'OFFENSIVE_ASSAULT') {
+          const targetUnit = this.findBestCombatTarget(unit, visibleHumanUnits);
+          if (targetUnit) {
+            this.executeOrder(engine, unit, { x: targetUnit.x, y: targetUnit.y });
+          } else {
+            this.executeOrder(engine, unit, humanPlayer.basePos);
+          }
+        } else {
+          const closestVisibleEnemy = this.findClosestVisibleEnemy(unit, visibleHumanUnits);
+          const distToEnemy = closestVisibleEnemy ? Math.max(Math.abs(unit.x - closestVisibleEnemy.x), Math.abs(unit.y - closestVisibleEnemy.y)) : 999;
+          
+          if (distToEnemy <= unit.attackRange + 1 && !isSittingOnBase) {
+            this.executeOrder(engine, unit, { x: closestVisibleEnemy.x, y: closestVisibleEnemy.y });
+          } else {
+            const target = this.findUnownedZoneOrEnemyBase(engine, unit, humanPlayer);
+            this.executeOrder(engine, unit, target);
+          }
         }
       }
     });
@@ -1337,7 +1371,6 @@ class CommanderAI {
     const aiVision = engine.calculateVision(2);
     const visibleHumanUnits = engine.players[1].units.filter(u => u.isAlive() && (difficulty === 'RECRUIT' ? true : aiVision[u.y][u.x]));
 
-    // Count player visible unit categories for counter-recruitment
     let humanVehicleCount = 0;
     let humanInfantryCount = 0;
     let humanATCount = 0;
@@ -1349,23 +1382,48 @@ class CommanderAI {
     });
 
     let targetType = 'RIFLEMAN';
-    if (difficulty === 'RECRUIT') {
-      const types = ['RIFLEMAN', 'SCOUT', 'LIGHT_VEHICLE'];
-      targetType = types[Math.floor(Math.random() * types.length)];
-    } else {
-      // Smart Counter-Recruitment logic for Veteran & General
-      if (humanVehicleCount > 0 && ai.ink >= UNIT_TYPES.ANTI_TANK.cost) {
-        targetType = 'ANTI_TANK'; // Hard counter to player armor
-      } else if (humanATCount > 0 && ai.ink >= UNIT_TYPES.RIFLEMAN.cost) {
-        targetType = 'RIFLEMAN'; // Hard counter to AT crew
-      } else if (ai.faction.id === 'IRON_CORPS' && ai.ink >= UNIT_TYPES.HEAVY_SIEGE_TANK.cost) {
-        targetType = 'HEAVY_SIEGE_TANK';
+
+    if (personality === 'BLITZKRIEG') {
+      // BLITZKRIEG DOCTRINE: Favor high mobility raiders
+      if (humanVehicleCount >= 2 && ai.ink >= UNIT_TYPES.ANTI_TANK.cost) {
+        targetType = 'ANTI_TANK';
       } else if (ai.faction.id === 'VANGUARD_LEGION' && ai.ink >= UNIT_TYPES.BLITZ_RECON.cost) {
         targetType = 'BLITZ_RECON';
-      } else if (humanInfantryCount > 1 && ai.ink >= UNIT_TYPES.LIGHT_VEHICLE.cost) {
+      } else if (ai.ink >= UNIT_TYPES.LIGHT_VEHICLE.cost && Math.random() > 0.3) {
         targetType = 'LIGHT_VEHICLE';
       } else {
-        targetType = Math.random() > 0.5 ? 'RIFLEMAN' : 'SCOUT';
+        targetType = 'SCOUT';
+      }
+    } else if (personality === 'FORTRESS') {
+      // FORTRESS DOCTRINE: Favor heavy armored siege & defensive crews
+      if (ai.faction.id === 'IRON_CORPS' && ai.ink >= UNIT_TYPES.HEAVY_SIEGE_TANK.cost) {
+        targetType = 'HEAVY_SIEGE_TANK';
+      } else if (humanVehicleCount > 0 && ai.ink >= UNIT_TYPES.ANTI_TANK.cost) {
+        targetType = 'ANTI_TANK';
+      } else if (ai.ink >= UNIT_TYPES.RIFLEMAN.cost) {
+        targetType = 'RIFLEMAN';
+      } else {
+        targetType = 'ANTI_TANK';
+      }
+    } else {
+      // TACTICUS DOCTRINE: Balanced Counter-Recruitment
+      if (difficulty === 'RECRUIT') {
+        const types = ['RIFLEMAN', 'SCOUT', 'LIGHT_VEHICLE'];
+        targetType = types[Math.floor(Math.random() * types.length)];
+      } else {
+        if (humanVehicleCount > 0 && ai.ink >= UNIT_TYPES.ANTI_TANK.cost) {
+          targetType = 'ANTI_TANK';
+        } else if (humanATCount > 0 && ai.ink >= UNIT_TYPES.RIFLEMAN.cost) {
+          targetType = 'RIFLEMAN';
+        } else if (ai.faction.id === 'IRON_CORPS' && ai.ink >= UNIT_TYPES.HEAVY_SIEGE_TANK.cost) {
+          targetType = 'HEAVY_SIEGE_TANK';
+        } else if (ai.faction.id === 'VANGUARD_LEGION' && ai.ink >= UNIT_TYPES.BLITZ_RECON.cost) {
+          targetType = 'BLITZ_RECON';
+        } else if (humanInfantryCount > 1 && ai.ink >= UNIT_TYPES.LIGHT_VEHICLE.cost) {
+          targetType = 'LIGHT_VEHICLE';
+        } else {
+          targetType = Math.random() > 0.5 ? 'RIFLEMAN' : 'SCOUT';
+        }
       }
     }
 
@@ -1375,20 +1433,33 @@ class CommanderAI {
     }
   }
 
-  static useAbilitiesAI(engine, difficulty) {
+  static useAbilitiesAI(engine, difficulty, personality) {
     const ai = engine.players[2];
     const aiVision = engine.calculateVision(2);
     const visibleHumanUnits = engine.players[1].units.filter(u => u.isAlive() && (difficulty === 'RECRUIT' ? true : aiVision[u.y][u.x]));
 
-    if (difficulty === 'RECRUIT') {
+    if (personality === 'FORTRESS') {
+      // FORTRESS: Prioritize heavy Artillery on human clusters near chokes
       if (ai.cp >= 4 && visibleHumanUnits.length > 0) {
-        const target = visibleHumanUnits[0];
-        engine.useAbility(2, 'ARTILLERY_STRIKE', target.x, target.y);
+        let bestTarget = visibleHumanUnits[0];
+        let maxHits = 0;
+        visibleHumanUnits.forEach(u => {
+          const hits = visibleHumanUnits.filter(other => Math.abs(other.x - u.x) <= 1 && Math.abs(other.y - u.y) <= 1).length;
+          if (hits > maxHits) { maxHits = hits; bestTarget = u; }
+        });
+        engine.useAbility(2, 'ARTILLERY_STRIKE', bestTarget.x, bestTarget.y);
+        return;
       }
-      return;
+    } else if (personality === 'BLITZKRIEG') {
+      // BLITZKRIEG: Use Smoke Screen to blind player base defenders and bypass killzones
+      if (ai.cp >= 3) {
+        const p1Base = engine.p1Base;
+        engine.useAbility(2, 'SMOKE_SCREEN', p1Base.x, p1Base.y);
+        return;
+      }
     }
 
-    // Veteran & General: Strategic Ability Execution
+    // Standard Ability Execution for Tacticus / Fallback
     if (ai.cp >= 4 && visibleHumanUnits.length > 0) {
       let bestTarget = visibleHumanUnits[0];
       let maxHits = 0;
@@ -1397,19 +1468,7 @@ class CommanderAI {
         if (hits > maxHits) { maxHits = hits; bestTarget = u; }
       });
       engine.useAbility(2, 'ARTILLERY_STRIKE', bestTarget.x, bestTarget.y);
-    } else if (ai.cp >= 3 && difficulty === 'GENERAL') {
-      const aiZones = [];
-      for (let r = 0; r < 8; r++) {
-        for (let c = 0; c < 8; c++) {
-          if (engine.grid[r][c].id === 'CAPTURE_ZONE' && engine.grid[r][c].owner === 2) {
-            aiZones.push({ x: c, y: r });
-          }
-        }
-      }
-      if (aiZones.length > 0) {
-        engine.useAbility(2, 'SMOKE_SCREEN', aiZones[0].x, aiZones[0].y);
-      }
-    } else if (ai.cp >= 2) {
+    } else if (ai.cp >= 2 && difficulty !== 'RECRUIT') {
       const p1Base = engine.p1Base;
       if (!aiVision[p1Base.y][p1Base.x]) {
         engine.useAbility(2, 'RECON_FLARE', p1Base.x, p1Base.y);
