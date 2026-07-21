@@ -3482,7 +3482,7 @@ const d1Service = {
   },
 
   getAdminAuthHeader() {
-    const passcode = sessionStorage.getItem(this.adminTokenKey) || "admin123";
+    const passcode = sessionStorage.getItem(this.adminTokenKey) || "meraj7782";
     return {
       'Authorization': `Bearer ${passcode}`,
       'Content-Type': 'application/json'
