@@ -1,0 +1,606 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Ink & Iron: Sketch Warfare API Specification",
+    "description": "API endpoints for the turn-based tactical strategy game, including public commander sync, real-time system announcements, and administrator commands for player moderation and dashboard analytics.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://ink-and-iron-sketch-warfare.pages.dev",
+      "description": "Production Cloudflare Pages Edge Server"
+    }
+  ],
+  "paths": {
+    "/api/user/sync": {
+      "post": {
+        "summary": "Synchronize Commander Profile & Settings",
+        "description": "Registers a new player profile or synchronizes existing settings (volume, turn timer, animation speed, wins/losses, and last_online timestamp) to Cloudflare D1.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserSyncRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Synchronization successful, returns full updated user profile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserSyncResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden. User account has been suspended / banned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server or database error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/announcement": {
+      "get": {
+        "summary": "Get Active System Announcement Banner",
+        "description": "Polls the active global system announcement ticker banner for display on player UI.",
+        "responses": {
+          "200": {
+            "description": "Active announcement object (or null if none exists).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnouncementResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/login": {
+      "post": {
+        "summary": "Admin Portal Authentication",
+        "description": "Validates the admin passcode against expected key ('meraj7782') and generates a session authorization token.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "passcode": {
+                    "type": "string",
+                    "example": "meraj7782"
+                  }
+                },
+                "required": ["passcode"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication successful.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "authenticated": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "token": {
+                      "type": "string",
+                      "example": "admin_authenticated_session"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid admin passcode.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/stats": {
+      "get": {
+        "summary": "Fetch Dashboard Metrics",
+        "description": "Calculates real-time statistics including total registered commanders, active users today, online now, and global matches.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dashboard overview stats.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminStatsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized access."
+          }
+        }
+      }
+    },
+    "/api/admin/announcement": {
+      "post": {
+        "summary": "Broadcast or Clear Announcement Banner",
+        "description": "Creates a new system announcement banner message to broadcast to all players, or clears the currently active banner.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "message": {
+                    "type": "string",
+                    "example": "Server maintenance at 00:00 UTC."
+                  },
+                  "active": {
+                    "type": "boolean",
+                    "example": true
+                  }
+                },
+                "required": ["message", "active"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Banner broadcast state updated successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "announcement": {
+                      "$ref": "#/components/schemas/Announcement"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized access."
+          }
+        }
+      }
+    },
+    "/api/admin/users": {
+      "get": {
+        "summary": "List All Registered Commanders",
+        "description": "Retrieves the list of all player records in Cloudflare D1 database, ordered by latest update time.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of registered user profiles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "users": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/UserProfile"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized access."
+          }
+        }
+      }
+    },
+    "/api/admin/users/{id}": {
+      "put": {
+        "summary": "Modify User Record",
+        "description": "Updates a specific player's profile stats, settings, email, rank, or account ban status.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Unique User ID / Firebase UID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User updated successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "user": {
+                      "$ref": "#/components/schemas/UserProfile"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized access."
+          },
+          "404": {
+            "description": "User record not found."
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete User Record",
+        "description": "Permanently deletes a player's record from the Cloudflare D1 database.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Unique User ID / Firebase UID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User record deleted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "User usr_abc123 deleted"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized access."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Enter the active Admin Passcode (e.g. 'meraj7782') to authenticate requests."
+      }
+    },
+    "schemas": {
+      "UserSyncRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "wZJGUsCzKMc2BweuP0w7iNFiqU42"
+          },
+          "username": {
+            "type": "string",
+            "example": "Meraj Mahmoudifar"
+          },
+          "email": {
+            "type": "string",
+            "example": "meraj2.mm@gmail.com"
+          },
+          "master_volume": {
+            "type": "integer",
+            "example": 80
+          },
+          "sfx_volume": {
+            "type": "integer",
+            "example": 100
+          },
+          "audio_muted": {
+            "type": "boolean",
+            "example": false
+          },
+          "planning_duration": {
+            "type": "integer",
+            "example": 20
+          },
+          "playback_speed": {
+            "type": "integer",
+            "example": 3
+          },
+          "wins": {
+            "type": "integer",
+            "example": 6
+          },
+          "losses": {
+            "type": "integer",
+            "example": 14
+          }
+        },
+        "required": ["id"]
+      },
+      "UserSyncResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserProfile"
+          }
+        }
+      },
+      "UserUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "example": "Commander"
+          },
+          "email": {
+            "type": "string",
+            "example": "commander@example.com"
+          },
+          "master_volume": {
+            "type": "integer",
+            "example": 90
+          },
+          "sfx_volume": {
+            "type": "integer",
+            "example": 90
+          },
+          "planning_duration": {
+            "type": "integer",
+            "example": 25
+          },
+          "playback_speed": {
+            "type": "integer",
+            "example": 4
+          },
+          "wins": {
+            "type": "integer",
+            "example": 10
+          },
+          "losses": {
+            "type": "integer",
+            "example": 5
+          },
+          "is_banned": {
+            "type": "boolean",
+            "example": false
+          }
+        }
+      },
+      "UserProfile": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "wZJGUsCzKMc2BweuP0w7iNFiqU42"
+          },
+          "username": {
+            "type": "string",
+            "example": "Meraj Mahmoudifar"
+          },
+          "email": {
+            "type": "string",
+            "example": "meraj2.mm@gmail.com"
+          },
+          "master_volume": {
+            "type": "integer",
+            "example": 80
+          },
+          "sfx_volume": {
+            "type": "integer",
+            "example": 100
+          },
+          "audio_muted": {
+            "type": "integer",
+            "example": 0
+          },
+          "planning_duration": {
+            "type": "integer",
+            "example": 20
+          },
+          "playback_speed": {
+            "type": "integer",
+            "example": 3
+          },
+          "wins": {
+            "type": "integer",
+            "example": 6
+          },
+          "losses": {
+            "type": "integer",
+            "example": 14
+          },
+          "is_banned": {
+            "type": "integer",
+            "example": 0
+          },
+          "last_online": {
+            "type": "string",
+            "example": "2026-07-21 16:42:00"
+          },
+          "created_at": {
+            "type": "string",
+            "example": "2026-07-20 18:30:00"
+          },
+          "updated_at": {
+            "type": "string",
+            "example": "2026-07-21 16:42:00"
+          }
+        }
+      },
+      "Announcement": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "message": {
+            "type": "string",
+            "example": "Server maintenance at 00:00 UTC."
+          },
+          "active": {
+            "type": "integer",
+            "example": 1
+          },
+          "created_at": {
+            "type": "string",
+            "example": "2026-07-21 15:30:00"
+          }
+        }
+      },
+      "AnnouncementResponse": {
+        "type": "object",
+        "properties": {
+          "announcement": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Announcement"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "AdminStatsResponse": {
+        "type": "object",
+        "properties": {
+          "total_users": {
+            "type": "integer",
+            "example": 150
+          },
+          "active_24h": {
+            "type": "integer",
+            "example": 35
+          },
+          "online_now": {
+            "type": "integer",
+            "example": 4
+          },
+          "total_matches": {
+            "type": "integer",
+            "example": 640
+          },
+          "total_wins": {
+            "type": "integer",
+            "example": 640
+          },
+          "total_losses": {
+            "type": "integer",
+            "example": 640
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "example": "Invalid passcode or Database binding missing"
+          },
+          "is_banned": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      }
+    }
+  }
+}
