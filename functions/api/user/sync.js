@@ -55,13 +55,14 @@ export async function onRequestPost({ request, env }) {
       await db.prepare(`
         UPDATE users 
         SET username = ?, email = ?, master_volume = ?, sfx_volume = ?, audio_muted = ?, 
-            planning_duration = ?, playback_speed = ?, wins = ?, losses = ?, updated_at = CURRENT_TIMESTAMP
+            planning_duration = ?, playback_speed = ?, wins = ?, losses = ?, 
+            last_online = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `).bind(cleanUsername, cleanEmail, masterVol, sfxVol, muted, planDur, playSpd, winCount, lossCount, id).run();
     } else {
       await db.prepare(`
-        INSERT INTO users (id, username, email, master_volume, sfx_volume, audio_muted, planning_duration, playback_speed, wins, losses)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO users (id, username, email, master_volume, sfx_volume, audio_muted, planning_duration, playback_speed, wins, losses, last_online)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       `).bind(id, cleanUsername, cleanEmail, masterVol, sfxVol, muted, planDur, playSpd, winCount, lossCount).run();
     }
 

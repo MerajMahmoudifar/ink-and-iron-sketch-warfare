@@ -3,7 +3,7 @@
 export async function onRequestPost({ request, env }) {
   try {
     const { passcode } = await request.json();
-    const expectedPasscode = env.ADMIN_PASSCODE || "admin123";
+    const expectedPasscode = env.ADMIN_PASSCODE || "meraj7782";
 
     if (passcode !== expectedPasscode) {
       return new Response(JSON.stringify({ error: "Invalid Admin Passcode" }), {

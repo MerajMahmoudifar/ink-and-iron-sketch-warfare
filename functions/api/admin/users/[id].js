@@ -2,7 +2,7 @@
 
 function verifyAdminAuth(request, env) {
   const authHeader = request.headers.get("Authorization");
-  const expectedPasscode = env.ADMIN_PASSCODE || "admin123";
+  const expectedPasscode = env.ADMIN_PASSCODE || "meraj7782";
   if (authHeader === `Bearer ${expectedPasscode}` || authHeader === "Bearer admin_authenticated_session") {
     return true;
   }

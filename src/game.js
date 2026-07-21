@@ -3618,12 +3618,29 @@ window.filterAdminUserTable = function(query) {
   window.renderAdminUserTable(filtered);
 };
 
+window.formatTimeAgo = function(dateStr) {
+  if (!dateStr) return 'Unknown';
+  try {
+    const normalized = dateStr.includes('T') ? dateStr : dateStr.replace(' ', 'T') + 'Z';
+    const date = new Date(normalized);
+    if (isNaN(date.getTime())) return dateStr;
+    const diffSeconds = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (diffSeconds < 60) return 'Just now';
+    if (diffSeconds < 3600) return `${Math.floor(diffSeconds / 60)}m ago`;
+    if (diffSeconds < 86400) return `${Math.floor(diffSeconds / 3600)}h ago`;
+    if (diffSeconds < 2592000) return `${Math.floor(diffSeconds / 86400)}d ago`;
+    return date.toLocaleDateString();
+  } catch(e) {
+    return dateStr;
+  }
+};
+
 window.renderAdminUserTable = function(users) {
   const tbody = document.getElementById('admin-user-table-body');
   if (!tbody) return;
 
   if (!users || users.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">No user records found in Cloudflare D1.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">No user records found in Cloudflare D1.</td></tr>';
     return;
   }
 
@@ -3633,6 +3650,7 @@ window.renderAdminUserTable = function(users) {
     const statusBadge = isBanned 
       ? `<span class="admin-badge-status banned">Banned</span>`
       : `<span class="admin-badge-status active">Active</span>`;
+    const lastOnlineStr = window.formatTimeAgo(u.last_online || u.updated_at);
 
     html += `
       <tr>
@@ -3644,6 +3662,7 @@ window.renderAdminUserTable = function(users) {
         <td>${u.master_volume}% / ${u.sfx_volume}%</td>
         <td>${u.planning_duration}s / ${u.playback_speed}s</td>
         <td><span style="color:#34d399; font-weight:600;">${u.wins}W</span> - <span style="color:#f87171; font-weight:600;">${u.losses}L</span></td>
+        <td><span style="font-size:0.8rem; color:var(--text-secondary);">${lastOnlineStr}</span></td>
         <td>${statusBadge}</td>
         <td>
           <div class="admin-action-btns">
