@@ -3818,21 +3818,34 @@ window.checkUserBannedState = function(userObj) {
   const u = userObj || (window.d1Service ? window.d1Service.user : null);
   if (!u) return false;
   const isBanned = Boolean(u.is_banned);
+  const modal = document.getElementById('banned-account-modal');
+  const topBanner = document.getElementById('banned-persistent-banner');
+  const deployBtn = document.getElementById('btn-start-game');
+
   if (isBanned) {
-    const modal = document.getElementById('banned-account-modal');
+    if (topBanner) topBanner.style.display = 'flex';
     if (modal) {
       modal.style.zIndex = '100000';
       modal.style.display = 'flex';
     }
-    const deployBtn = document.getElementById('btn-start-game');
     if (deployBtn) {
       deployBtn.disabled = true;
       deployBtn.style.opacity = '0.4';
       deployBtn.style.cursor = 'not-allowed';
+      deployBtn.title = "Account Suspended";
     }
     return true;
+  } else {
+    if (topBanner) topBanner.style.display = 'none';
+    if (modal) modal.style.display = 'none';
+    if (deployBtn) {
+      deployBtn.disabled = false;
+      deployBtn.style.opacity = '1';
+      deployBtn.style.cursor = 'pointer';
+      deployBtn.title = "";
+    }
+    return false;
   }
-  return false;
 };
 
 window.toggleBanAdminUser = async function(id, currentBanned) {
