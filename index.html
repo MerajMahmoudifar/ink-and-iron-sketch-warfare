@@ -11,6 +11,13 @@
 
   <div id="app-wrapper">
 
+    <!-- SYSTEM ANNOUNCEMENT BANNER -->
+    <div id="system-announcement-banner" class="announcement-banner-ticker" style="display: none;">
+      <span class="announcement-badge">ANNOUNCEMENT</span>
+      <span id="announcement-banner-text" class="announcement-text"></span>
+      <button class="announcement-close-btn" onclick="document.getElementById('system-announcement-banner').style.display='none'">✕</button>
+    </div>
+
     <!-- Toast Notification Container -->
     <div id="sketch-toast-container" class="sketch-toast-container"></div>
 
@@ -712,6 +719,33 @@
           <button class="btn-sketch btn-sm" onclick="window.closeAdminPanel()">✕ Close</button>
         </header>
 
+        <!-- Admin Overview Dashboard Metrics -->
+        <div class="admin-stats-grid">
+          <div class="admin-stat-card">
+            <span id="admin-stat-total-users" class="stat-value">0</span>
+            <span class="stat-label">Total Commanders</span>
+          </div>
+          <div class="admin-stat-card">
+            <span id="admin-stat-active-24h" class="stat-value">0</span>
+            <span class="stat-label">Active Today (24h)</span>
+          </div>
+          <div class="admin-stat-card">
+            <span id="admin-stat-online-now" class="stat-value">0</span>
+            <span class="stat-label">Online Now</span>
+          </div>
+          <div class="admin-stat-card">
+            <span id="admin-stat-total-matches" class="stat-value">0</span>
+            <span class="stat-label">Total Matches</span>
+          </div>
+        </div>
+
+        <!-- Announcement Broadcast Bar -->
+        <div class="admin-broadcast-row">
+          <input type="text" id="input-broadcast-message" class="btn-sketch setting-input admin-broadcast-input" placeholder="Type system announcement banner message...">
+          <button class="btn-sketch btn-accent" onclick="window.broadcastAdminAnnouncement()">Broadcast Banner</button>
+          <button class="btn-sketch" onclick="window.clearAdminAnnouncement()">Clear Banner</button>
+        </div>
+
         <div class="admin-toolbar">
           <input type="text" id="input-admin-search" class="btn-sketch setting-input admin-search-input" placeholder="Search handle or User ID..." oninput="window.filterAdminUserTable(this.value)">
           <button class="btn-sketch" onclick="window.refreshAdminUserTable()">Refresh</button>
@@ -754,6 +788,18 @@
           <div class="setting-row">
             <span>Email Address:</span>
             <input type="email" id="edit-user-email" class="btn-sketch setting-input" placeholder="user@example.com">
+          </div>
+          <div class="setting-row">
+            <span>Commander Rank:</span>
+            <select id="edit-user-rank" class="btn-sketch setting-select">
+              <option value="Recruit">Recruit</option>
+              <option value="Corporal">Corporal</option>
+              <option value="Sergeant">Sergeant</option>
+              <option value="Lieutenant">Lieutenant</option>
+              <option value="Captain">Captain</option>
+              <option value="Colonel">Colonel</option>
+              <option value="General">General</option>
+            </select>
           </div>
           <div class="setting-row">
             <span>Master Volume (0-100):</span>

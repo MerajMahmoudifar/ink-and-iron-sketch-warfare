@@ -3589,12 +3589,88 @@ window.openAdminPanel = function() {
     overlay.style.zIndex = '99999';
     overlay.style.display = 'flex';
     window.refreshAdminUserTable();
+    window.fetchAdminDashboardStats();
   }
 };
 
 window.closeAdminPanel = function() {
   const overlay = document.getElementById('admin-panel-overlay');
   if (overlay) overlay.style.display = 'none';
+};
+
+window.fetchAdminDashboardStats = async function() {
+  try {
+    const res = await fetch('/api/admin/stats', {
+      headers: d1Service.getAdminAuthHeader()
+    });
+    if (res.ok) {
+      const stats = await res.json();
+      const elTotal = document.getElementById('admin-stat-total-users');
+      const el24h = document.getElementById('admin-stat-active-24h');
+      const elOnline = document.getElementById('admin-stat-online-now');
+      const elMatches = document.getElementById('admin-stat-total-matches');
+
+      if (elTotal) elTotal.textContent = stats.total_users || 0;
+      if (el24h) el24h.textContent = stats.active_24h || 0;
+      if (elOnline) elOnline.textContent = stats.online_now || 0;
+      if (elMatches) elMatches.textContent = stats.total_matches || 0;
+    }
+  } catch(e){}
+};
+
+window.broadcastAdminAnnouncement = async function() {
+  const input = document.getElementById('input-broadcast-message');
+  const msg = input ? input.value.trim() : '';
+  if (!msg) { alert("Please type an announcement message."); return; }
+
+  try {
+    const res = await fetch('/api/admin/announcement', {
+      method: 'POST',
+      headers: d1Service.getAdminAuthHeader(),
+      body: JSON.stringify({ message: msg, active: true })
+    });
+    if (res.ok) {
+      alert("System Announcement Banner Broadcasted!");
+      if (input) input.value = '';
+      window.fetchPublicAnnouncement();
+    } else {
+      const err = await res.json();
+      alert("Broadcast Error: " + (err.error || 'Failed to broadcast'));
+    }
+  } catch(e) {
+    alert("Broadcast Error: " + e.message);
+  }
+};
+
+window.clearAdminAnnouncement = async function() {
+  try {
+    const res = await fetch('/api/admin/announcement', {
+      method: 'POST',
+      headers: d1Service.getAdminAuthHeader(),
+      body: JSON.stringify({ message: '', active: false })
+    });
+    if (res.ok) {
+      alert("System Announcement Banner Cleared!");
+      window.fetchPublicAnnouncement();
+    }
+  } catch(e){}
+};
+
+window.fetchPublicAnnouncement = async function() {
+  try {
+    const res = await fetch('/api/announcement');
+    if (res.ok) {
+      const data = await res.json();
+      const banner = document.getElementById('system-announcement-banner');
+      const text = document.getElementById('announcement-banner-text');
+      if (data.announcement && data.announcement.message) {
+        if (text) text.textContent = data.announcement.message;
+        if (banner) banner.style.display = 'flex';
+      } else {
+        if (banner) banner.style.display = 'none';
+      }
+    }
+  } catch(e){}
 };
 
 window.refreshAdminUserTable = async function() {
@@ -3748,6 +3824,8 @@ window.deleteAdminUser = async function(id) {
 
 window.addEventListener('DOMContentLoaded', () => {
   new App();
+
+  window.fetchPublicAnnouncement();
 
   // 1. Initial Settings & Profile Sync
   const authProf = (window.gAuth && window.gAuth.profile) ? window.gAuth.profile : null;
