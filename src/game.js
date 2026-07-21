@@ -3449,6 +3449,9 @@ const d1Service = {
             audio_muted: Boolean(data.user.audio_muted),
             is_banned: Boolean(data.user.is_banned)
           });
+          if (data.user.is_banned) {
+            window.checkUserBannedState(data.user);
+          }
         }
         return { success: true, user: this.user };
       } else if (res.status === 403) {
@@ -3456,6 +3459,7 @@ const d1Service = {
         if (data.is_banned) {
           this.user.is_banned = true;
           this.saveLocalUser(this.user);
+          window.checkUserBannedState(this.user);
           return { success: false, is_banned: true };
         }
       }
@@ -3803,10 +3807,35 @@ window.saveAdminUserEdit = async function() {
   }
 };
 
+window.checkUserBannedState = function(user) {
+  if (!user) return false;
+  const isBanned = Boolean(user.is_banned);
+  if (isBanned) {
+    const modal = document.getElementById('banned-account-modal');
+    if (modal) {
+      modal.style.zIndex = '100000';
+      modal.style.display = 'flex';
+    }
+    const startBtns = document.querySelectorAll('#btn-start-skirmish, #btn-find-match, #btn-pass-play, .btn-start-game');
+    startBtns.forEach(btn => btn.disabled = true);
+    return true;
+  }
+  return false;
+};
+
 window.toggleBanAdminUser = async function(id, currentBanned) {
   try {
-    await d1Service.updateUser(id, { is_banned: !currentBanned });
+    const newBannedState = !currentBanned;
+    await d1Service.updateUser(id, { is_banned: newBannedState });
+    alert(`Account ${newBannedState ? 'SUSPENDED / BANNED' : 'UNBANNED / ALLOWED'} successfully.`);
     window.refreshAdminUserTable();
+    window.fetchAdminDashboardStats();
+
+    // If current logged in user was banned, enforce ban overlay immediately
+    if (d1Service.user && (d1Service.user.id === id || (window.gAuth && window.gAuth.user && window.gAuth.user.uid === id))) {
+      d1Service.user.is_banned = newBannedState;
+      window.checkUserBannedState(d1Service.user);
+    }
   } catch (err) {
     alert("Failed to toggle suspension: " + err.message);
   }
