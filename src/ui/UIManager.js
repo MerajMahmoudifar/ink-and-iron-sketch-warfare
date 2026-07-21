@@ -63,13 +63,17 @@ export class UIManager {
   }
 
   setupAdminShortcut() {
-    // Hotkey Trigger: Alt + Shift + A (or Option + Shift + A)
-    window.addEventListener('keydown', (e) => {
-      if (e.altKey && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+    const triggerAdmin = (e) => {
+      const isKeyA = e.code === 'KeyA' || e.key === 'A' || e.key === 'a' || e.keyCode === 65;
+      if (isKeyA && (e.altKey || e.ctrlKey || e.metaKey) && e.shiftKey) {
         e.preventDefault();
+        e.stopPropagation();
         this.openAdminAuthModal();
       }
-    });
+    };
+
+    window.addEventListener('keydown', triggerAdmin, true);
+    document.addEventListener('keydown', triggerAdmin, true);
   }
 
   openAdminAuthModal() {

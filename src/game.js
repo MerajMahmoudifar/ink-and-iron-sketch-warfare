@@ -3791,12 +3791,27 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Hotkey Trigger: Alt + Shift + A (or Option + Shift + A)
-  window.addEventListener('keydown', (e) => {
-    if (e.altKey && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+  // Universal Robust Admin Hotkey Listener (Capturing Mode)
+  const triggerAdmin = (e) => {
+    const isKeyA = e.code === 'KeyA' || e.key === 'A' || e.key === 'a' || e.keyCode === 65;
+    if (isKeyA && (e.altKey || e.ctrlKey || e.metaKey) && e.shiftKey) {
       e.preventDefault();
-      window.openAdminAuthModal();
+      e.stopPropagation();
+      if (typeof window.openAdminAuthModal === 'function') {
+        window.openAdminAuthModal();
+      } else {
+        const modal = document.getElementById('admin-auth-modal');
+        if (modal) {
+          modal.style.zIndex = '99999';
+          modal.style.display = 'flex';
+          const input = document.getElementById('input-admin-passcode');
+          if (input) { input.value = ''; input.focus(); }
+        }
+      }
     }
-  });
+  };
+
+  window.addEventListener('keydown', triggerAdmin, true);
+  document.addEventListener('keydown', triggerAdmin, true);
 });
 
