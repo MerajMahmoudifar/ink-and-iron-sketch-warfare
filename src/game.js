@@ -2938,6 +2938,10 @@ window.switchMenuTab = function(btnId, paneId) {
 };
 
 window.deployGameFromMenu = function() {
+  if (window.checkUserBannedState && window.checkUserBannedState()) {
+    alert("ACCOUNT SUSPENDED: Your Commander profile is banned by an Administrator. You cannot deploy or start matches.");
+    return;
+  }
   const menu = document.getElementById('main-menu-overlay');
   const gameContainer = document.getElementById('game-container');
   if (menu) menu.style.display = 'none';
@@ -2996,6 +3000,9 @@ class App {
   }
 
   launchMatchFromMenu() {
+    if (window.checkUserBannedState && window.checkUserBannedState()) {
+      return;
+    }
     try {
       if (this.engine) this.engine.pauseTimer();
 
@@ -3807,17 +3814,22 @@ window.saveAdminUserEdit = async function() {
   }
 };
 
-window.checkUserBannedState = function(user) {
-  if (!user) return false;
-  const isBanned = Boolean(user.is_banned);
+window.checkUserBannedState = function(userObj) {
+  const u = userObj || (window.d1Service ? window.d1Service.user : null);
+  if (!u) return false;
+  const isBanned = Boolean(u.is_banned);
   if (isBanned) {
     const modal = document.getElementById('banned-account-modal');
     if (modal) {
       modal.style.zIndex = '100000';
       modal.style.display = 'flex';
     }
-    const startBtns = document.querySelectorAll('#btn-start-skirmish, #btn-find-match, #btn-pass-play, .btn-start-game');
-    startBtns.forEach(btn => btn.disabled = true);
+    const deployBtn = document.getElementById('btn-start-game');
+    if (deployBtn) {
+      deployBtn.disabled = true;
+      deployBtn.style.opacity = '0.4';
+      deployBtn.style.cursor = 'not-allowed';
+    }
     return true;
   }
   return false;
