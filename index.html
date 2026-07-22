@@ -6,6 +6,8 @@
   <title>Ink &amp; Iron: Sketch Warfare | Turn-Based Grid Strategy</title>
   <meta name="description" content="Ink &amp; Iron: Sketch Warfare is a turn-based grid strategy game with hand-drawn paper aesthetics, unique factions, command abilities, and simultaneous combat playback.">
   <link rel="stylesheet" href="styles/main.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
+  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
 </head>
 <body>
 
@@ -752,32 +754,58 @@
           <button class="btn-sketch" onclick="window.clearAdminAnnouncement()">Clear Banner</button>
         </div>
 
-        <div class="admin-toolbar">
-          <input type="text" id="input-admin-search" class="btn-sketch setting-input admin-search-input" placeholder="Search handle or User ID..." oninput="window.filterAdminUserTable(this.value)">
-          <button class="btn-sketch" onclick="window.refreshAdminUserTable()">Refresh</button>
+        <!-- Admin Navigation Sub-Tabs -->
+        <div class="admin-subtabs" style="display: flex; gap: 8px; margin-top: 14px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px;">
+          <button id="admin-tab-btn-commanders" class="subtab-btn active" onclick="window.switchAdminTab('commanders')">Commanders Control</button>
+          <button id="admin-tab-btn-apidocs" class="subtab-btn" onclick="window.switchAdminTab('apidocs')">API Documentation</button>
         </div>
 
-        <div class="admin-table-container">
-          <table class="admin-user-table">
-            <thead>
-              <tr>
-                <th>User Handle</th>
-                <th>User ID</th>
-                <th>Master / SFX Vol</th>
-                <th>Timer / Speed</th>
-                <th>W / L Record</th>
-                <th>Last Online</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="admin-user-table-body">
-              <tr>
-                <td colspan="8" style="text-align: center; padding: 20px;">Loading D1 Users...</td>
-              </tr>
-            </tbody>
-          </table>
+        <!-- View 1: Commanders Control View -->
+        <div id="admin-view-commanders" style="display: flex; flex-direction: column; gap: 10px;">
+          <div class="admin-toolbar" style="margin-top: 10px;">
+            <input type="text" id="input-admin-search" class="btn-sketch setting-input admin-search-input" placeholder="Search handle or User ID..." oninput="window.filterAdminUserTable(this.value)">
+            <button class="btn-sketch" onclick="window.refreshAdminUserTable()">Refresh</button>
+          </div>
+
+          <div class="admin-table-container">
+            <table class="admin-user-table">
+              <thead>
+                <tr>
+                  <th>User Handle</th>
+                  <th>User ID</th>
+                  <th>Master / SFX Vol</th>
+                  <th>Timer / Speed</th>
+                  <th>W / L Record</th>
+                  <th>Last Online</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="admin-user-table-body">
+                <tr>
+                  <td colspan="8" style="text-align: center; padding: 20px;">Loading D1 Users...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
+
+        <!-- View 2: Live OpenAPI Documentation View -->
+        <div id="admin-view-apidocs" style="display: none; flex-direction: column; gap: 10px; margin-top: 10px; height: 500px; overflow-y: auto;">
+          <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.9); padding: 10px 14px; border-radius: 6px; border: 1px solid var(--border-subtle);">
+            <div>
+              <span style="font-weight: 700; color: var(--gold-400); font-size: 0.8rem;">PUBLIC STANDARD OPENAPI 3.0 SPEC URL:</span>
+              <a href="/v1/api/openapi.json" target="_blank" style="color: #60a5fa; font-weight: 600; margin-left: 8px; font-size: 0.82rem; text-decoration: underline;">
+                https://ink-and-iron-sketch-warfare.pages.dev/v1/api/openapi.json
+              </a>
+            </div>
+            <button class="btn-sketch btn-xs" onclick="window.open('/v1/api/openapi.json', '_blank')">Open Raw JSON ↗</button>
+          </div>
+          
+          <!-- Live Interactive Swagger UI Documentation Renderer -->
+          <div id="swagger-ui-container" style="background: #ffffff; border-radius: 6px; padding: 10px; color: #000000; min-height: 420px;"></div>
+        </div>
+
       </div>
     </div>
 

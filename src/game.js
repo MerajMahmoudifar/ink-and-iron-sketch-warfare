@@ -3609,6 +3609,37 @@ window.closeAdminPanel = function() {
   if (overlay) overlay.style.display = 'none';
 };
 
+window.switchAdminTab = function(tabName) {
+  const btnCommanders = document.getElementById('admin-tab-btn-commanders');
+  const btnApiDocs = document.getElementById('admin-tab-btn-apidocs');
+  const viewCommanders = document.getElementById('admin-view-commanders');
+  const viewApiDocs = document.getElementById('admin-view-apidocs');
+
+  if (tabName === 'apidocs') {
+    if (btnCommanders) btnCommanders.classList.remove('active');
+    if (btnApiDocs) btnApiDocs.classList.add('active');
+    if (viewCommanders) viewCommanders.style.display = 'none';
+    if (viewApiDocs) viewApiDocs.style.display = 'flex';
+
+    if (!window.gSwaggerUiInitialized && window.SwaggerUIBundle) {
+      window.gSwaggerUiInitialized = true;
+      window.SwaggerUIBundle({
+        url: '/v1/api/openapi.json',
+        dom_id: '#swagger-ui-container',
+        deepLinking: true,
+        presets: [
+          window.SwaggerUIBundle.presets.apis
+        ]
+      });
+    }
+  } else {
+    if (btnApiDocs) btnApiDocs.classList.remove('active');
+    if (btnCommanders) btnCommanders.classList.add('active');
+    if (viewApiDocs) viewApiDocs.style.display = 'none';
+    if (viewCommanders) viewCommanders.style.display = 'flex';
+  }
+};
+
 window.fetchAdminDashboardStats = async function() {
   try {
     const res = await fetch('/api/admin/stats', {
