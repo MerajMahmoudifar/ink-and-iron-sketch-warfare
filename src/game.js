@@ -1987,16 +1987,25 @@ class SketchRenderer {
       ownedSpawns.forEach(sp => {
         const pos = this.getScreenCoords(sp.x, sp.y);
         const isOccupied = engine.getAllUnits().some(u => u.x === sp.x && u.y === sp.y && u.isAlive());
+        const tileSize = 66;
+        const cx = pos.x + 35;
+        const cy = pos.y + 35;
+
+        this.ctx.save();
+        // Clip drawing to this tile so nothing escapes the boundary
+        this.ctx.beginPath();
+        this.ctx.rect(pos.x + 2, pos.y + 2, tileSize, tileSize);
+        this.ctx.clip();
 
         if (sp.isContested || isOccupied) {
-          // UNDER SIEGE or OCCUPIED — Draw Red Warning Crosshatch & Forbidden Icon ✖
+          // UNDER SIEGE or OCCUPIED — Red Warning Fill & Crosshatch
           this.ctx.fillStyle = 'rgba(239, 68, 68, 0.25)';
-          this.ctx.fillRect(pos.x + 2, pos.y + 2, 66, 66);
+          this.ctx.fillRect(pos.x + 2, pos.y + 2, tileSize, tileSize);
           this.ctx.strokeStyle = '#ef4444';
           this.ctx.lineWidth = 3;
-          this.ctx.strokeRect(pos.x + 2, pos.y + 2, 66, 66);
+          this.ctx.strokeRect(pos.x + 2, pos.y + 2, tileSize, tileSize);
 
-          // Red Crosshatch lines
+          // Red diagonal crosshatch
           this.ctx.beginPath();
           this.ctx.moveTo(pos.x + 4, pos.y + 4);
           this.ctx.lineTo(pos.x + 66, pos.y + 66);
@@ -2004,35 +2013,43 @@ class SketchRenderer {
           this.ctx.lineTo(pos.x + 4, pos.y + 66);
           this.ctx.stroke();
 
-          // Big Red FORBIDDEN Warning Text
-          this.ctx.fillStyle = '#ef4444';
-          this.ctx.font = 'bold 12px sans-serif';
+          // Text label (two lines, small, inside tile)
+          this.ctx.fillStyle = 'rgba(0,0,0,0.55)';
+          this.ctx.fillRect(pos.x + 6, pos.y + 25, 58, 24);
+          this.ctx.fillStyle = '#fca5a5';
+          this.ctx.font = 'bold 9px sans-serif';
           this.ctx.textAlign = 'center';
           this.ctx.textBaseline = 'middle';
-          this.ctx.fillText(sp.isContested ? 'UNDER SIEGE ✖' : 'OCCUPIED ✖', pos.x + 35, pos.y + 35);
+          this.ctx.fillText(sp.isContested ? 'UNDER SIEGE' : 'OCCUPIED', cx, cy - 4);
+          this.ctx.fillText('NO DEPLOY', cx, cy + 8);
         } else {
-          // VALID DEPLOYMENT SPAWN TILE — Pulse Blue/Gold Target Reticle
+          // VALID DEPLOYMENT — Pulsing blue fill & corner reticles
           this.ctx.fillStyle = `rgba(59, 130, 246, ${pulseOpacity})`;
-          this.ctx.fillRect(pos.x + 2, pos.y + 2, 66, 66);
+          this.ctx.fillRect(pos.x + 2, pos.y + 2, tileSize, tileSize);
           this.ctx.strokeStyle = '#2563eb';
           this.ctx.lineWidth = 3;
-          this.ctx.strokeRect(pos.x + 2, pos.y + 2, 66, 66);
+          this.ctx.strokeRect(pos.x + 2, pos.y + 2, tileSize, tileSize);
 
-          // Target reticle corner brackets
-          this.ctx.strokeStyle = '#60a5fa';
-          this.ctx.lineWidth = 4;
-          this.ctx.beginPath(); this.ctx.moveTo(pos.x + 4, pos.y + 14); this.ctx.lineTo(pos.x + 4, pos.y + 4); this.ctx.lineTo(pos.x + 14, pos.y + 4); this.ctx.stroke();
-          this.ctx.beginPath(); this.ctx.moveTo(pos.x + 56, pos.y + 4); this.ctx.lineTo(pos.x + 66, pos.y + 4); this.ctx.lineTo(pos.x + 66, pos.y + 14); this.ctx.stroke();
-          this.ctx.beginPath(); this.ctx.moveTo(pos.x + 4, pos.y + 56); this.ctx.lineTo(pos.x + 4, pos.y + 66); this.ctx.lineTo(pos.x + 14, pos.y + 66); this.ctx.stroke();
-          this.ctx.beginPath(); this.ctx.moveTo(pos.x + 56, pos.y + 66); this.ctx.lineTo(pos.x + 66, pos.y + 66); this.ctx.lineTo(pos.x + 66, pos.y + 56); this.ctx.stroke();
+          // Corner bracket reticles
+          this.ctx.strokeStyle = '#bfdbfe';
+          this.ctx.lineWidth = 3;
+          this.ctx.beginPath(); this.ctx.moveTo(pos.x + 5, pos.y + 13); this.ctx.lineTo(pos.x + 5, pos.y + 5); this.ctx.lineTo(pos.x + 13, pos.y + 5); this.ctx.stroke();
+          this.ctx.beginPath(); this.ctx.moveTo(pos.x + 57, pos.y + 5); this.ctx.lineTo(pos.x + 65, pos.y + 5); this.ctx.lineTo(pos.x + 65, pos.y + 13); this.ctx.stroke();
+          this.ctx.beginPath(); this.ctx.moveTo(pos.x + 5, pos.y + 57); this.ctx.lineTo(pos.x + 5, pos.y + 65); this.ctx.lineTo(pos.x + 13, pos.y + 65); this.ctx.stroke();
+          this.ctx.beginPath(); this.ctx.moveTo(pos.x + 57, pos.y + 65); this.ctx.lineTo(pos.x + 65, pos.y + 65); this.ctx.lineTo(pos.x + 65, pos.y + 57); this.ctx.stroke();
 
-          // Placement Icon
+          // Text label (two lines, centered, inside tile)
+          this.ctx.fillStyle = 'rgba(0,0,0,0.45)';
+          this.ctx.fillRect(pos.x + 6, pos.y + 25, 58, 24);
           this.ctx.fillStyle = '#ffffff';
-          this.ctx.font = 'bold 12px sans-serif';
+          this.ctx.font = 'bold 9px sans-serif';
           this.ctx.textAlign = 'center';
           this.ctx.textBaseline = 'middle';
-          this.ctx.fillText('DEPLOY HERE', pos.x + 35, pos.y + 35);
+          this.ctx.fillText('DEPLOY', cx, cy - 4);
+          this.ctx.fillText('HERE', cx, cy + 8);
         }
+
+        this.ctx.restore();
       });
     }
 
