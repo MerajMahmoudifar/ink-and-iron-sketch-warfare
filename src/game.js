@@ -1987,69 +1987,46 @@ class SketchRenderer {
       ownedSpawns.forEach(sp => {
         const pos = this.getScreenCoords(sp.x, sp.y);
         const isOccupied = engine.getAllUnits().some(u => u.x === sp.x && u.y === sp.y && u.isAlive());
-        const tileSize = 66;
-        const cx = pos.x + 35;
-        const cy = pos.y + 35;
-
-        this.ctx.save();
-        // Clip drawing to this tile so nothing escapes the boundary
-        this.ctx.beginPath();
-        this.ctx.rect(pos.x + 2, pos.y + 2, tileSize, tileSize);
-        this.ctx.clip();
+        const tx = pos.x + 2, ty = pos.y + 2;
 
         if (sp.isContested || isOccupied) {
-          // UNDER SIEGE or OCCUPIED — Red Warning Fill & Crosshatch
-          this.ctx.fillStyle = 'rgba(239, 68, 68, 0.25)';
-          this.ctx.fillRect(pos.x + 2, pos.y + 2, tileSize, tileSize);
+          // FORBIDDEN — Red fill + border + diagonal X lines
+          this.ctx.fillStyle = 'rgba(239, 68, 68, 0.3)';
+          this.ctx.fillRect(tx, ty, 66, 66);
           this.ctx.strokeStyle = '#ef4444';
           this.ctx.lineWidth = 3;
-          this.ctx.strokeRect(pos.x + 2, pos.y + 2, tileSize, tileSize);
-
-          // Red diagonal crosshatch
+          this.ctx.strokeRect(tx, ty, 66, 66);
+          // Large X drawn with two diagonal lines across the tile
+          this.ctx.strokeStyle = 'rgba(239, 68, 68, 0.9)';
+          this.ctx.lineWidth = 4;
           this.ctx.beginPath();
-          this.ctx.moveTo(pos.x + 4, pos.y + 4);
-          this.ctx.lineTo(pos.x + 66, pos.y + 66);
-          this.ctx.moveTo(pos.x + 66, pos.y + 4);
-          this.ctx.lineTo(pos.x + 4, pos.y + 66);
+          this.ctx.moveTo(tx + 8, ty + 8);
+          this.ctx.lineTo(tx + 58, ty + 58);
+          this.ctx.moveTo(tx + 58, ty + 8);
+          this.ctx.lineTo(tx + 8, ty + 58);
           this.ctx.stroke();
-
-          // Text label (two lines, small, inside tile)
-          this.ctx.fillStyle = 'rgba(0,0,0,0.55)';
-          this.ctx.fillRect(pos.x + 6, pos.y + 25, 58, 24);
-          this.ctx.fillStyle = '#fca5a5';
-          this.ctx.font = 'bold 9px sans-serif';
-          this.ctx.textAlign = 'center';
-          this.ctx.textBaseline = 'middle';
-          this.ctx.fillText(sp.isContested ? 'UNDER SIEGE' : 'OCCUPIED', cx, cy - 4);
-          this.ctx.fillText('NO DEPLOY', cx, cy + 8);
         } else {
-          // VALID DEPLOYMENT — Pulsing blue fill & corner reticles
+          // VALID — Pulsing blue fill + corner bracket reticles
           this.ctx.fillStyle = `rgba(59, 130, 246, ${pulseOpacity})`;
-          this.ctx.fillRect(pos.x + 2, pos.y + 2, tileSize, tileSize);
+          this.ctx.fillRect(tx, ty, 66, 66);
           this.ctx.strokeStyle = '#2563eb';
           this.ctx.lineWidth = 3;
-          this.ctx.strokeRect(pos.x + 2, pos.y + 2, tileSize, tileSize);
-
-          // Corner bracket reticles
+          this.ctx.strokeRect(tx, ty, 66, 66);
+          // Corner bracket reticles (no text)
           this.ctx.strokeStyle = '#bfdbfe';
           this.ctx.lineWidth = 3;
-          this.ctx.beginPath(); this.ctx.moveTo(pos.x + 5, pos.y + 13); this.ctx.lineTo(pos.x + 5, pos.y + 5); this.ctx.lineTo(pos.x + 13, pos.y + 5); this.ctx.stroke();
-          this.ctx.beginPath(); this.ctx.moveTo(pos.x + 57, pos.y + 5); this.ctx.lineTo(pos.x + 65, pos.y + 5); this.ctx.lineTo(pos.x + 65, pos.y + 13); this.ctx.stroke();
-          this.ctx.beginPath(); this.ctx.moveTo(pos.x + 5, pos.y + 57); this.ctx.lineTo(pos.x + 5, pos.y + 65); this.ctx.lineTo(pos.x + 13, pos.y + 65); this.ctx.stroke();
-          this.ctx.beginPath(); this.ctx.moveTo(pos.x + 57, pos.y + 65); this.ctx.lineTo(pos.x + 65, pos.y + 65); this.ctx.lineTo(pos.x + 65, pos.y + 57); this.ctx.stroke();
-
-          // Text label (two lines, centered, inside tile)
-          this.ctx.fillStyle = 'rgba(0,0,0,0.45)';
-          this.ctx.fillRect(pos.x + 6, pos.y + 25, 58, 24);
-          this.ctx.fillStyle = '#ffffff';
-          this.ctx.font = 'bold 9px sans-serif';
-          this.ctx.textAlign = 'center';
-          this.ctx.textBaseline = 'middle';
-          this.ctx.fillText('DEPLOY', cx, cy - 4);
-          this.ctx.fillText('HERE', cx, cy + 8);
+          this.ctx.beginPath(); this.ctx.moveTo(tx + 3, ty + 13); this.ctx.lineTo(tx + 3, ty + 3); this.ctx.lineTo(tx + 13, ty + 3); this.ctx.stroke();
+          this.ctx.beginPath(); this.ctx.moveTo(tx + 53, ty + 3); this.ctx.lineTo(tx + 63, ty + 3); this.ctx.lineTo(tx + 63, ty + 13); this.ctx.stroke();
+          this.ctx.beginPath(); this.ctx.moveTo(tx + 3, ty + 53); this.ctx.lineTo(tx + 3, ty + 63); this.ctx.lineTo(tx + 13, ty + 63); this.ctx.stroke();
+          this.ctx.beginPath(); this.ctx.moveTo(tx + 53, ty + 63); this.ctx.lineTo(tx + 63, ty + 63); this.ctx.lineTo(tx + 63, ty + 53); this.ctx.stroke();
+          // Small crosshair in center
+          this.ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+          this.ctx.lineWidth = 1.5;
+          this.ctx.beginPath();
+          this.ctx.moveTo(tx + 33, ty + 26); this.ctx.lineTo(tx + 33, ty + 40);
+          this.ctx.moveTo(tx + 26, ty + 33); this.ctx.lineTo(tx + 40, ty + 33);
+          this.ctx.stroke();
         }
-
-        this.ctx.restore();
       });
     }
 
