@@ -1764,11 +1764,13 @@ select.btn-sketch {
 }
 
 .sketch-admin-panel-card {
-  max-width: 960px;
-  width: 95%;
-  max-height: 85vh;
+  max-width: 1000px;
+  width: 96%;
+  max-height: 90vh;
+  height: 90vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   border-left: 4px solid var(--blue-500);
 }
 
@@ -1801,12 +1803,14 @@ select.btn-sketch {
   align-items: flex-start;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
 }
 
 .admin-toolbar {
   display: flex;
   gap: 10px;
-  margin: 14px 0;
+  margin: 10px 0 6px 0;
+  flex-shrink: 0;
 }
 
 .admin-search-input {
@@ -1816,7 +1820,8 @@ select.btn-sketch {
 .admin-table-container {
   overflow-x: auto;
   overflow-y: auto;
-  max-height: 55vh;
+  flex: 1;
+  min-height: 0;
   border: 1px solid var(--border-subtle);
   border-radius: var(--r-sm);
   background: rgba(15, 23, 42, 0.4);
@@ -1939,6 +1944,7 @@ select.btn-sketch {
   grid-template-columns: repeat(4, 1fr);
   gap: 10px;
   margin-top: 12px;
+  flex-shrink: 0;
 }
 
 .admin-stat-card {
@@ -1970,6 +1976,7 @@ select.btn-sketch {
   display: flex;
   gap: 8px;
   margin-top: 12px;
+  flex-shrink: 0;
 }
 
 .admin-broadcast-input {
