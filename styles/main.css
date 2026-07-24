@@ -1977,3 +1977,41 @@ select.btn-sketch {
   width: auto !important;
 }
 
+/* ==========================================================================
+   ON-GRID DEPLOYMENT PROMPT BANNER
+   ========================================================================== */
+.deploy-banner-ticker {
+  position: relative;
+  z-index: 10000;
+  width: 100%;
+  background: linear-gradient(90deg, #1e3a8a, #0f172a);
+  border-bottom: 2px solid var(--blue-400);
+  color: var(--blue-300);
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  animation: bannerSlideDown 0.25s ease-out;
+}
+
+.deploy-badge {
+  background: var(--blue-400);
+  color: #0f172a;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  font-family: var(--font-display);
+}
+
+.deploy-prompt-text {
+  flex: 1;
+  color: #f8fafc;
+  font-family: var(--font-handwriting);
+  font-size: 1.05rem;
+}
+

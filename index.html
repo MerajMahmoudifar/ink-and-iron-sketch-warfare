@@ -35,6 +35,13 @@
       <button onclick="window.returnToMainMenu()">Return to Menu</button>
     </div>
 
+    <!-- ON-GRID DEPLOYMENT PROMPT BANNER -->
+    <div id="deploy-prompt-banner" class="deploy-banner-ticker" style="display: none;">
+      <span class="deploy-badge">DEPLOYMENT MODE</span>
+      <span id="deploy-prompt-text" class="deploy-prompt-text">Click glowing spawn tile to place unit...</span>
+      <button id="btn-cancel-deploy-banner" class="btn-sketch btn-sm btn-danger" onclick="if(window.gApp && window.gApp.ui) window.gApp.ui.cancelDeploymentMode()">✕ Cancel Deployment</button>
+    </div>
+
     <!-- MAIN MENU OVERLAY -->
     <div id="main-menu-overlay" class="main-menu-overlay">
       <div class="menu-paper-card">
@@ -590,17 +597,7 @@
       </div>
     </div>
 
-    <!-- DEPLOYMENT LOCATION PICKER -->
-    <div id="deploy-picker-modal" class="modal-overlay" style="display: none;">
-      <div class="modal-card">
-        <h2 id="deploy-picker-title" class="modal-title">Select Deployment Point</h2>
-        <p id="deploy-picker-sub" class="modal-subtitle">Where should this unit enter the battlefield?</p>
-        <div id="deploy-picker-list" class="spawn-picker-grid"></div>
-        <button id="btn-cancel-deploy" class="btn-sketch btn-danger" style="margin-top: 14px;">
-          Cancel Deployment
-        </button>
-      </div>
-    </div>
+
 
     <!-- IN-GAME PAUSE MENU -->
     <div id="in-game-menu-modal" class="modal-overlay" style="display: none;">

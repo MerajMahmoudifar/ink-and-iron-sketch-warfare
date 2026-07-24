@@ -1978,6 +1978,64 @@ class SketchRenderer {
       this.ctx.strokeRect(pos.x + 1, pos.y + 1, 68, 68);
     }
 
+    // ON-GRID DEPLOYMENT MODE SPAWN TILE HIGHLIGHTS
+    if (window.gApp && window.gApp.ui && window.gApp.ui.pendingDeployUnitKey && engine.phase === 'PLANNING') {
+      const ownedSpawns = engine.getOwnedSpawnPoints(1);
+      const timeMs = Date.now();
+      const pulseOpacity = 0.35 + 0.25 * Math.sin(timeMs / 180);
+
+      ownedSpawns.forEach(sp => {
+        const pos = this.getScreenCoords(sp.x, sp.y);
+        const isOccupied = engine.getAllUnits().some(u => u.x === sp.x && u.y === sp.y && u.isAlive());
+
+        if (sp.isContested || isOccupied) {
+          // UNDER SIEGE or OCCUPIED — Draw Red Warning Crosshatch & Forbidden Icon ✖
+          this.ctx.fillStyle = 'rgba(239, 68, 68, 0.25)';
+          this.ctx.fillRect(pos.x + 2, pos.y + 2, 66, 66);
+          this.ctx.strokeStyle = '#ef4444';
+          this.ctx.lineWidth = 3;
+          this.ctx.strokeRect(pos.x + 2, pos.y + 2, 66, 66);
+
+          // Red Crosshatch lines
+          this.ctx.beginPath();
+          this.ctx.moveTo(pos.x + 4, pos.y + 4);
+          this.ctx.lineTo(pos.x + 66, pos.y + 66);
+          this.ctx.moveTo(pos.x + 66, pos.y + 4);
+          this.ctx.lineTo(pos.x + 4, pos.y + 66);
+          this.ctx.stroke();
+
+          // Big Red FORBIDDEN Warning Text
+          this.ctx.fillStyle = '#ef4444';
+          this.ctx.font = 'bold 12px sans-serif';
+          this.ctx.textAlign = 'center';
+          this.ctx.textBaseline = 'middle';
+          this.ctx.fillText(sp.isContested ? 'UNDER SIEGE ✖' : 'OCCUPIED ✖', pos.x + 35, pos.y + 35);
+        } else {
+          // VALID DEPLOYMENT SPAWN TILE — Pulse Blue/Gold Target Reticle
+          this.ctx.fillStyle = `rgba(59, 130, 246, ${pulseOpacity})`;
+          this.ctx.fillRect(pos.x + 2, pos.y + 2, 66, 66);
+          this.ctx.strokeStyle = '#2563eb';
+          this.ctx.lineWidth = 3;
+          this.ctx.strokeRect(pos.x + 2, pos.y + 2, 66, 66);
+
+          // Target reticle corner brackets
+          this.ctx.strokeStyle = '#60a5fa';
+          this.ctx.lineWidth = 4;
+          this.ctx.beginPath(); this.ctx.moveTo(pos.x + 4, pos.y + 14); this.ctx.lineTo(pos.x + 4, pos.y + 4); this.ctx.lineTo(pos.x + 14, pos.y + 4); this.ctx.stroke();
+          this.ctx.beginPath(); this.ctx.moveTo(pos.x + 56, pos.y + 4); this.ctx.lineTo(pos.x + 66, pos.y + 4); this.ctx.lineTo(pos.x + 66, pos.y + 14); this.ctx.stroke();
+          this.ctx.beginPath(); this.ctx.moveTo(pos.x + 4, pos.y + 56); this.ctx.lineTo(pos.x + 4, pos.y + 66); this.ctx.lineTo(pos.x + 14, pos.y + 66); this.ctx.stroke();
+          this.ctx.beginPath(); this.ctx.moveTo(pos.x + 56, pos.y + 66); this.ctx.lineTo(pos.x + 66, pos.y + 66); this.ctx.lineTo(pos.x + 66, pos.y + 56); this.ctx.stroke();
+
+          // Placement Icon
+          this.ctx.fillStyle = '#ffffff';
+          this.ctx.font = 'bold 12px sans-serif';
+          this.ctx.textAlign = 'center';
+          this.ctx.textBaseline = 'middle';
+          this.ctx.fillText('DEPLOY HERE', pos.x + 35, pos.y + 35);
+        }
+      });
+    }
+
     // FOG OF WAR PENCIL HATCH OVERLAY (skip in terrain-view / GAME_OVER)
     if (!isTerrainView) {
       for (let r = 0; r < 8; r++) {
@@ -2700,69 +2758,52 @@ class UIManager {
           return;
         }
 
-        const selTile = this.app.renderer.selectedTile;
-        if (selTile) {
-          const isSelectedValid = unContestedSpawns.some(sp => sp.x === selTile.x && sp.y === selTile.y);
-          if (isSelectedValid) {
-            const res = engine.buyUnit(1, key, selTile.x, selTile.y);
-            if (res.success) {
-              this.app.audio.playSpawnSound();
-            } else {
-              this.showToast('Deployment Error', res.reason);
-            }
-            return;
-          }
-        }
-
         try { this.app.audio.playPencilScratch(); } catch(err){}
-        this.openDeploymentPicker(engine, key, u);
+        this.startDeploymentMode(key, u);
       });
       this.storeContainer.appendChild(btn);
     });
   }
 
-  openDeploymentPicker(engine, unitTypeKey, unitObj) {
-    const titleEl = document.getElementById('deploy-picker-title');
-    if (titleEl && unitObj) titleEl.textContent = `Deploy ${unitObj.symbol} ${unitObj.name}`;
-    const spawnPoints = engine.getOwnedSpawnPoints(1);
-    const listEl = document.getElementById('deploy-picker-list');
-    if (!listEl) return;
-    listEl.innerHTML = '';
+  startDeploymentMode(unitTypeKey, unitObj) {
+    if (!this.app.engine || this.app.engine.phase !== 'PLANNING') return;
+    const p1 = this.app.engine.players[1];
+    const unitDef = UNIT_TYPES[unitTypeKey];
+    if (!unitDef) return;
 
-    if (spawnPoints.length === 0) {
-      listEl.innerHTML = `<p style="color:#f87171; font-size:0.85rem;">No active spawn points owned!</p>`;
-      if (this.deployPickerModal) this.deployPickerModal.style.display = 'flex';
+    if (p1.ink < unitDef.cost) {
+      this.showToast('Low Ink Resources', `Need ${unitDef.cost} Ink to deploy ${unitDef.symbol} ${unitDef.name}!`);
       return;
     }
 
-    spawnPoints.forEach(sp => {
-      const btn = document.createElement('button');
-      btn.className = 'spawn-picker-btn';
-      if (sp.isContested) {
-        btn.innerHTML = `<span>${sp.name} (UNDER SIEGE)</span>`;
-        btn.style.opacity = '0.5';
-        btn.style.cursor = 'not-allowed';
-        btn.addEventListener('click', () => {
-          this.showToast('Under Siege', `Cannot deploy at (${sp.x}, ${sp.y}) while enemy is adjacent!`);
-        });
-      } else {
-        btn.innerHTML = `<span>${sp.name}</span> <span style="color:var(--blue-400);">(${sp.x}, ${sp.y})</span>`;
-        btn.addEventListener('click', () => {
-          try { this.app.audio.playPencilScratch(); } catch(err){}
-          if (this.deployPickerModal) this.deployPickerModal.style.display = 'none';
-          const res = engine.buyUnit(1, unitTypeKey, sp.x, sp.y);
-          if (res.success) {
-            try { this.app.audio.playSpawnSound(); } catch(err){}
-          } else {
-            this.showToast('Deployment Error', res.reason);
-          }
-        });
-      }
+    const availableSpawns = this.app.engine.getOwnedSpawnPoints(1);
+    if (availableSpawns.length === 0) {
+      this.showToast('Deployment Failed', 'No owned spawn points available on the map!');
+      return;
+    }
 
-      listEl.appendChild(btn);
-    });
+    this.pendingDeployUnitKey = unitTypeKey;
+    this.pendingDeployUnitObj = unitObj || unitDef;
 
-    this.deployPickerModal.style.display = 'flex';
+    const banner = document.getElementById('deploy-prompt-banner');
+    const promptText = document.getElementById('deploy-prompt-text');
+    if (promptText) {
+      promptText.textContent = `Deploying ${unitDef.symbol} ${unitDef.name} (${unitDef.cost} Ink) &mdash; Click highlighted spawn tile on grid`;
+    }
+    if (banner) banner.style.display = 'flex';
+
+    if (this.app.renderer) {
+      this.app.renderer.selectedTile = null;
+      this.app.renderer.selectedUnit = null;
+    }
+    this.showToast('Deployment Mode', `Click any highlighted spawn square on the grid to deploy ${unitDef.name}. Press ESC to cancel.`);
+  }
+
+  cancelDeploymentMode() {
+    this.pendingDeployUnitKey = null;
+    this.pendingDeployUnitObj = null;
+    const banner = document.getElementById('deploy-prompt-banner');
+    if (banner) banner.style.display = 'none';
   }
 
   renderInspector(engine) {
@@ -3089,6 +3130,40 @@ class App {
         return;
       }
 
+      if (this.engine.phase === 'PLANNING' && this.ui.pendingDeployUnitKey) {
+        const unitKey = this.ui.pendingDeployUnitKey;
+        const unitDef = UNIT_TYPES[unitKey];
+        const ownedSpawns = this.engine.getOwnedSpawnPoints(1);
+        const spawnTile = ownedSpawns.find(sp => sp.x === gridCoords.x && sp.y === gridCoords.y);
+
+        if (spawnTile) {
+          if (spawnTile.isContested) {
+            try { this.audio.playExplosion(false); } catch(e){}
+            this.ui.showToast('Tile Under Siege', `Cannot deploy at (${spawnTile.x}, ${spawnTile.y}) while enemy forces are adjacent!`);
+            return;
+          }
+          const isOccupied = this.engine.getAllUnits().some(u => u.x === spawnTile.x && u.y === spawnTile.y && u.isAlive());
+          if (isOccupied) {
+            this.ui.showToast('Tile Occupied', `Position (${spawnTile.x}, ${spawnTile.y}) is already occupied by a unit!`);
+            return;
+          }
+
+          const res = this.engine.buyUnit(1, unitKey, spawnTile.x, spawnTile.y);
+          if (res.success) {
+            try { this.audio.playSpawnSound(); } catch(e){}
+            this.ui.showToast('Unit Deployed', `${unitDef.symbol} ${unitDef.name} deployed at (${spawnTile.x}, ${spawnTile.y})!`);
+            this.ui.cancelDeploymentMode();
+          } else {
+            this.ui.showToast('Deployment Error', res.reason);
+          }
+        } else {
+          this.ui.showToast('Invalid Placement', 'Click a highlighted Base or Supply Zone square to deploy.');
+        }
+        this.renderer.selectedTile = gridCoords;
+        this.ui.updateHUD(this.engine);
+        return;
+      }
+
       if (this.engine.phase === 'PLANNING' && this.ui.pendingAbilityKey) {
         const abilityKey = this.ui.pendingAbilityKey;
         const ability = ABILITIES[abilityKey];
@@ -3145,6 +3220,15 @@ class App {
     this.canvas.addEventListener('mousemove', (e) => {
       const rect = this.canvas.getBoundingClientRect();
       this.renderer.hoveredTile = this.renderer.getGridCoords(e.clientX - rect.left, e.clientY - rect.top);
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' || e.code === 'Escape') {
+        if (this.ui && this.ui.pendingDeployUnitKey) {
+          this.ui.cancelDeploymentMode();
+          this.ui.showToast('Deployment Canceled', 'Deployment mode exited.');
+        }
+      }
     });
   }
 
