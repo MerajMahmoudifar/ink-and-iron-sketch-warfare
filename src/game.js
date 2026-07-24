@@ -2446,6 +2446,10 @@ class UIManager {
       e.preventDefault();
       if (this.app.engine) {
         this.app.engine.players[1].units.forEach(u => u.setWaypoints([]));
+        if (this.app.renderer) {
+          this.app.renderer.selectedTile = null;
+          this.app.renderer.selectedUnit = null;
+        }
         this.showToast('Troops Halted', 'All unit movement plans canceled!');
         this.updateHUD(this.app.engine);
       }
@@ -2833,6 +2837,10 @@ class UIManager {
         btnCancelUnit.addEventListener('click', () => {
           this.app.audio.playPencilScratch();
           engine.setUnitWaypoints(unitOnTile.id, []);
+          if (this.app.renderer) {
+            this.app.renderer.selectedTile = null;
+            this.app.renderer.selectedUnit = null;
+          }
           this.updateHUD(engine);
         });
       }
@@ -3107,21 +3115,26 @@ class App {
 
       if (this.engine.phase === 'PLANNING' && prevSelected) {
         const unit = this.engine.getAllUnits().find(u => u.x === prevSelected.x && u.y === prevSelected.y && u.owner === 1);
-        if (unit) {
-          // Pathfind FROM the unit's last queued waypoint position,
-          // so long multi-click chains extend naturally.
-          let fromX = unit.x, fromY = unit.y;
-          if (unit.waypoints && unit.waypoints.length > 0) {
-            const last = unit.waypoints[unit.waypoints.length - 1];
-            fromX = last.x;
-            fromY = last.y;
-          }
-          if (fromX !== gridCoords.x || fromY !== gridCoords.y) {
-            const extension = this.engine.findValidPath(unit, gridCoords.x, gridCoords.y, fromX, fromY);
-            if (extension.length > 0) {
-              // Append to existing waypoints (multi-leg journey)
-              const combined = [...(unit.waypoints || []), ...extension];
-              this.engine.setUnitWaypoints(unit.id, combined);
+        const targetFriendlyUnit = this.engine.getAllUnits().find(u => u.x === gridCoords.x && u.y === gridCoords.y && u.owner === 1);
+
+        // Only extend path if previously selected tile had a Player 1 unit AND the clicked target tile is NOT another friendly unit
+        if (unit && (!targetFriendlyUnit || targetFriendlyUnit.id === unit.id)) {
+          if (!targetFriendlyUnit || targetFriendlyUnit.id !== unit.id) {
+            // Pathfind FROM the unit's last queued waypoint position,
+            // so long multi-click chains extend naturally.
+            let fromX = unit.x, fromY = unit.y;
+            if (unit.waypoints && unit.waypoints.length > 0) {
+              const last = unit.waypoints[unit.waypoints.length - 1];
+              fromX = last.x;
+              fromY = last.y;
+            }
+            if (fromX !== gridCoords.x || fromY !== gridCoords.y) {
+              const extension = this.engine.findValidPath(unit, gridCoords.x, gridCoords.y, fromX, fromY);
+              if (extension.length > 0) {
+                // Append to existing waypoints (multi-leg journey)
+                const combined = [...(unit.waypoints || []), ...extension];
+                this.engine.setUnitWaypoints(unit.id, combined);
+              }
             }
           }
         }

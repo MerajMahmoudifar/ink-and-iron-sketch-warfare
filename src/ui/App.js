@@ -70,16 +70,19 @@ export class App {
       const prevSelected = this.renderer.selectedTile;
       this.renderer.selectedTile = gridCoords;
 
-      // Handle Unit Movement Path Drawing during 20s planning phase
+      // Handle Unit Movement Path Drawing during planning phase
       if (this.engine.phase === 'PLANNING') {
         const unitOnPrevTile = prevSelected ? this.engine.getAllUnits().find(u => u.x === prevSelected.x && u.y === prevSelected.y && u.owner === 1) : null;
+        const targetFriendlyUnit = this.engine.getAllUnits().find(u => u.x === gridCoords.x && u.y === gridCoords.y && u.owner === 1);
 
-        if (unitOnPrevTile) {
-          // Calculate valid path to newly clicked tile
-          const path = this.engine.findValidPath(unitOnPrevTile, gridCoords.x, gridCoords.y);
-          if (path.length > 0) {
-            this.engine.setUnitWaypoints(unitOnPrevTile.id, path);
-            this.ui.log(`Added waypoint path for ${unitOnPrevTile.name} to (${gridCoords.x}, ${gridCoords.y})`);
+        if (unitOnPrevTile && (!targetFriendlyUnit || targetFriendlyUnit.id === unitOnPrevTile.id)) {
+          if (!targetFriendlyUnit || targetFriendlyUnit.id !== unitOnPrevTile.id) {
+            // Calculate valid path to newly clicked tile
+            const path = this.engine.findValidPath(unitOnPrevTile, gridCoords.x, gridCoords.y);
+            if (path.length > 0) {
+              this.engine.setUnitWaypoints(unitOnPrevTile.id, path);
+              this.ui.log(`Added waypoint path for ${unitOnPrevTile.name} to (${gridCoords.x}, ${gridCoords.y})`);
+            }
           }
         }
       }
