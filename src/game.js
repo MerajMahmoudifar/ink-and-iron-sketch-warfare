@@ -4608,7 +4608,7 @@ class App {
     if (!el) return;
     if (!hoveredTile || !this.engine || !this.engine.grid[hoveredTile.y] || !this.engine.grid[hoveredTile.y][hoveredTile.x]) {
       if (this.bootcampManager && this.bootcampManager.activeLesson) {
-        el.innerHTML = 'TACTICAL TELEMETRY &bull; HOVER SECTORS TO INSPECT TERRAIN &bull; LIVE SITREP FEED';
+        el.innerHTML = 'TACTICAL TELEMETRY &bull; HOVER SECTOR TO INSPECT TERRAIN &amp; TROOPS';
       } else {
         el.innerHTML = 'SECTOR 8x8 &bull; MAP: THE IRON BASIN &bull; ALLIED COMMAND';
       }
@@ -4618,43 +4618,49 @@ class App {
     const colLetter = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][hoveredTile.x] || '';
     const rowNum = hoveredTile.y + 1;
     const defPct = Math.round((tile.defenseBonus || 0) * 100);
-    const losStatus = (tile.id === 'FOREST' || tile.id === 'MOUNTAIN') ? 'VISION BLOCKED' : 'VISION OPEN';
+    const losStatus = (tile.id === 'FOREST' || tile.id === 'MOUNTAIN') ? 'LOS BLOCKED' : 'LOS OPEN';
 
-    let terrainDetails = '';
-    if (tile.id === 'SWAMP') {
-      terrainDetails = `<span style="color:#f87171; font-weight:700;">DEF -10%</span> &bull; <span style="color:#fbbf24; font-weight:700;">INFANTRY MIRED (HALTS 1 TURN &bull; SLOW)</span> &bull; <span style="color:#ef4444; font-weight:700;">VEHICLES IMPASSABLE</span> &bull; ${losStatus}`;
-    } else if (tile.id === 'FOREST') {
-      terrainDetails = `DEF +${defPct}% &bull; MOV 1.5x &bull; ${losStatus} (AMBUSH COVER)`;
-    } else if (tile.id === 'MOUNTAIN') {
-      terrainDetails = `<span style="color:#ef4444; font-weight:700;">IMPASSABLE (ALL UNITS)</span> &bull; ${losStatus}`;
-    } else if (tile.id === 'WATER') {
-      terrainDetails = `<span style="color:#ef4444; font-weight:700;">WATER HAZARD (IMPASSABLE)</span> &bull; ${losStatus}`;
-    } else if (tile.id === 'CAPTURE_ZONE') {
-      terrainDetails = `DEF +${defPct}% &bull; MOV 1.0x &bull; SUPPLY DEPOT (+25 INK/T) &bull; ${losStatus}`;
-    } else if (tile.id === 'MAIN_BASE') {
-      terrainDetails = `DEF +${defPct}% &bull; MOV 1.0x &bull; COMMAND HQ (+50 INK/T) &bull; ${losStatus}`;
-    } else {
-      terrainDetails = `DEF +${defPct}% &bull; MOV 1.0x &bull; ${losStatus}`;
-    }
-    
     // Check if tile is visible to P1
     const p1Vision = this.engine.phase === 'GAME_OVER' ? Array(8).fill(null).map(() => Array(8).fill(true)) : this.engine.calculateVision(1);
     const isVisible = p1Vision[hoveredTile.y][hoveredTile.x];
     
     if (!isVisible && this.engine.phase !== 'GAME_OVER') {
-      el.innerHTML = `SECTOR [${colLetter}${rowNum}] &bull; <span style="color:#94a3b8;">TERRA INCOGNITA (UNSURVEYED)</span>`;
+      el.innerHTML = `[${colLetter}${rowNum}] &bull; <span style="color:#94a3b8;">TERRA INCOGNITA (UNSURVEYED)</span>`;
       return;
     }
-    
-    const unit = this.engine.getAllUnits().find(u => u.x === hoveredTile.x && u.y === hoveredTile.y && u.isAlive());
-    let unitMiredTag = '';
-    if (unit && tile.id === 'SWAMP' && unit.category === 'INFANTRY') {
-      unitMiredTag = ' <span style="color:#fbbf24; font-weight:700;">[MIRED IN MUD/POND]</span>';
-    }
-    const stancePart = (unit && unit.stance && unit.stance !== 'ADVANCE') ? ` [${unit.stance}]` : '';
-    const unitPart = unit ? ` &bull; <span style="color:${unit.owner === 1 ? '#60a5fa' : '#f87171'}; font-weight:700;">${unit.owner === 1 ? 'ALLIED' : 'HOSTILE'}: ${unit.name} (${unit.hp}/${unit.maxHp} HP)${stancePart}${unitMiredTag}</span>` : '';
 
-    el.innerHTML = `SECTOR [${colLetter}${rowNum}] &bull; <strong>${tile.name}</strong> &bull; ${terrainDetails}${unitPart}`;
+    const unit = this.engine.getAllUnits().find(u => u.x === hoveredTile.x && u.y === hoveredTile.y && u.isAlive());
+
+    if (unit) {
+      const allegiance = unit.owner === 1 ? '<span style="color:#60a5fa; font-weight:700;">ALLIED' : '<span style="color:#f87171; font-weight:700;">HOSTILE';
+      const hp = `${unit.hp}/${unit.maxHp} HP`;
+      const stance = (unit.stance && unit.stance !== 'ADVANCE') ? ` [${unit.stance}]` : '';
+      let miredNote = '';
+      if (tile.id === 'SWAMP') {
+        miredNote = ' &bull; <span style="color:#fbbf24; font-weight:700;">MIRED (1T)</span> &bull; <span style="color:#ef4444; font-weight:700;">NO VEHICLES</span>';
+      } else if (tile.id === 'FOREST' && unit.stance === 'AMBUSH') {
+        miredNote = ' &bull; <span style="color:#34d399; font-weight:700;">AMBUSH READY</span>';
+      }
+      el.innerHTML = `[${colLetter}${rowNum}] <strong>${tile.name}</strong> &bull; ${allegiance}: ${unit.name} (${hp})${stance}</span>${miredNote}`;
+    } else {
+      let terrainDetails = '';
+      if (tile.id === 'SWAMP') {
+        terrainDetails = `<span style="color:#f87171; font-weight:700;">DEF -10%</span> &bull; <span style="color:#fbbf24; font-weight:700;">MIRED (1T)</span> &bull; <span style="color:#ef4444; font-weight:700;">NO VEHICLES</span> &bull; ${losStatus}`;
+      } else if (tile.id === 'FOREST') {
+        terrainDetails = `DEF +${defPct}% &bull; MOV 1.5x &bull; ${losStatus} (AMBUSH)`;
+      } else if (tile.id === 'MOUNTAIN') {
+        terrainDetails = `<span style="color:#ef4444; font-weight:700;">IMPASSABLE</span> &bull; ${losStatus}`;
+      } else if (tile.id === 'WATER') {
+        terrainDetails = `<span style="color:#ef4444; font-weight:700;">WATER HAZARD</span> &bull; ${losStatus}`;
+      } else if (tile.id === 'CAPTURE_ZONE') {
+        terrainDetails = `DEF +${defPct}% &bull; +25 INK/T &bull; ${losStatus}`;
+      } else if (tile.id === 'MAIN_BASE') {
+        terrainDetails = `DEF +${defPct}% &bull; COMMAND HQ (+50 INK/T)`;
+      } else {
+        terrainDetails = `DEF +${defPct}% &bull; MOV 1.0x &bull; ${losStatus}`;
+      }
+      el.innerHTML = `[${colLetter}${rowNum}] <strong>${tile.name}</strong> &bull; ${terrainDetails}`;
+    }
   }
 
   startRenderLoop() {
