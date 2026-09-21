@@ -343,7 +343,11 @@ export class UIManager {
 
   setupMenuTabs() {
     window.switchMenuTab = (btnId, paneId) => {
-      this.app.audio.playPencilScratch();
+      document.querySelectorAll('.diesel-select-wrapper.open').forEach(w => {
+        w.classList.remove('open');
+        w.querySelector('.diesel-select-trigger')?.setAttribute('aria-expanded', 'false');
+      });
+      try { this.app.audio.playPencilScratch(); } catch(e){}
       document.querySelectorAll('.menu-tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
 
@@ -351,7 +355,11 @@ export class UIManager {
       const activePane = document.getElementById(paneId);
 
       if (activeBtn) activeBtn.classList.add('active');
-      if (activePane) activePane.style.display = 'block';
+      if (activePane) activePane.style.display = 'flex';
+
+      if (btnId === 'tab-btn-bootcamp' || btnId === 'tab-btn-account') {
+        if (this.app && this.app.bootcampManager) this.app.bootcampManager.updateMenuUI();
+      }
     };
   }
 

@@ -3440,6 +3440,10 @@ class BootcampManager {
 }
 
 window.switchMenuTab = function(btnId, paneId) {
+  document.querySelectorAll('.diesel-select-wrapper.open').forEach(w => {
+    w.classList.remove('open');
+    w.querySelector('.diesel-select-trigger')?.setAttribute('aria-expanded', 'false');
+  });
   const tabs = [
     { btn: 'tab-btn-play', pane: 'tab-pane-play' },
     { btn: 'tab-btn-bootcamp', pane: 'tab-pane-bootcamp' },
@@ -4514,8 +4518,214 @@ window.deleteAdminUser = async function(id) {
   }
 };
 
+/**
+ * Custom Dieselpunk Select System
+ * Upgrades HTML <select> dropdowns with custom military themed UI,
+ * preventing native browser OS dropdown popup glitches and Segoe UI flicker.
+ */
+function initCustomSelects() {
+  const selects = document.querySelectorAll('#tab-pane-play select.btn-sketch, #tab-pane-settings select.btn-sketch');
+  selects.forEach(selectEl => {
+    if (selectEl.dataset.customized === 'true') {
+      if (typeof selectEl._syncCustomSelect === 'function') selectEl._syncCustomSelect();
+      return;
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'diesel-select-wrapper';
+    if (selectEl.classList.contains('setting-select')) {
+      wrapper.classList.add('setting-select-wrap');
+    }
+
+    // Insert wrapper before select, then place select inside wrapper
+    selectEl.parentNode.insertBefore(wrapper, selectEl);
+    wrapper.appendChild(selectEl);
+
+    // Hide original select visually and from tab index, keep accessible in DOM
+    selectEl.classList.add('diesel-hidden-select');
+    selectEl.setAttribute('tabindex', '-1');
+    selectEl.setAttribute('aria-hidden', 'true');
+    selectEl.dataset.customized = 'true';
+
+    // Trigger button
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'diesel-select-trigger btn-sketch';
+    trigger.setAttribute('aria-haspopup', 'listbox');
+    trigger.setAttribute('aria-expanded', 'false');
+
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'diesel-select-label';
+
+    const arrowSpan = document.createElement('span');
+    arrowSpan.className = 'diesel-select-arrow';
+    arrowSpan.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+
+    trigger.appendChild(labelSpan);
+    trigger.appendChild(arrowSpan);
+    wrapper.appendChild(trigger);
+
+    // Menu container
+    const menu = document.createElement('div');
+    menu.className = 'diesel-select-menu';
+    menu.setAttribute('role', 'listbox');
+    wrapper.appendChild(menu);
+
+    function syncLabel() {
+      const selectedOpt = selectEl.options[selectEl.selectedIndex] || selectEl.options[0];
+      if (selectedOpt) {
+        labelSpan.textContent = selectedOpt.textContent;
+      }
+      Array.from(menu.children).forEach(item => {
+        item.classList.toggle('selected', item.dataset.value === selectEl.value);
+      });
+    }
+
+    function rebuildOptions() {
+      menu.innerHTML = '';
+      const options = Array.from(selectEl.options);
+      options.forEach(opt => {
+        const item = document.createElement('div');
+        item.className = 'diesel-select-item';
+        item.setAttribute('role', 'option');
+        item.dataset.value = opt.value;
+        item.textContent = opt.textContent;
+
+        if (opt.disabled) {
+          item.classList.add('disabled');
+          item.setAttribute('aria-disabled', 'true');
+        } else {
+          item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (opt.disabled) return;
+            selectOption(opt.value);
+          });
+        }
+
+        if (opt.selected || opt.value === selectEl.value) {
+          item.classList.add('selected');
+        }
+
+        menu.appendChild(item);
+      });
+      syncLabel();
+    }
+
+    function selectOption(val) {
+      if (selectEl.value !== val) {
+        selectEl.value = val;
+        selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+        if (typeof selectEl.onchange === 'function') {
+          selectEl.onchange.call(selectEl);
+        }
+      }
+      syncLabel();
+      closeMenu();
+      try {
+        if (window.gApp && window.gApp.audio) window.gApp.audio.playPencilScratch();
+      } catch (err) {}
+    }
+
+    function openMenu() {
+      // Close other open diesel selects
+      document.querySelectorAll('.diesel-select-wrapper.open').forEach(other => {
+        if (other !== wrapper) {
+          other.classList.remove('open');
+          other.querySelector('.diesel-select-trigger')?.setAttribute('aria-expanded', 'false');
+        }
+      });
+
+      // Check vertical placement
+      const rect = trigger.getBoundingClientRect();
+      const estimatedHeight = Math.min(selectEl.options.length * 36 + 10, 220);
+      const spaceBelow = window.innerHeight - rect.bottom;
+      if (spaceBelow < estimatedHeight && rect.top > estimatedHeight) {
+        wrapper.classList.add('drop-up');
+      } else {
+        wrapper.classList.remove('drop-up');
+      }
+
+      wrapper.classList.add('open');
+      trigger.setAttribute('aria-expanded', 'true');
+    }
+
+    function closeMenu() {
+      wrapper.classList.remove('open');
+      trigger.setAttribute('aria-expanded', 'false');
+    }
+
+    function toggleMenu() {
+      if (wrapper.classList.contains('open')) {
+        closeMenu();
+      } else {
+        openMenu();
+      }
+    }
+
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      toggleMenu();
+    });
+
+    // Hook selectEl.value setter so programmatic changes immediately update UI
+    try {
+      const originalDescriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+      Object.defineProperty(selectEl, 'value', {
+        get() {
+          return originalDescriptor.get.call(this);
+        },
+        set(newVal) {
+          originalDescriptor.set.call(this, newVal);
+          syncLabel();
+        },
+        configurable: true
+      });
+    } catch (err) {
+      selectEl.addEventListener('change', syncLabel);
+    }
+
+    selectEl.addEventListener('change', syncLabel);
+    selectEl._syncCustomSelect = () => {
+      rebuildOptions();
+    };
+
+    rebuildOptions();
+  });
+}
+
+window.initCustomSelects = initCustomSelects;
+window.syncCustomSelects = function() {
+  document.querySelectorAll('select[data-customized="true"]').forEach(s => {
+    if (typeof s._syncCustomSelect === 'function') s._syncCustomSelect();
+  });
+};
+
+// Global click outside to dismiss custom selects
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.diesel-select-wrapper')) {
+    document.querySelectorAll('.diesel-select-wrapper.open').forEach(w => {
+      w.classList.remove('open');
+      w.querySelector('.diesel-select-trigger')?.setAttribute('aria-expanded', 'false');
+    });
+  }
+});
+
+// Escape key to dismiss
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.diesel-select-wrapper.open').forEach(w => {
+      w.classList.remove('open');
+      w.querySelector('.diesel-select-trigger')?.setAttribute('aria-expanded', 'false');
+    });
+  }
+});
+
 window.addEventListener('DOMContentLoaded', () => {
   new App();
+
+  // Initialize stylized dieselpunk select dropdowns
+  initCustomSelects();
 
   window.fetchPublicAnnouncement();
 
@@ -4548,6 +4758,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
     const speedSelect = document.getElementById('select-playback-duration');
     if (speedSelect) speedSelect.value = user.playback_speed;
+
+    window.syncCustomSelects();
 
     const badge = document.getElementById('d1-sync-badge');
     if (badge) {
