@@ -603,7 +603,6 @@ class Combat {
 class GameEngine {
   constructor(config = {}) {
     this.mapType = config.mapType || 'PRESET_1';
-    this.isTutorialMode = !!config.isTutorialMode;
     this.bootcampLesson = config.bootcampLesson || null;
     this.player1Faction = config.p1Faction || FACTIONS.IRON_CORPS;
     this.player2Faction = config.p2Faction || FACTIONS.VANGUARD_LEGION;
@@ -679,13 +678,6 @@ class GameEngine {
         this.players[1].ink = 40;
         this.players[2].ink = 20;
       }
-      return;
-    }
-
-    if (this.isTutorialMode) {
-      // In Tutorial Mode, P1 starts with 0 units so Step 1 (recruiting at Base) triggers first!
-      const u3 = new Unit('RIFLEMAN', 2, this.p2Base.x - 1, this.p2Base.y);
-      this.players[2].units.push(u3);
       return;
     }
 
@@ -1389,17 +1381,6 @@ class CommanderAI {
         });
         return;
       }
-    }
-
-    // TUTORIAL MODE: STRICTLY PASSIVE AI (No recruitment, no abilities, holds defense position)
-    if (engine.isTutorialMode) {
-      aiPlayer.units.forEach(unit => {
-        if (unit.isAlive()) {
-          unit.setStance(STANCES.DEFEND.id);
-          unit.setWaypoints([]);
-        }
-      });
-      return;
     }
 
     // 1. Dynamic Counter & Doctrine Recruitment
@@ -2809,28 +2790,6 @@ class UIManager {
       });
     }
 
-    const tutorialBox = document.getElementById('tutorial-hint-box');
-    const tutorialText = document.getElementById('tutorial-hint-text');
-    if (tutorialBox && tutorialText) {
-      if (engine.isTutorialMode && !engine.bootcampLesson) {
-        tutorialBox.style.display = 'block';
-        const p1Units = engine.players[1].units.filter(u => u.isAlive());
-        const hasQueuedMoves = p1Units.some(u => u.waypoints.length > 0);
-
-        if (p1Units.length === 0) {
-          tutorialText.innerHTML = '<b>Step 1:</b> Click "Rifle Squad" in the Recruit Store below to deploy your first unit at your HQ Base (Blue Ring).';
-        } else if (!hasQueuedMoves) {
-          tutorialText.innerHTML = '<b>Step 2:</b> Click your troop on the map grid (Blue Ring), then click adjacent tiles to draw a movement path towards the Gold Supply Zone (+10 Ink/Turn).';
-        } else if (engine.phase === 'PLANNING') {
-          tutorialText.innerHTML = '<b>Step 3:</b> Great job! Now click "End Phase" on the top right to execute simultaneous movement.';
-        } else {
-          tutorialText.innerHTML = '<b>Step 4:</b> Perfect! Capture Gold Supply Zones (+10 Ink/turn) and destroy the Red AI HQ Base to win!';
-        }
-      } else {
-        tutorialBox.style.display = 'none';
-      }
-    }
-
     if (engine.winner && !engine.victoryShown) {
       engine.victoryShown = true;
       if (engine.bootcampLesson && engine.bootcampManager) {
@@ -3274,9 +3233,6 @@ class BootcampManager {
     const dialog = document.getElementById('bootcamp-instructor-dialog');
     if (dialog) dialog.style.display = 'flex';
 
-    const tutorialBox = document.getElementById('tutorial-hint-box');
-    if (tutorialBox) tutorialBox.style.display = 'none';
-
     if (this.checkVictory(engine)) {
       this.onLessonVictory(engine);
       return;
@@ -3686,9 +3642,8 @@ class App {
 
       const mapVal = document.getElementById('select-map')?.value || 'PRESET_1';
       const gameMode = document.getElementById('select-game-mode')?.value || 'SINGLE_PLAYER';
-      const isTutorial = gameMode === 'PRACTICE_TUTORIAL';
       const p1FactionKey = document.getElementById('select-p1-faction')?.value || 'IRON_CORPS';
-      const aiDiff = isTutorial ? 'RECRUIT' : (document.getElementById('select-ai-difficulty')?.value || window.gAiDifficulty || 'VETERAN');
+      const aiDiff = document.getElementById('select-ai-difficulty')?.value || window.gAiDifficulty || 'VETERAN';
       const aiPersonality = document.getElementById('select-ai-personality')?.value || 'TACTICUS';
       const timerDuration = parseInt(document.getElementById('select-timer-duration')?.value || '20', 10);
       const playbackDuration = parseInt(document.getElementById('select-playback-duration')?.value || '3', 10);
@@ -3699,15 +3654,13 @@ class App {
         mapType: mapVal,
         p1Faction: FACTIONS[p1FactionKey],
         p2Faction: FACTIONS[p2FactionKey],
-        isSinglePlayer: (gameMode === 'SINGLE_PLAYER' || isTutorial),
-        isTutorialMode: isTutorial,
+        isSinglePlayer: true,
         aiDifficulty: aiDiff,
         aiPersonality: aiPersonality,
         playbackDuration: playbackDuration,
         audio: this.audio
       });
 
-      this.engine.isTutorialMode = isTutorial;
       this.engine.bootcampLesson = null;
       this.engine.bootcampManager = null;
       this.engine.planningTimeRemaining = timerDuration;

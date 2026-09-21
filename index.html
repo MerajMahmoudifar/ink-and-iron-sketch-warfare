@@ -80,9 +80,8 @@
             <div class="tab-grid-item">
               <label class="setup-label">Game Mode</label>
               <select id="select-game-mode" class="btn-sketch">
-                <option value="SINGLE_PLAYER">Single Player vs AI</option>
-                <option value="PRACTICE_TUTORIAL">Practice Tutorial (Guided Passive AI)</option>
-                <option value="HOTSEAT">Local Hotseat (Pass &amp; Play)</option>
+                <option value="SINGLE_PLAYER" selected>Single Player vs AI</option>
+                <option value="HOTSEAT" disabled style="color: #64748b; background: #0f172a;">Local Hotseat (Pass &amp; Play) &mdash; Under Construction</option>
               </select>
             </div>
 
@@ -615,16 +614,6 @@
             <button id="btn-end-turn" class="btn-sketch btn-end-phase">
               End Phase
             </button>
-          </div>
-
-          <!-- Practice Tutorial Guided Callout Box (Only visible in Tutorial Mode) -->
-          <div id="tutorial-hint-box" class="tutorial-hint-card" style="display: none;">
-            <div class="tutorial-hint-header">
-              <span class="tutorial-badge">PRACTICE TUTORIAL</span>
-            </div>
-            <p id="tutorial-hint-text" class="tutorial-hint-text">
-              Step 1: Click "Rifle Squad" in the recruit store below to deploy at your HQ Base (Blue Ring).
-            </p>
           </div>
 
           <!-- Unit / Terrain Inspector -->
