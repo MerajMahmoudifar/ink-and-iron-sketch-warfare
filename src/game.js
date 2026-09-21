@@ -250,19 +250,20 @@ class MapGenerator {
         break;
 
       case 5:
-        // Lesson 5: Terrain Hazards & Sightlines — The Mud Trap
-        // Central Mud/Swamp corridor separating player and enemy
+        // Lesson 5: Bog Shortcut & Chokepoint Race
+        // Mountain wall at col 3 (rows 0–7) except Forest pass at (3,3)
+        // Infantry mud shortcut at (2,3); enemy vehicle must detour north
         layout = [
-          ['.', '.', '.', '.', '.', '.', '.', '.'],
-          ['.', 'B1', '.', 'S', 'S', '.', '.', '.'],
-          ['.', '.', '.', 'S', 'S', '.', '.', '.'],
-          ['.', '.', '.', 'S', 'S', '.', '.', '.'],
-          ['.', '.', '.', 'S', 'S', '.', '.', '.'],
-          ['.', '.', '.', 'M', 'M', '.', '.', '.'],
-          ['.', '.', '.', '.', '.', '.', '.', '.'],
-          ['.', '.', '.', '.', '.', '.', '.', 'B2']
+          ['.', '.', '.', 'M', '.', '.', '.', '.'],
+          ['.', '.', '.', 'M', '.', '.', '.', '.'],
+          ['.', '.', '.', 'M', '.', '.', '.', '.'],
+          ['B1', '.', 'S', 'F', '.', '.', '.', '.'],
+          ['.', '.', '.', 'M', '.', '.', '.', '.'],
+          ['.', '.', '.', 'M', '.', '.', '.', '.'],
+          ['.', '.', '.', 'M', '.', '.', '.', '.'],
+          ['.', '.', '.', 'M', '.', '.', '.', 'B2']
         ];
-        p1Base = { x: 1, y: 1 };
+        p1Base = { x: 0, y: 3 };
         p2Base = { x: 7, y: 7 };
         break;
 
@@ -800,14 +801,17 @@ class GameEngine {
         const erf1 = new Unit('RIFLEMAN', 2, 4, 5);
         this.players[2].units.push(ev1, eat1, erf1);
       } else if (this.bootcampLesson === 5) {
-        // Lesson 5: The Mud Trap
-        const rf = new Unit('RIFLEMAN', 1, 2, 2);
-        const vc = new Unit('LIGHT_VEHICLE', 1, 1, 4);
-        this.players[1].units.push(rf, vc);
-
-        const ev = new Unit('LIGHT_VEHICLE', 2, 5, 2);
-        this.players[2].units.push(ev);
+        // Lesson 5: Bog Shortcut & Chokepoint Race
+        // Player: low-HP AT Crew infantry can wade through mud shortcut
+        const at = new Unit('ANTI_TANK', 1, 1, 3);
+        at.hp = 30;
+        this.players[1].units.push(at);
         this.players[1].ink = 0;
+
+        // Enemy: fast Light Vehicle must detour north (cannot enter mud)
+        const ev = new Unit('LIGHT_VEHICLE', 2, 5, 0);
+        ev.hp = 35;
+        this.players[2].units.push(ev);
         this.players[2].ink = 0;
       } else if (this.bootcampLesson === 6) {
         // Lesson 6: Command Abilities (Air & Firepower)
@@ -1611,11 +1615,19 @@ class CommanderAI {
         return;
       }
       if (engine.bootcampLesson === 5) {
-        // Enemy vehicle holds position across mud barrier
+        // Scripted 2-turn detour: vehicle cannot enter mud so it must go
+        // around the mountain wall via the north corridor (col 4).
         const ev = aiPlayer.units.find(u => u.isAlive());
         if (ev) {
-          ev.setStance(STANCES.DEFEND.id);
-          ev.setWaypoints([]);
+          ev.setStance(STANCES.ADVANCE.id);
+          if (engine.turnNumber <= 1) {
+            // Turn 1: race north along col 4, staying east of mountains
+            ev.setWaypoints([{ x: 4, y: 0 }, { x: 4, y: 1 }, { x: 4, y: 2 }]);
+          } else {
+            // Turn 2+: push through to the forest pass — AT will stop it
+            const path = engine.findValidPath(ev, 3, 3);
+            if (path && path.length > 0) ev.setWaypoints(path);
+          }
         }
         return;
       }
@@ -4324,30 +4336,35 @@ class BootcampManager {
       if (textEl) textEl.textContent = 'AT pierces Armor (2.5x), Rifle flanks AT, Vehicle crushes Infantry (1.5x). Plot attacks and click End Phase!';
       this.positionPointerAtElement('btn-end-turn', 'Execute Counters');
     } else if (this.activeLesson === 5) {
-      // Lesson 5: Terrain Hazards & Sightlines (The Mud Trap)
-      const squad = engine.players[1].units.find(u => u.category === 'INFANTRY' && u.isAlive());
-      const pVehicle = engine.players[1].units.find(u => u.category === 'VEHICLE' && u.isAlive());
+      // Lesson 5: Bog Shortcut & Chokepoint Race
+      const at = engine.players[1].units.find(u => u.isAlive());
       const enemies = engine.players[2].units.filter(u => u.isAlive());
-      const inMud = squad && engine.grid[squad.y] && engine.grid[squad.y][squad.x].id === 'SWAMP';
+      const atX = at ? at.x : -1;
+      const atY = at ? at.y : -1;
+      const atInMud = atX === 2 && atY === 3;
 
-      if (!inMud && squad && squad.x < 3) {
+      if (!at || enemies.length === 0) {
+        // Victory is handled by checkVictory — hide pointer
+        this.positionPointerAtTile(null, null);
+      } else if (!atInMud) {
+        // Step 1: AT hasn't entered the mud shortcut yet
         this.currentStep = 1;
-        if (stepLabel) stepLabel.textContent = 'Step 1 of 3 • Entering Mud';
-        if (textEl) textEl.innerHTML = `Select your Rifle Squad at ${formatCoord(squad.x, squad.y)} and plot a path into the Mud sector at ${formatCoord(3, 2)}.`;
-        this.positionPointerAtTile(3, 2, '1. Advance into Mud');
-      } else if (inMud || (squad && squad.miredThisTurn)) {
-        this.currentStep = 2;
-        if (stepLabel) stepLabel.textContent = 'Step 2 of 3 • Mud Mires Troops & Blocks Tanks';
-        if (textEl) textEl.innerHTML = `Notice your infantry is <b>MIRED</b> (halts for 1 turn, defense -10%). However, <b>enemy vehicles are strictly impassable</b> and cannot cross! Click "End Phase".`;
-        this.positionPointerAtElement('btn-end-turn', '2. Click End Phase');
-      } else {
-        this.currentStep = 3;
-        if (stepLabel) stepLabel.textContent = 'Step 3 of 3 • Destroy Stalled Enemy';
-        if (textEl) textEl.innerHTML = `The enemy vehicle is trapped across the mud line. Advance your forces and eliminate the enemy Armored Car at ${formatCoord(5, 2)}!`;
-        if (enemies.length > 0) {
-          this.positionPointerAtTile(enemies[0].x, enemies[0].y, '3. Attack Enemy Vehicle');
+        if (stepLabel) stepLabel.textContent = 'Step 1 of 2 • Take the Mud Shortcut';
+        if (textEl) textEl.innerHTML = `Select your AT Crew at ${formatCoord(1, 3)} and send them into the <b>Mud shortcut</b> at ${formatCoord(2, 3)}, then click "End Phase". Infantry get <b>mired 1 turn</b> — but vehicles <b>cannot cross at all</b>!`;
+        if (at.waypoints && at.waypoints.length > 0) {
+          this.positionPointerAtElement('btn-end-turn', '1. Click End Phase');
         } else {
-          this.positionPointerAtElement('btn-end-turn', 'Click End Phase');
+          this.positionPointerAtTile(2, 3, '1. Wade into Mud');
+        }
+      } else {
+        // Step 2: AT is in mud at (2,3) → seize the forest pass
+        this.currentStep = 2;
+        if (stepLabel) stepLabel.textContent = 'Step 2 of 2 • Seize the Forest Pass';
+        if (textEl) textEl.innerHTML = `Mire expires next phase! Plot your AT Crew into the <b>Forest Pass</b> at ${formatCoord(3, 3)} to ambush the incoming vehicle. Click "End Phase" to execute!`;
+        if (at.waypoints && at.waypoints.length > 0) {
+          this.positionPointerAtElement('btn-end-turn', '2. Click End Phase');
+        } else {
+          this.positionPointerAtTile(3, 3, '2. Seize Forest Pass');
         }
       }
     } else if (this.activeLesson === 6) {
