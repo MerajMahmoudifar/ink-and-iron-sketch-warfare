@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ink &amp; Iron: Sketch Warfare | Turn-Based Grid Strategy</title>
   <meta name="description" content="Ink &amp; Iron: Sketch Warfare is a turn-based grid strategy game with hand-drawn paper aesthetics, unique factions, command abilities, and simultaneous combat playback.">
-  <link rel="stylesheet" href="styles/main.css?v=2.6.0">
+  <link rel="stylesheet" href="styles/main.css?v=2.7.0">
 </head>
 <body>
 
@@ -566,9 +566,12 @@
       <main class="main-game-layout">
 
         <!-- Left Sidebar: Commander Log -->
-        <aside class="panel-card sidebar-panel">
+        <aside class="panel-card sidebar-panel sidebar-panel-left">
           <div class="panel-header-flex">
-            <h2 class="panel-title">Commander Log</h2>
+            <div class="panel-title-group">
+              <span class="live-telegraph-dot" title="Live Tactical Teletype Active"></span>
+              <h2 class="panel-title">Command Dispatch</h2>
+            </div>
             <div class="log-filter-chips">
               <button id="log-filter-all" class="log-filter-btn active">All</button>
               <button id="log-filter-combat" class="log-filter-btn">Combat</button>
@@ -578,10 +581,19 @@
           <div id="action-log-box" class="action-log-box">
             <div class="log-entry">Match started. Good luck, Commander.</div>
           </div>
+          <div class="sidebar-doctrine-tip">
+            <div class="doctrine-tip-header"><span class="doctrine-tip-icon">&#9878;</span> TACTICAL DOCTRINE</div>
+            <div class="doctrine-tip-body">High ground grants +1 vision &amp; range. Wooded sectors provide 30% ambush evasion.</div>
+          </div>
         </aside>
 
         <!-- Center: Canvas Battlefield -->
         <section class="canvas-wrapper">
+          <div class="canvas-corner corner-tl"></div>
+          <div class="canvas-corner corner-tr"></div>
+          <div class="canvas-corner corner-bl"></div>
+          <div class="canvas-corner corner-br"></div>
+          <div class="canvas-ruler-hint">SECTOR 8x8 &bull; COORD A-H / 1-8</div>
           <canvas id="sketch-canvas"></canvas>
 
           <!-- Sergeant Instructor Briefing Card (Bootcamp Only) -->
@@ -605,14 +617,14 @@
         </section>
 
         <!-- Right Sidebar: Controls, Inspector, Abilities, Recruitment -->
-        <aside class="panel-card sidebar-panel">
+        <aside class="panel-card sidebar-panel sidebar-panel-right">
           <div class="turn-control-bar">
             <button id="btn-halt-all" class="btn-sketch btn-halt" title="Cancel movement paths for all friendly units">
-              Halt All
+              HALT ALL
             </button>
             <span id="turn-counter" class="turn-counter-badge">Turn 1</span>
             <button id="btn-end-turn" class="btn-sketch btn-end-phase">
-              End Phase
+              END PHASE &#9654;&#9654;
             </button>
           </div>
 
@@ -1066,6 +1078,6 @@
   </div>
 
   <script src="src/firebase-config.js"></script>
-  <script src="src/game.js?v=2.6.0"></script>
+  <script src="src/game.js?v=2.7.0"></script>
 </body>
 </html>

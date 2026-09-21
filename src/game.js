@@ -2132,6 +2132,23 @@ class SketchRenderer {
       this.ctx.beginPath(); this.ctx.moveTo(this.offsetX, this.offsetY + p); this.ctx.lineTo(this.offsetX + 560, this.offsetY + p); this.ctx.stroke();
     }
 
+    // Tactical Military Grid Coordinates (A-H along top margin, 1-8 along left margin)
+    this.ctx.save();
+    this.ctx.font = 'bold 9px "JetBrains Mono", Consolas, monospace';
+    this.ctx.fillStyle = '#64748b';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    const colLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+    for (let c = 0; c < 8; c++) {
+      const x = this.offsetX + c * 70 + 35;
+      this.ctx.fillText(colLabels[c], x, 10);
+    }
+    for (let r = 0; r < 8; r++) {
+      const y = this.offsetY + r * 70 + 35;
+      this.ctx.fillText(String(r + 1), 10, y);
+    }
+    this.ctx.restore();
+
     // Units multi-turn waypoints — show P1's own units' plans
     engine.players[1].units.forEach(unit => {
       if (unit.isAlive() && unit.waypoints.length > 0) {
@@ -2901,9 +2918,24 @@ class UIManager {
     Object.keys(UNIT_TYPES).filter(k => !UNIT_TYPES[k].factionLock || UNIT_TYPES[k].factionLock === p1.faction.id).forEach(key => {
       const u = UNIT_TYPES[key];
       const btn = document.createElement('button');
-      btn.id = 'store-card-' + key;
-      btn.className = 'unit-card-btn';
-      btn.innerHTML = `<div class="unit-card-info"><span class="unit-card-title">${u.symbol} ${u.name}</span><span class="unit-card-desc">${u.description}</span></div><span class="unit-card-cost">${u.cost} Ink</span>`;
+      const roleLabel = u.category || 'COMBAT';
+      const roleClass = (u.category === 'VEHICLE' || u.category === 'ARMOR') ? 'role-vehicle' : (u.category === 'INFANTRY' ? 'role-infantry' : 'role-support');
+      const statsSummary = `HP ${u.maxHp} &bull; ATK ${u.attack} &bull; MOV ${u.moveRange} &bull; RNG ${u.attackRange}`;
+      btn.innerHTML = `
+        <div class="unit-card-badge-row">
+          <span class="unit-card-symbol">${u.symbol}</span>
+          <div class="unit-card-info">
+            <div class="unit-card-header-row">
+              <span class="unit-card-title">${u.name}</span>
+              <span class="unit-role-tag ${roleClass}">${roleLabel}</span>
+            </div>
+            <div class="unit-stats-strip">${statsSummary}</div>
+          </div>
+        </div>
+        <div class="unit-card-cost-wrap">
+          <span class="unit-card-cost">${u.cost}</span>
+          <span class="unit-card-cost-unit">INK</span>
+        </div>`;
       
       btn.addEventListener('click', () => {
         this.app.audio.playPencilScratch();
