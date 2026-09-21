@@ -251,20 +251,21 @@ class MapGenerator {
 
       case 5:
         // Lesson 5: Bog Shortcut & Chokepoint Race
-        // Mountain wall at col 3 (rows 0–7) halves the map, with Forest pass at (3,3)
-        // Mud shortcut at (2,3) for Player AT; mud bog at cols 5-6 forces Enemy Vehicle into north bypass
+        // Symmetrical battlefield: Mountain wall down col 3 (Forest pass at D4 (3,3))
+        // Mud wetlands at cols 1-2 (B-C) and cols 5-6 (F-G) including rows 0-4 (F1, F2, G1, G2, etc.)
+        // Southern bypass at rows 5-7
         layout = [
+          ['.',  'S',  'S',  'M',  '.',  'S',  'S',  '.'],
+          ['.',  'S',  'S',  'M',  '.',  'S',  'S',  '.'],
+          ['.',  'S',  'S',  'M',  '.',  'S',  'S',  '.'],
+          ['B1', 'S',  'S',  'F',  '.',  'S',  'S',  'B2'],
+          ['.',  'S',  'S',  'M',  '.',  'S',  'S',  '.'],
           ['.',  '.',  '.',  'M',  '.',  '.',  '.',  '.'],
           ['.',  '.',  '.',  'M',  '.',  '.',  '.',  '.'],
-          ['.',  '.',  '.',  'M',  '.',  'S',  'S',  '.'],
-          ['B1', '.',  'S',  'F',  '.',  'S',  'S',  '.'],
-          ['.',  '.',  '.',  'M',  '.',  'S',  'S',  '.'],
-          ['.',  '.',  '.',  'M',  '.',  '.',  '.',  '.'],
-          ['.',  '.',  '.',  'M',  '.',  '.',  '.',  '.'],
-          ['.',  '.',  '.',  'M',  '.',  '.',  '.',  'B2']
+          ['.',  '.',  '.',  'M',  '.',  '.',  '.',  '.']
         ];
         p1Base = { x: 0, y: 3 };
-        p2Base = { x: 7, y: 7 };
+        p2Base = { x: 7, y: 3 };
         break;
 
       case 6:
@@ -819,15 +820,16 @@ class GameEngine {
         this.players[2].units.push(ev1, eat1, erf1);
       } else if (this.bootcampLesson === 5) {
         // Lesson 5: Bog Shortcut & Chokepoint Race
-        // Player: low-HP AT Crew at (1, 3) (HP 30, can wade into Mud shortcut at (2,3))
+        // Player: low-HP AT Crew at (1, 3) (HP 25: fragile, dies immediately if attacked in open!)
         const at = new Unit('ANTI_TANK', 1, 1, 3);
-        at.hp = 30;
+        at.hp = 25;
         this.players[1].units.push(at);
         this.players[1].ink = 0;
 
-        // Enemy: low-HP Light Vehicle at (7, 1) (HP 35, cannot enter mud, must detour north)
-        const ev = new Unit('LIGHT_VEHICLE', 2, 7, 1);
-        ev.hp = 35;
+        // Enemy: Armored Car at (7, 3) (HP 150: survives normal hit with ~20 HP, but dies to Forest Ambush Strike!)
+        const ev = new Unit('LIGHT_VEHICLE', 2, 7, 3);
+        ev.hp = 150;
+        ev.maxHp = 150;
         this.players[2].units.push(ev);
         this.players[2].ink = 0;
       } else if (this.bootcampLesson === 6) {
@@ -1504,7 +1506,7 @@ class GameEngine {
       this.winReason = 'TOTAL_ELIMINATION';
       this.phase = GAME_PHASES.GAME_OVER;
     } else if (p2Alive === 0 && this.players[2].ink < 100) {
-      if (this.bootcampLesson === 5 && this.turnNumber < 2) return;
+      if (this.bootcampLesson === 5 && this.turnNumber < 3) return;
       this.winner = 1;
       this.winReason = 'TOTAL_ELIMINATION';
       this.phase = GAME_PHASES.GAME_OVER;
@@ -1636,16 +1638,19 @@ class CommanderAI {
         return;
       }
       if (engine.bootcampLesson === 5) {
-        // Scripted 2-turn detour: vehicle cannot enter mud so it must detour north around bog
+        // Scripted detour: vehicle cannot enter mud so it detours south around columns 5 & 6
         const ev = aiPlayer.units.find(u => u.isAlive());
         if (ev) {
           ev.setStance(STANCES.ADVANCE.id);
           if (engine.turnNumber <= 1) {
-            // Turn 1: race along northern bypass (7,1) -> (6,1) -> (5,1)
-            ev.setWaypoints([{ x: 6, y: 1 }, { x: 5, y: 1 }]);
+            // Turn 1: head south from (7,3) -> (7,4) -> (7,5)
+            ev.setWaypoints([{ x: 7, y: 4 }, { x: 7, y: 5 }]);
+          } else if (engine.turnNumber === 2) {
+            // Turn 2: round southern bypass from (7,5) -> (6,5) -> (5,5)
+            ev.setWaypoints([{ x: 6, y: 5 }, { x: 5, y: 5 }]);
           } else {
-            // Turn 2+: round the corner and charge toward the Forest Pass at (3, 3)
-            ev.setWaypoints([{ x: 4, y: 1 }, { x: 4, y: 2 }, { x: 4, y: 3 }]);
+            // Turn 3+: charge up col 4 straight to the Forest Pass at (3,3)
+            ev.setWaypoints([{ x: 4, y: 5 }, { x: 4, y: 4 }, { x: 4, y: 3 }]);
           }
         }
         return;
@@ -4366,8 +4371,8 @@ class BootcampManager {
       } else if (atX === 1 && atY === 3) {
         // Step 1: AT Crew at start position (1,3) -> take mud shortcut to (2,3)
         this.currentStep = 1;
-        if (stepLabel) stepLabel.textContent = 'Step 1 of 2 • Take Mud Shortcut';
-        if (textEl) textEl.innerHTML = `An enemy Light Vehicle is racing toward the <b>Forest Pass</b> at ${formatCoord(3, 3)}! Order your AT Crew at ${formatCoord(1, 3)} into the <b>Mud shortcut</b> at ${formatCoord(2, 3)}, then click "End Phase". Infantry get <b>mired 1 turn</b> — but vehicles <b>cannot cross mud at all</b>!`;
+        if (stepLabel) stepLabel.textContent = 'Step 1 of 3 • Take Mud Shortcut';
+        if (textEl) textEl.innerHTML = `Both bases are placed symmetrically, and hostiles deployed a Light Vehicle at ${formatCoord(7, 3)}. As the crow flies, it is the <b>almost same route</b> — but they have a 3-speed vehicle! However, columns F & G (including ${formatCoord(5, 0)}, ${formatCoord(5, 1)}, ${formatCoord(6, 0)}, ${formatCoord(6, 1)}) are deep mud. Vehicles <b>cannot cross mud at all</b> and must take a long southern detour. Order your AT Crew into the <b>Mud shortcut</b> at ${formatCoord(2, 3)} and click "End Phase"!`;
         if (at.waypoints && at.waypoints.length > 0) {
           this.positionPointerAtElement('btn-end-turn', '1. Click End Phase');
         } else {
@@ -4376,19 +4381,19 @@ class BootcampManager {
       } else if (atX === 2 && atY === 3) {
         // Step 2: AT Crew in mud at (2,3) -> seize the forest pass at (3,3)
         this.currentStep = 2;
-        if (stepLabel) stepLabel.textContent = 'Step 2 of 2 • Seize the Forest Pass';
-        if (textEl) textEl.innerHTML = `Mire has cleared! The enemy vehicle was forced into a long detour around the bog. Move your AT Crew into the <b>Forest Pass</b> at ${formatCoord(3, 3)} and click "End Phase" to spring the ambush!`;
+        if (stepLabel) stepLabel.textContent = 'Step 2 of 3 • Seize the Forest Pass';
+        if (textEl) textEl.innerHTML = `Mire has cleared! The enemy vehicle was forced into a massive southern detour, so <b>we arrived earlier</b>! Move your AT Crew into the <b>Forest Pass</b> at ${formatCoord(3, 3)} and click "End Phase". Notice: <u>simply arriving does NOT win the game</u> — we must eliminate the approaching vehicle!`;
         if (at.waypoints && at.waypoints.length > 0) {
           this.positionPointerAtElement('btn-end-turn', '2. Click End Phase');
         } else {
           this.positionPointerAtTile(3, 3, '2. Seize Forest Pass');
         }
       } else if (atX === 3 && atY === 3) {
-        // Step 2b: Already at the Forest Pass
-        this.currentStep = 2;
-        if (stepLabel) stepLabel.textContent = 'Step 2 of 2 • Ambush the Vehicle';
-        if (textEl) textEl.innerHTML = `You secured the Forest Pass! Click "End Phase" to ambush the incoming vehicle as it rounds the corner!`;
-        this.positionPointerAtElement('btn-end-turn', '2. Spring Ambush');
+        // Step 3: Camping in the Forest Pass
+        this.currentStep = 3;
+        if (stepLabel) stepLabel.textContent = 'Step 3 of 3 • Ambush from the Forest';
+        if (textEl) textEl.innerHTML = `Hostile Armored Car is closing in! <b style="color:#ef4444;">TACTICAL LAW:</b> Your squad has only 25 HP — in the open, you die horribly! The <b>ONLY way you win is CAMPING in this Forest</b> in AMBUSH stance for the 1.5x Ambush Strike. Hold position and click "End Phase" to destroy them as they arrive!`;
+        this.positionPointerAtElement('btn-end-turn', '3. Spring Ambush');
       } else {
         this.positionPointerAtTile(null, null);
       }
@@ -4512,7 +4517,7 @@ class BootcampManager {
     }
     if (this.activeLesson === 5) {
       const enemies = engine.players[2].units.filter(u => u.isAlive());
-      return enemies.length === 0 && engine.turnNumber >= 2;
+      return enemies.length === 0 && engine.turnNumber >= 3;
     }
     if (this.activeLesson === 6) {
       const enemies = engine.players[2].units.filter(u => u.isAlive());
