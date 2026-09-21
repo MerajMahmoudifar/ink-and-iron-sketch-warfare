@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ink &amp; Iron: Sketch Warfare | Turn-Based Grid Strategy</title>
   <meta name="description" content="Ink &amp; Iron: Sketch Warfare is a turn-based grid strategy game with hand-drawn paper aesthetics, unique factions, command abilities, and simultaneous combat playback.">
-  <link rel="stylesheet" href="styles/main.css?v=2.8.0">
+  <link rel="stylesheet" href="styles/main.css?v=2.9.0">
 </head>
 <body>
 
@@ -593,7 +593,10 @@
           <div class="canvas-corner corner-tr"></div>
           <div class="canvas-corner corner-bl"></div>
           <div class="canvas-corner corner-br"></div>
-          <div class="canvas-ruler-hint">SECTOR 8x8 &bull; COORD A-H / 1-8</div>
+          <div class="canvas-sitrep-bar">
+            <span class="sitrep-badge">SITREP</span>
+            <span id="canvas-sitrep-text" class="sitrep-text">SECTOR 8x8 &bull; MAP: THE IRON BASIN &bull; ALLIED COMMAND</span>
+          </div>
           <canvas id="sketch-canvas"></canvas>
 
           <!-- Sergeant Instructor Briefing Card (Bootcamp Only) -->
@@ -1083,6 +1086,6 @@
   </div>
 
   <script src="src/firebase-config.js"></script>
-  <script src="src/game.js?v=2.8.0"></script>
+  <script src="src/game.js?v=2.9.0"></script>
 </body>
 </html>

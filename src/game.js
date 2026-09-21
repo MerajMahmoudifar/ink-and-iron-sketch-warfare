@@ -2102,20 +2102,31 @@ class SketchRenderer {
   render(engine) {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // Background paper
-    this.ctx.fillStyle = '#fcfbfa';
+    // 1. Background Military Drafting Vellum
+    this.ctx.fillStyle = '#f3ede2';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // Red margin line
-    this.ctx.strokeStyle = 'rgba(239, 68, 68, 0.3)';
-    this.ctx.lineWidth = 2;
-    this.ctx.beginPath(); this.ctx.moveTo(15, 0); this.ctx.lineTo(15, 600); this.ctx.stroke();
+    // 2. Fine Technical Subdivisions (Graph Paper Grid at 35px)
+    this.ctx.save();
+    this.ctx.strokeStyle = 'rgba(71, 85, 105, 0.08)';
+    this.ctx.lineWidth = 0.6;
+    for (let p = 35; p < 560; p += 35) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(this.offsetX + p, this.offsetY);
+      this.ctx.lineTo(this.offsetX + p, this.offsetY + 560);
+      this.ctx.stroke();
+      this.ctx.beginPath();
+      this.ctx.moveTo(this.offsetX, this.offsetY + p);
+      this.ctx.lineTo(this.offsetX + 560, this.offsetY + p);
+      this.ctx.stroke();
+    }
+    this.ctx.restore();
 
     // In GAME_OVER terrain-view mode: reveal all tiles (no fog)
     const isTerrainView = engine.phase === 'GAME_OVER';
     const p1Vision = isTerrainView ? Array(8).fill(null).map(() => Array(8).fill(true)) : engine.calculateVision(1);
 
-    // Terrain Tiles
+    // 3. Terrain Tiles
     for (let r = 0; r < 8; r++) {
       for (let c = 0; c < 8; c++) {
         const tile = engine.grid[r][c];
@@ -2124,32 +2135,77 @@ class SketchRenderer {
       }
     }
 
-    // Grid lines
-    this.ctx.strokeStyle = '#cbe3f7'; this.ctx.lineWidth = 1;
+    // 4. Primary 70px Drafting Grid Lines & Precision Quadrant Crosses
+    this.ctx.save();
+    this.ctx.strokeStyle = 'rgba(71, 85, 105, 0.3)';
+    this.ctx.lineWidth = 1;
     for (let i = 0; i <= 8; i++) {
       const p = i * 70;
       this.ctx.beginPath(); this.ctx.moveTo(this.offsetX + p, this.offsetY); this.ctx.lineTo(this.offsetX + p, this.offsetY + 560); this.ctx.stroke();
       this.ctx.beginPath(); this.ctx.moveTo(this.offsetX, this.offsetY + p); this.ctx.lineTo(this.offsetX + 560, this.offsetY + p); this.ctx.stroke();
     }
 
-    // Tactical Military Grid Coordinates (A-H along top margin, 1-8 along left margin)
+    // Quadrant Registration Crosses (+) at tile junctions
+    this.ctx.strokeStyle = 'rgba(15, 23, 42, 0.45)';
+    this.ctx.lineWidth = 1;
+    for (let r = 0; r <= 8; r++) {
+      for (let c = 0; c <= 8; c++) {
+        const jx = this.offsetX + c * 70;
+        const jy = this.offsetY + r * 70;
+        this.ctx.beginPath();
+        this.ctx.moveTo(jx - 3.5, jy); this.ctx.lineTo(jx + 3.5, jy);
+        this.ctx.moveTo(jx, jy - 3.5); this.ctx.lineTo(jx, jy + 3.5);
+        this.ctx.stroke();
+      }
+    }
+    this.ctx.restore();
+
+    // 5. Precision Tactical Military Grid Coordinates (A-H top, 1-8 left, secondary pips bottom/right)
     this.ctx.save();
     this.ctx.font = 'bold 9px "JetBrains Mono", Consolas, monospace';
-    this.ctx.fillStyle = '#64748b';
+    this.ctx.fillStyle = '#475569';
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'middle';
     const colLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
     for (let c = 0; c < 8; c++) {
       const x = this.offsetX + c * 70 + 35;
       this.ctx.fillText(colLabels[c], x, 10);
+      // Coordinate alignment tick into the grid track
+      this.ctx.strokeStyle = 'rgba(71, 85, 105, 0.5)';
+      this.ctx.lineWidth = 1;
+      this.ctx.beginPath();
+      this.ctx.moveTo(x, 15);
+      this.ctx.lineTo(x, 19);
+      this.ctx.stroke();
+
+      // Symmetrical bottom margin registration dot
+      this.ctx.fillStyle = 'rgba(71, 85, 105, 0.4)';
+      this.ctx.fillRect(x - 1, 587, 2, 2);
     }
     for (let r = 0; r < 8; r++) {
       const y = this.offsetY + r * 70 + 35;
+      this.ctx.fillStyle = '#475569';
       this.ctx.fillText(String(r + 1), 10, y);
+      // Coordinate alignment tick into the grid track
+      this.ctx.strokeStyle = 'rgba(71, 85, 105, 0.5)';
+      this.ctx.lineWidth = 1;
+      this.ctx.beginPath();
+      this.ctx.moveTo(15, y);
+      this.ctx.lineTo(19, y);
+      this.ctx.stroke();
+
+      // Symmetrical right margin registration dot
+      this.ctx.fillStyle = 'rgba(71, 85, 105, 0.4)';
+      this.ctx.fillRect(587, y - 1, 2, 2);
     }
+
+    // Outer Precision Drafting Border Frame (560x560)
+    this.ctx.strokeStyle = '#334155';
+    this.ctx.lineWidth = 1.5;
+    this.ctx.strokeRect(this.offsetX, this.offsetY, 560, 560);
     this.ctx.restore();
 
-    // Units multi-turn waypoints — show P1's own units' plans
+    // 6. Units Multi-Turn Waypoints — Show P1's own units' plans
     engine.players[1].units.forEach(unit => {
       if (unit.isAlive() && unit.waypoints.length > 0) {
         const gridC = Math.max(0, Math.min(7, Math.round(unit.renderX !== undefined ? unit.renderX : unit.x)));
@@ -2169,7 +2225,7 @@ class SketchRenderer {
       });
     }
 
-    // Render Living Units (Visible to P1) with Smooth Interpolation
+    // 7. Render Living Units (Visible to P1) with Smooth Interpolation
     const allUnits = engine.getAllUnits();
     allUnits.forEach(unit => {
       if (!unit.isAlive()) return;
@@ -2199,21 +2255,86 @@ class SketchRenderer {
       }
     });
 
-    // Hover highlight
+    // 8. Tactical Hover Reticle with Drafting Corner Brackets
     if (this.hoveredTile) {
       const pos = this.getScreenCoords(this.hoveredTile.x, this.hoveredTile.y);
-      this.ctx.strokeStyle = '#3b82f6'; this.ctx.lineWidth = 2;
-      this.ctx.strokeRect(pos.x + 2, pos.y + 2, 66, 66);
+      const hx = pos.x; const hy = pos.y;
+      const bLen = 12;
+
+      this.ctx.save();
+      // Subtle interior tint
+      this.ctx.fillStyle = 'rgba(56, 189, 248, 0.09)';
+      this.ctx.fillRect(hx + 1, hy + 1, 68, 68);
+
+      // Corner Drafting Brackets ⌜ ⌝ ⌞ ⌟
+      this.ctx.strokeStyle = '#0284c7';
+      this.ctx.lineWidth = 2;
+      this.ctx.beginPath();
+      // Top-Left ⌜
+      this.ctx.moveTo(hx + 3, hy + 3 + bLen); this.ctx.lineTo(hx + 3, hy + 3); this.ctx.lineTo(hx + 3 + bLen, hy + 3);
+      // Top-Right ⌝
+      this.ctx.moveTo(hx + 67 - bLen, hy + 3); this.ctx.lineTo(hx + 67, hy + 3); this.ctx.lineTo(hx + 67, hy + 3 + bLen);
+      // Bottom-Left ⌞
+      this.ctx.moveTo(hx + 3, hy + 67 - bLen); this.ctx.lineTo(hx + 3, hy + 67); this.ctx.lineTo(hx + 3 + bLen, hy + 67);
+      // Bottom-Right ⌟
+      this.ctx.moveTo(hx + 67 - bLen, hy + 67); this.ctx.lineTo(hx + 67, hy + 67); this.ctx.lineTo(hx + 67, hy + 67 - bLen);
+      this.ctx.stroke();
+
+      // Corner coordinate stamp badge
+      const colLetter = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][this.hoveredTile.x] || '';
+      const rowNum = this.hoveredTile.y + 1;
+      this.ctx.fillStyle = 'rgba(2, 132, 199, 0.95)';
+      this.ctx.fillRect(hx + 4, hy + 4, 20, 11);
+      this.ctx.font = 'bold 7.5px "JetBrains Mono", monospace';
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(`${colLetter}${rowNum}`, hx + 14, hy + 9.5);
+      this.ctx.restore();
     }
 
-    // Selection highlight
+    // 9. Tactical Selection Highlight with Heavy Industrial Brass Brackets
     if (this.selectedTile) {
       const pos = this.getScreenCoords(this.selectedTile.x, this.selectedTile.y);
-      this.ctx.strokeStyle = '#d97706'; this.ctx.lineWidth = 3;
-      this.ctx.strokeRect(pos.x + 1, pos.y + 1, 68, 68);
+      const sx = pos.x; const sy = pos.y;
+      const bLen = 14;
+
+      this.ctx.save();
+      // Subtle amber drafting wash
+      this.ctx.fillStyle = 'rgba(217, 119, 6, 0.12)';
+      this.ctx.fillRect(sx + 1, sy + 1, 68, 68);
+
+      // Inner dashed boundary
+      this.ctx.strokeStyle = 'rgba(245, 158, 11, 0.6)';
+      this.ctx.lineWidth = 1;
+      this.ctx.setLineDash([4, 3]);
+      this.ctx.strokeRect(sx + 4, sy + 4, 62, 62);
+      this.ctx.setLineDash([]);
+
+      // Outer Corner Brass Brackets
+      this.ctx.strokeStyle = '#d97706';
+      this.ctx.lineWidth = 2.5;
+      this.ctx.beginPath();
+      // Top-Left
+      this.ctx.moveTo(sx + 2, sy + 2 + bLen); this.ctx.lineTo(sx + 2, sy + 2); this.ctx.lineTo(sx + 2 + bLen, sy + 2);
+      // Top-Right
+      this.ctx.moveTo(sx + 68 - bLen, sy + 2); this.ctx.lineTo(sx + 68, sy + 2); this.ctx.lineTo(sx + 68, sy + 2 + bLen);
+      // Bottom-Left
+      this.ctx.moveTo(sx + 2, sy + 68 - bLen); this.ctx.lineTo(sx + 2, sy + 68); this.ctx.lineTo(sx + 2 + bLen, sy + 68);
+      // Bottom-Right
+      this.ctx.moveTo(sx + 68 - bLen, sy + 68); this.ctx.lineTo(sx + 68, sy + 68); this.ctx.lineTo(sx + 68, sy + 68 - bLen);
+      this.ctx.stroke();
+
+      // Center edge registration pips
+      this.ctx.fillStyle = '#d97706';
+      this.ctx.fillRect(sx + 34, sy + 1, 3, 2);
+      this.ctx.fillRect(sx + 34, sy + 67, 3, 2);
+      this.ctx.fillRect(sx + 1, sy + 34, 2, 3);
+      this.ctx.fillRect(sx + 67, sy + 34, 2, 3);
+      this.ctx.restore();
     }
 
-    // FOG OF WAR PENCIL HATCH OVERLAY (skip in terrain-view / GAME_OVER)
+    // 10. FOG OF WAR PENCIL HATCH OVERLAY (skip in terrain-view / GAME_OVER)
     if (!isTerrainView) {
       for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
@@ -2225,35 +2346,57 @@ class SketchRenderer {
       }
     }
 
-    // Smoke Screen Overlays
+    // 11. Smoke Screen Overlays
     engine.activeSmokes.forEach(smoke => {
       for (let r = smoke.y - 1; r <= smoke.y + 1; r++) {
         for (let c = smoke.x - 1; c <= smoke.x + 1; c++) {
           if (r >= 0 && r < 8 && c >= 0 && c < 8) {
             const pos = this.getScreenCoords(c, r);
-            this.ctx.fillStyle = 'rgba(71, 85, 105, 0.4)';
+            this.ctx.save();
+            this.ctx.fillStyle = 'rgba(51, 65, 85, 0.45)';
             this.ctx.fillRect(pos.x, pos.y, 70, 70);
-            this.ctx.font = 'bold 10px Cinzel, serif';
-            this.ctx.fillStyle = '#cbd5e1';
-            this.ctx.fillText('SMOKE', pos.x + 16, pos.y + 38);
+
+            // Concentric dispersion rings
+            this.ctx.strokeStyle = 'rgba(203, 213, 225, 0.35)';
+            this.ctx.lineWidth = 1.2;
+            this.ctx.beginPath();
+            this.ctx.arc(pos.x + 35, pos.y + 35, 22, 0, Math.PI * 2);
+            this.ctx.arc(pos.x + 35, pos.y + 35, 12, 0, Math.PI * 2);
+            this.ctx.stroke();
+
+            this.ctx.font = 'bold 8.5px "JetBrains Mono", monospace';
+            this.ctx.fillStyle = '#e2e8f0';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText('SMOKE', pos.x + 35, pos.y + 38);
+            this.ctx.restore();
           }
         }
       }
     });
 
-    // Artillery Target Crosshairs
+    // 12. Artillery Target Crosshairs
     engine.activeArtilleryStrikes.forEach(art => {
       for (let r = art.y - 1; r <= art.y + 1; r++) {
         for (let c = art.x - 1; c <= art.x + 1; c++) {
           if (r >= 0 && r < 8 && c >= 0 && c < 8) {
             const pos = this.getScreenCoords(c, r);
-            this.ctx.strokeStyle = 'rgba(220, 38, 38, 0.6)';
+            this.ctx.save();
+            this.ctx.strokeStyle = 'rgba(220, 38, 38, 0.7)';
             this.ctx.lineWidth = 2;
-            this.ctx.strokeRect(pos.x + 4, pos.y + 4, 62, 62);
+            this.ctx.strokeRect(pos.x + 3, pos.y + 3, 64, 64);
 
-            this.ctx.font = 'bold 9px Cinzel, serif';
-            this.ctx.fillStyle = '#f87171';
-            this.ctx.fillText('TARGET', pos.x + 14, pos.y + 20);
+            // Hazard corner diagonals
+            this.ctx.beginPath();
+            this.ctx.moveTo(pos.x + 3, pos.y + 12); this.ctx.lineTo(pos.x + 12, pos.y + 3);
+            this.ctx.moveTo(pos.x + 67, pos.y + 58); this.ctx.lineTo(pos.x + 58, pos.y + 67);
+            this.ctx.stroke();
+
+            this.ctx.font = 'bold 9px "JetBrains Mono", monospace';
+            this.ctx.fillStyle = '#ef4444';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText('TARGET', pos.x + 35, pos.y + 22);
+            this.ctx.fillText('ZONE', pos.x + 35, pos.y + 52);
+            this.ctx.restore();
           }
         }
       }
@@ -2264,17 +2407,37 @@ class SketchRenderer {
 
   drawPencilHatching(x, y) {
     this.ctx.save();
-    this.ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+    // Deep navy blueprint undertone
+    this.ctx.fillStyle = 'rgba(11, 18, 32, 0.92)';
     this.ctx.fillRect(x, y, 70, 70);
 
-    this.ctx.strokeStyle = 'rgba(71, 85, 105, 0.35)';
+    // Primary 45° dense graphite hatching
+    this.ctx.strokeStyle = 'rgba(71, 85, 105, 0.45)';
     this.ctx.lineWidth = 1;
     this.ctx.beginPath();
-    for (let i = -70; i < 140; i += 8) {
+    for (let i = -70; i < 140; i += 7) {
       this.ctx.moveTo(x + i, y);
       this.ctx.lineTo(x + i + 70, y + 70);
     }
     this.ctx.stroke();
+
+    // Secondary counter-hatching for terra incognita density
+    this.ctx.strokeStyle = 'rgba(51, 65, 85, 0.22)';
+    this.ctx.lineWidth = 0.8;
+    this.ctx.beginPath();
+    for (let i = -70; i < 140; i += 14) {
+      this.ctx.moveTo(x + i + 70, y);
+      this.ctx.lineTo(x + i, y + 70);
+    }
+    this.ctx.stroke();
+
+    // Center Terra Incognita watermark mark
+    this.ctx.font = 'bold 7px "JetBrains Mono", monospace';
+    this.ctx.fillStyle = 'rgba(148, 163, 184, 0.45)';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText('TERRA INCOGNITA', x + 35, y + 35);
+
     this.ctx.restore();
   }
 
@@ -2295,6 +2458,7 @@ class SketchRenderer {
       pts.push({ x: pt.x + 35, y: pt.y + 35 });
     });
 
+    // 1. Draw connecting trajectory segments
     for (let i = 0; i < pts.length - 1; i++) {
       const turnIndex = Math.floor(i / unitSpeed);
       let segmentColor;
@@ -2324,6 +2488,30 @@ class SketchRenderer {
       this.ctx.stroke();
     }
 
+    // 2. Draw numbered waypoint step tokens (①, ②, ③)
+    for (let i = 1; i < pts.length; i++) {
+      const pt = pts[i];
+      const turnIndex = Math.floor((i - 1) / unitSpeed);
+      const tokenColor = unit.owner === 2 ? '#ef4444' : (turnIndex === 0 ? '#2563eb' : (turnIndex === 1 ? '#d97706' : '#7c3aed'));
+
+      this.ctx.setLineDash([]);
+      this.ctx.fillStyle = '#0a101f';
+      this.ctx.beginPath();
+      this.ctx.arc(pt.x, pt.y, 7.5, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      this.ctx.strokeStyle = tokenColor;
+      this.ctx.lineWidth = 1.8;
+      this.ctx.stroke();
+
+      this.ctx.font = 'bold 8px "JetBrains Mono", monospace';
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(String(i), pt.x, pt.y);
+    }
+
+    // 3. Draw terminal directional chevron arrow
     if (pts.length >= 2) {
       const lastPt = pts[pts.length - 1];
       const prevPt = pts[pts.length - 2];
@@ -2357,16 +2545,43 @@ class SketchRenderer {
   drawTerrainTile(tile, x, y, engine) {
     this.ctx.save();
     switch (tile.id) {
+      case 'PLAINS': {
+        // Subtle warm vellum tint
+        this.ctx.fillStyle = 'rgba(217, 119, 6, 0.025)';
+        this.ctx.fillRect(x, y, 70, 70);
+
+        // Precision surveyor center crosshair
+        this.ctx.strokeStyle = 'rgba(100, 116, 139, 0.25)';
+        this.ctx.lineWidth = 0.8;
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + 31, y + 35); this.ctx.lineTo(x + 39, y + 35);
+        this.ctx.moveTo(x + 35, y + 31); this.ctx.lineTo(x + 35, y + 39);
+        this.ctx.stroke();
+
+        // Subtle quadrant tick dots
+        this.ctx.fillStyle = 'rgba(100, 116, 139, 0.22)';
+        this.ctx.fillRect(x + 8, y + 8, 1.5, 1.5);
+        this.ctx.fillRect(x + 61, y + 8, 1.5, 1.5);
+        this.ctx.fillRect(x + 8, y + 61, 1.5, 1.5);
+        this.ctx.fillRect(x + 61, y + 61, 1.5, 1.5);
+        break;
+      }
       case 'FOREST': {
         // Organic coniferous forest grove wash
         this.ctx.fillStyle = 'rgba(34, 197, 94, 0.12)';
         this.ctx.fillRect(x, y, 70, 70);
 
+        // Tree grove base perimeter shadow
+        this.ctx.fillStyle = 'rgba(15, 23, 42, 0.08)';
+        this.ctx.beginPath();
+        this.ctx.ellipse(x + 35, y + 51, 25, 7, 0, 0, Math.PI * 2);
+        this.ctx.fill();
+
         // Grouped 3-canopy cluster with draftsman cross-hatching
         const drawTree = (tx, ty, scale) => {
           this.ctx.strokeStyle = '#1b4332';
           this.ctx.lineWidth = 1.4;
-          this.ctx.fillStyle = 'rgba(45, 90, 39, 0.18)';
+          this.ctx.fillStyle = 'rgba(45, 90, 39, 0.2)';
           this.ctx.beginPath();
           this.ctx.moveTo(tx, ty);
           this.ctx.lineTo(tx - 11 * scale, ty + 24 * scale);
@@ -2384,7 +2599,7 @@ class SketchRenderer {
           this.ctx.stroke();
 
           // 45° internal draftsman hatching
-          this.ctx.strokeStyle = 'rgba(21, 128, 61, 0.6)';
+          this.ctx.strokeStyle = 'rgba(21, 128, 61, 0.65)';
           this.ctx.lineWidth = 0.9;
           this.ctx.beginPath();
           this.ctx.moveTo(tx - 6 * scale, ty + 12 * scale);
@@ -2447,29 +2662,33 @@ class SketchRenderer {
         this.ctx.quadraticCurveTo(x + 38, y + 34, x + 41, y + 42);
         this.ctx.stroke();
 
-        // Southern slope elevation hachures (technical shading)
-        this.ctx.strokeStyle = 'rgba(51, 65, 85, 0.6)';
-        this.ctx.lineWidth = 1.0;
+        // Southeast slope elevation hachures (topographic relief shading)
+        this.ctx.strokeStyle = 'rgba(15, 23, 42, 0.35)';
+        this.ctx.lineWidth = 1.1;
         this.ctx.beginPath();
-        for (let i = -14; i <= 14; i += 7) {
-          this.ctx.moveTo(x + 35 + i, y + 45);
-          this.ctx.lineTo(x + 35 + i + 2, y + 52);
+        for (let i = 0; i <= 14; i += 4) {
+          this.ctx.moveTo(x + 38 + i, y + 32 + i * 0.8);
+          this.ctx.lineTo(x + 44 + i, y + 40 + i * 0.8);
         }
         this.ctx.stroke();
 
-        // Summit survey benchmark cross (+)
-        this.ctx.strokeStyle = '#0f172a';
-        this.ctx.lineWidth = 1.2;
+        // Summit survey triangulation symbol (▲)
+        this.ctx.fillStyle = '#0f172a';
         this.ctx.beginPath();
-        this.ctx.moveTo(x + 35, y + 19); this.ctx.lineTo(x + 35, y + 23);
-        this.ctx.moveTo(x + 33, y + 21); this.ctx.lineTo(x + 37, y + 21);
-        this.ctx.stroke();
+        this.ctx.moveTo(x + 35, y + 17);
+        this.ctx.lineTo(x + 31, y + 23);
+        this.ctx.lineTo(x + 39, y + 23);
+        this.ctx.closePath();
+        this.ctx.fill();
 
         // Subdued corner elevation tag
         this.ctx.font = 'bold 7px "JetBrains Mono", monospace';
-        this.ctx.fillStyle = '#475569';
+        this.ctx.fillStyle = '#334155';
         this.ctx.textAlign = 'right';
         this.ctx.fillText('ELV +1', x + 65, y + 13);
+        this.ctx.font = '6px "JetBrains Mono", monospace';
+        this.ctx.fillStyle = '#64748b';
+        this.ctx.fillText('▲ 420m', x + 65, y + 21);
         break;
       }
       case 'WATER': {
@@ -2503,6 +2722,12 @@ class SketchRenderer {
         this.ctx.arc(x + 15, y + 46, 1, 0, Math.PI * 2);
         this.ctx.arc(x + 38, y + 60, 1, 0, Math.PI * 2);
         this.ctx.fill();
+
+        // Impassable corner badge
+        this.ctx.font = 'bold 7px "JetBrains Mono", monospace';
+        this.ctx.fillStyle = '#0284c7';
+        this.ctx.textAlign = 'right';
+        this.ctx.fillText('BLOCKED', x + 66, y + 13);
         break;
       }
       case 'SWAMP': {
@@ -4269,8 +4494,44 @@ class App {
 
     this.canvas.addEventListener('mousemove', (e) => {
       const rect = this.canvas.getBoundingClientRect();
-      this.renderer.hoveredTile = this.renderer.getGridCoords(e.clientX - rect.left, e.clientY - rect.top);
+      const coords = this.renderer.getGridCoords(e.clientX - rect.left, e.clientY - rect.top);
+      this.renderer.hoveredTile = coords;
+      this.updateCanvasSitrep(coords);
     });
+
+    this.canvas.addEventListener('mouseleave', () => {
+      this.renderer.hoveredTile = null;
+      this.updateCanvasSitrep(null);
+    });
+  }
+
+  updateCanvasSitrep(hoveredTile) {
+    const el = document.getElementById('canvas-sitrep-text');
+    if (!el) return;
+    if (!hoveredTile || !this.engine || !this.engine.grid[hoveredTile.y] || !this.engine.grid[hoveredTile.y][hoveredTile.x]) {
+      el.innerHTML = 'SECTOR 8x8 &bull; MAP: THE IRON BASIN &bull; ALLIED COMMAND';
+      return;
+    }
+    const tile = this.engine.grid[hoveredTile.y][hoveredTile.x];
+    const colLetter = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][hoveredTile.x] || '';
+    const rowNum = hoveredTile.y + 1;
+    const defPct = Math.round((tile.defenseBonus || 0) * 100);
+    const movPenalty = tile.id === 'SWAMP' ? 'MUD 2.0x' : (tile.id === 'FOREST' ? 'MOV 1.5x' : 'MOV 1.0x');
+    const losStatus = (tile.id === 'FOREST' || tile.id === 'MOUNTAIN') ? 'LOS BLOCKED' : 'LOS OPEN';
+    
+    // Check if tile is visible to P1
+    const p1Vision = this.engine.phase === 'GAME_OVER' ? Array(8).fill(null).map(() => Array(8).fill(true)) : this.engine.calculateVision(1);
+    const isVisible = p1Vision[hoveredTile.y][hoveredTile.x];
+    
+    if (!isVisible && this.engine.phase !== 'GAME_OVER') {
+      el.innerHTML = `SECTOR [${colLetter}${rowNum}] &bull; <span style="color:#94a3b8;">TERRA INCOGNITA (UNSURVEYED)</span>`;
+      return;
+    }
+    
+    const unit = this.engine.getAllUnits().find(u => u.x === hoveredTile.x && u.y === hoveredTile.y && u.isAlive());
+    const unitPart = unit ? ` &bull; <span style="color:${unit.owner === 1 ? '#60a5fa' : '#f87171'}; font-weight:700;">${unit.owner === 1 ? 'ALLIED' : 'HOSTILE'}: ${unit.name} (${unit.hp}/${unit.maxHp} HP)</span>` : '';
+
+    el.innerHTML = `SECTOR [${colLetter}${rowNum}] &bull; <strong>${tile.name}</strong> &bull; DEF +${defPct}% &bull; ${movPenalty} &bull; ${losStatus}${unitPart}`;
   }
 
   startRenderLoop() {
