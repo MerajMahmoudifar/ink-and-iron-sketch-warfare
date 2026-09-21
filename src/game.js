@@ -3482,6 +3482,13 @@ class UIManager {
 
     if (engine.winner && !engine.victoryShown) {
       engine.victoryShown = true;
+      const pointer = document.getElementById('bootcamp-pointer-hint');
+      if (pointer) {
+        pointer.style.display = 'none';
+        pointer.classList.remove('pointer-below');
+      }
+      const dialog = document.getElementById('bootcamp-instructor-dialog');
+      if (dialog) dialog.style.display = 'none';
       if (engine.bootcampLesson && engine.bootcampManager) {
         engine.bootcampManager.onLessonVictory(engine);
         return;
@@ -4028,6 +4035,14 @@ class BootcampManager {
     this.currentStep = 1;
     this.easterEggActive = false;
 
+    const pointer = document.getElementById('bootcamp-pointer-hint');
+    if (pointer) {
+      pointer.style.display = 'none';
+      pointer.classList.remove('pointer-below');
+    }
+    const dialog = document.getElementById('bootcamp-instructor-dialog');
+    if (dialog) dialog.style.display = 'none';
+
     const menu = document.getElementById('main-menu-overlay');
     if (menu) menu.style.display = 'none';
     const gameContainer = document.getElementById('game-container');
@@ -4091,6 +4106,8 @@ class BootcampManager {
 
     const modal = document.getElementById('modal-bootcamp-easteregg');
     const quoteEl = document.getElementById('bootcamp-easteregg-quote');
+    const pointer = document.getElementById('bootcamp-pointer-hint');
+    if (pointer) pointer.style.display = 'none';
     if (modal) {
       if (quoteEl) quoteEl.textContent = `"${customQuip}"`;
       modal.style.display = 'flex';
@@ -4154,6 +4171,8 @@ class BootcampManager {
 
     const modal = document.getElementById('modal-bootcamp-easteregg');
     const quoteEl = document.getElementById('bootcamp-easteregg-quote');
+    const pointer = document.getElementById('bootcamp-pointer-hint');
+    if (pointer) pointer.style.display = 'none';
     if (modal) {
       if (quoteEl) quoteEl.textContent = `"${chosenQuip}"`;
       modal.style.display = 'flex';
@@ -4192,6 +4211,13 @@ class BootcampManager {
     if (dialog) dialog.style.display = 'flex';
 
     if (this.checkVictory(engine)) {
+      const pointer = document.getElementById('bootcamp-pointer-hint');
+      if (pointer) {
+        pointer.style.display = 'none';
+        pointer.classList.remove('pointer-below');
+      }
+      const dialog = document.getElementById('bootcamp-instructor-dialog');
+      if (dialog) dialog.style.display = 'none';
       this.onLessonVictory(engine);
       return;
     }
@@ -4252,29 +4278,22 @@ class BootcampManager {
         const hasWaypoints = scout && scout.waypoints && scout.waypoints.length > 0;
         if (!hasWaypoints) {
           this.currentStep = 1;
-          if (stepLabel) stepLabel.textContent = 'Step 1 of 4';
+          if (stepLabel) stepLabel.textContent = 'Step 1 of 3 • Plot Movement';
           if (textEl) textEl.innerHTML = `Select your fast Scout and click the Gold Supply Depot at ${formatCoord(4, 3)} to draw a movement path.`;
           this.positionPointerAtTile(4, 3, '1. Move to Gold Depot');
         } else {
           this.currentStep = 2;
-          if (stepLabel) stepLabel.textContent = 'Step 2 of 4';
+          if (stepLabel) stepLabel.textContent = 'Step 2 of 3 • Capture Depot';
           if (textEl) textEl.innerHTML = 'Orders locked! Click "End Phase" to advance and capture the Supply Depot.';
           this.positionPointerAtElement('btn-end-turn', '2. Capture Depot');
         }
       } else if (!recruitedUnit) {
         this.currentStep = 3;
-        if (stepLabel) stepLabel.textContent = 'Step 3 of 4 • Empty Tile Rule';
+        if (stepLabel) stepLabel.textContent = 'Step 3 of 3 • Empty Tile Rule';
         if (textEl) {
           textEl.innerHTML = `<b>Depot Secured (+10 Ink)!</b><br><span style="color:#f59e0b; font-weight:700;">TACTICAL RULE:</span> Captured Depots can spawn units, <u>BUT THE TILE MUST BE EMPTY</u>. Because your Scout is occupying the Depot at ${formatCoord(4, 3)}, deploy your Rifle Squad at your empty Base at ${formatCoord(1, 3)}.`;
         }
         this.positionPointerAtElement('store-card-RIFLEMAN', '3. Recruit at Base');
-      } else if (engine.phase === 'PLANNING') {
-        this.currentStep = 4;
-        if (stepLabel) stepLabel.textContent = 'Step 4 of 4';
-        if (textEl) {
-          textEl.innerHTML = `<b>Reinforcements Placed!</b> Notice your Rifle Squad deployed at your Base while your Scout holds the forward Depot. Click "End Phase" to finish certification!`;
-        }
-        this.positionPointerAtElement('btn-end-turn', '4. End Phase');
       } else {
         this.positionPointerAtTile(null, null);
       }
@@ -4339,19 +4358,16 @@ class BootcampManager {
 
       if (enemies.length > 0) {
         this.currentStep = 1;
-        if (stepLabel) stepLabel.textContent = 'Step 1 of 3 • Break the Siege';
+        if (stepLabel) stepLabel.textContent = 'Step 1 of 2 • Break the Siege';
         if (textEl) textEl.innerHTML = `Your forward Depot at ${formatCoord(3, 3)} is <b style="color:#ef4444;">UNDER SIEGE</b> by an adjacent enemy raider! Deployment is blocked. Select your AT Crew at ${formatCoord(2, 3)} and attack the raider at ${formatCoord(4, 3)}!`;
         this.positionPointerAtTile(4, 3, '1. Eliminate Raider');
       } else if (!recruitedUnit) {
         this.currentStep = 2;
-        if (stepLabel) stepLabel.textContent = 'Step 2 of 3 • Forward Deployment';
-        if (textEl) textEl.innerHTML = `<b>Siege lifted!</b> The forward Supply Depot is liberated and clear. Recruit a <b>Rifle Squad</b> and deploy them directly onto the forward Depot at ${formatCoord(3, 3)}!`;
+        if (stepLabel) stepLabel.textContent = 'Step 2 of 2 • Forward Deployment';
+        if (textEl) textEl.innerHTML = `<b>Siege lifted!</b> The forward Supply Depot is liberated and clear. Recruit a <b>Rifle Squad</b> and deploy them directly onto the forward Depot at ${formatCoord(3, 3)} to complete the doctrine!`;
         this.positionPointerAtElement('store-card-RIFLEMAN', '2. Deploy at Depot');
       } else {
-        this.currentStep = 3;
-        if (stepLabel) stepLabel.textContent = 'Step 3 of 3 • Lock Sector';
-        if (textEl) textEl.innerHTML = `Reinforcements positioned! Click <b>"End Phase"</b> to complete your siege & logistics doctrine.`;
-        this.positionPointerAtElement('btn-end-turn', '3. End Phase');
+        this.positionPointerAtTile(null, null);
       }
     } else if (this.activeLesson === 8) {
       if (stepLabel) stepLabel.textContent = 'Grand Graduation Skirmish';
@@ -4453,6 +4469,16 @@ class BootcampManager {
     const currentId = this.activeLesson;
     this.saveProgress(currentId);
 
+    // Hide tactical pointer & instructor briefing card immediately on victory
+    this.positionPointerAtTile(null, null);
+    const hint = document.getElementById('bootcamp-pointer-hint');
+    if (hint) {
+      hint.style.display = 'none';
+      hint.classList.remove('pointer-below');
+    }
+    const dialog = document.getElementById('bootcamp-instructor-dialog');
+    if (dialog) dialog.style.display = 'none';
+
     try { this.app.audio.playVictorySound(); } catch(e){}
 
     const modal = document.getElementById('modal-bootcamp-complete');
@@ -4553,6 +4579,17 @@ window.returnToMainMenu = function() {
   if (modal) modal.style.display = 'none';
   const bModal = document.getElementById('modal-bootcamp-complete');
   if (bModal) bModal.style.display = 'none';
+  const pointer = document.getElementById('bootcamp-pointer-hint');
+  if (pointer) {
+    pointer.style.display = 'none';
+    pointer.classList.remove('pointer-below');
+  }
+  const dialog = document.getElementById('bootcamp-instructor-dialog');
+  if (dialog) dialog.style.display = 'none';
+  if (window.gApp && window.gApp.bootcampManager) {
+    window.gApp.bootcampManager.activeLesson = null;
+    window.gApp.bootcampManager.positionPointerAtTile(null, null);
+  }
   ['btn-end-turn', 'btn-halt-all', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery', 'btn-open-menu'].forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.disabled = false; el.style.opacity = ''; }
@@ -4571,7 +4608,15 @@ window.startBootcampLesson = function(lessonId) {
 window.nextBootcampLesson = function() {
   const modal = document.getElementById('modal-bootcamp-complete');
   if (modal) modal.style.display = 'none';
+  const pointer = document.getElementById('bootcamp-pointer-hint');
+  if (pointer) {
+    pointer.style.display = 'none';
+    pointer.classList.remove('pointer-below');
+  }
+  const dialog = document.getElementById('bootcamp-instructor-dialog');
+  if (dialog) dialog.style.display = 'none';
   if (window.gApp && window.gApp.bootcampManager) {
+    window.gApp.bootcampManager.positionPointerAtTile(null, null);
     const nextId = (window.gApp.bootcampManager.activeLesson || 1) + 1;
     if (nextId <= 8) {
       window.gApp.bootcampManager.startLesson(nextId);
@@ -4584,7 +4629,15 @@ window.nextBootcampLesson = function() {
 window.replayBootcampLesson = function() {
   const modal = document.getElementById('modal-bootcamp-complete');
   if (modal) modal.style.display = 'none';
+  const pointer = document.getElementById('bootcamp-pointer-hint');
+  if (pointer) {
+    pointer.style.display = 'none';
+    pointer.classList.remove('pointer-below');
+  }
+  const dialog = document.getElementById('bootcamp-instructor-dialog');
+  if (dialog) dialog.style.display = 'none';
   if (window.gApp && window.gApp.bootcampManager) {
+    window.gApp.bootcampManager.positionPointerAtTile(null, null);
     const currentId = window.gApp.bootcampManager.activeLesson || 1;
     window.gApp.bootcampManager.startLesson(currentId);
   }
@@ -4593,11 +4646,19 @@ window.replayBootcampLesson = function() {
 window.returnToBootcampMenu = function() {
   const modal = document.getElementById('modal-bootcamp-complete');
   if (modal) modal.style.display = 'none';
+  const pointer = document.getElementById('bootcamp-pointer-hint');
+  if (pointer) {
+    pointer.style.display = 'none';
+    pointer.classList.remove('pointer-below');
+  }
+  const dialog = document.getElementById('bootcamp-instructor-dialog');
+  if (dialog) dialog.style.display = 'none';
   const menu = document.getElementById('main-menu-overlay');
   if (menu) menu.style.display = 'flex';
   window.switchMenuTab('tab-btn-bootcamp', 'tab-pane-bootcamp');
   if (window.gApp && window.gApp.bootcampManager) {
     window.gApp.bootcampManager.activeLesson = null;
+    window.gApp.bootcampManager.positionPointerAtTile(null, null);
     window.gApp.bootcampManager.updateMenuUI();
   }
 };
