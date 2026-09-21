@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ink &amp; Iron: Sketch Warfare | Turn-Based Grid Strategy</title>
   <meta name="description" content="Ink &amp; Iron: Sketch Warfare is a turn-based grid strategy game with hand-drawn paper aesthetics, unique factions, command abilities, and simultaneous combat playback.">
-  <link rel="stylesheet" href="styles/main.css?v=2.9.13">
+  <link rel="stylesheet" href="styles/main.css?v=2.9.14">
 </head>
 <body>
 
@@ -115,9 +115,9 @@
             <div class="bootcamp-title">
               <span>🎖️</span> Officer Bootcamp &mdash; Tactical Training Grounds
             </div>
-            <p class="bootcamp-subtitle">Master simultaneous turns, combat stances, supply lines, and unit counters across 5 hand-crafted micro-lessons (60–90 seconds each).</p>
+            <p class="bootcamp-subtitle">Master simultaneous turns, combat stances, terrain hazards, command abilities, and base siege mechanics across 8 hand-crafted micro-lessons (60–90 seconds each).</p>
             <div class="bootcamp-progress-bar-wrap">
-              <span id="bootcamp-progress-label" class="bootcamp-progress-label">Bootcamp Progress: 0/5 Lessons Completed</span>
+              <span id="bootcamp-progress-label" class="bootcamp-progress-label">Bootcamp Progress: 0/8 Lessons Completed</span>
               <div class="bootcamp-progress-track">
                 <div id="bootcamp-progress-fill" class="bootcamp-progress-fill"></div>
               </div>
@@ -201,17 +201,71 @@
             <div class="bootcamp-card" id="bootcamp-card-5">
               <div>
                 <div class="bootcamp-card-header">
-                  <span class="bootcamp-card-num">Lesson 5 &bull; 2 Min</span>
+                  <span class="bootcamp-card-num">Lesson 5 &bull; 90s</span>
                 </div>
                 <div class="bootcamp-card-top">
                   <div class="bootcamp-card-icon">05</div>
-                  <div class="bootcamp-card-name">Graduation Skirmish</div>
+                  <div class="bootcamp-card-name">Terrain Hazards &amp; Sightlines</div>
                 </div>
-                <p class="bootcamp-card-desc">Combine all skills in a compact frontline battle. Secure the depots, recruit counters, and demolish the enemy HQ to graduate!</p>
+                <p class="bootcamp-card-desc">Master the Mud Trap: Infantry get mired for 1 turn upon entry, while enemy armored vehicles are completely blocked from crossing!</p>
+              </div>
+              <div class="bootcamp-card-footer">
+                <span class="bootcamp-duration-tag">Terrain Intelligence</span>
+                <button class="btn-bootcamp-start" onclick="window.startBootcampLesson(5)">Start Lesson 5</button>
+              </div>
+            </div>
+
+            <!-- Lesson 6 -->
+            <div class="bootcamp-card" id="bootcamp-card-6">
+              <div>
+                <div class="bootcamp-card-header">
+                  <span class="bootcamp-card-num">Lesson 6 &bull; 90s</span>
+                </div>
+                <div class="bootcamp-card-top">
+                  <div class="bootcamp-card-icon">06</div>
+                  <div class="bootcamp-card-name">Command Abilities</div>
+                </div>
+                <p class="bootcamp-card-desc">Launch a Recon Flare to pierce the Fog of War, then call down a high-explosive Artillery Strike to obliterate the enemy position.</p>
+              </div>
+              <div class="bootcamp-card-footer">
+                <span class="bootcamp-duration-tag">Tactical Support</span>
+                <button class="btn-bootcamp-start" onclick="window.startBootcampLesson(6)">Start Lesson 6</button>
+              </div>
+            </div>
+
+            <!-- Lesson 7 -->
+            <div class="bootcamp-card" id="bootcamp-card-7">
+              <div>
+                <div class="bootcamp-card-header">
+                  <span class="bootcamp-card-num">Lesson 7 &bull; 90s</span>
+                </div>
+                <div class="bootcamp-card-top">
+                  <div class="bootcamp-card-icon">07</div>
+                  <div class="bootcamp-card-name">Base Defense &amp; Siege</div>
+                </div>
+                <p class="bootcamp-card-desc">Enemy raiders have placed your forward Depot Under Siege, blocking deployment. Break the enemy line to lift the siege and spawn reinforcements!</p>
+              </div>
+              <div class="bootcamp-card-footer">
+                <span class="bootcamp-duration-tag">Siege &amp; Logistics</span>
+                <button class="btn-bootcamp-start" onclick="window.startBootcampLesson(7)">Start Lesson 7</button>
+              </div>
+            </div>
+
+            <!-- Lesson 8 -->
+            <div class="bootcamp-card" id="bootcamp-card-8">
+              <div>
+                <div class="bootcamp-card-header">
+                  <span class="bootcamp-card-num">Lesson 8 &bull; 2 Min</span>
+                </div>
+                <div class="bootcamp-card-top">
+                  <div class="bootcamp-card-icon">08</div>
+                  <div class="bootcamp-card-name">Operation Diesel Storm</div>
+                </div>
+                <p class="bootcamp-card-desc">Grand Graduation Exam: combine terrain navigation, command abilities, counter-attacks, and base assaults to crush the enemy HQ!</p>
               </div>
               <div class="bootcamp-card-footer">
                 <span class="bootcamp-duration-tag">Final Certification</span>
-                <button class="btn-bootcamp-start" onclick="window.startBootcampLesson(5)">Start Graduation</button>
+                <button class="btn-bootcamp-start" onclick="window.startBootcampLesson(8)">Start Graduation</button>
               </div>
             </div>
           </div>
@@ -1167,6 +1221,6 @@
   </div>
 
   <script src="src/firebase-config.js"></script>
-  <script src="src/game.js?v=2.9.13"></script>
+  <script src="src/game.js?v=2.9.14"></script>
 </body>
 </html>

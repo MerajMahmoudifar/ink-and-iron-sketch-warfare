@@ -250,14 +250,66 @@ class MapGenerator {
         break;
 
       case 5:
+        // Lesson 5: Terrain Hazards & Sightlines — The Mud Trap
+        // Central Mud/Swamp corridor separating player and enemy
+        layout = [
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', 'B1', '.', 'S', 'S', '.', '.', '.'],
+          ['.', '.', '.', 'S', 'S', '.', '.', '.'],
+          ['.', '.', '.', 'S', 'S', '.', '.', '.'],
+          ['.', '.', '.', 'S', 'S', '.', '.', '.'],
+          ['.', '.', '.', 'M', 'M', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', 'B2']
+        ];
+        p1Base = { x: 1, y: 1 };
+        p2Base = { x: 7, y: 7 };
+        break;
+
+      case 6:
+        // Lesson 6: Command Abilities — Air & Firepower
+        // Ridge and trees conceal enemy nest in Fog of War
+        layout = [
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', 'B1', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', 'F', 'M', 'M', 'F', '.', '.'],
+          ['.', '.', 'F', 'M', 'M', 'F', '.', '.'],
+          ['.', '.', 'F', 'M', 'M', 'F', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', 'B2']
+        ];
+        p1Base = { x: 1, y: 1 };
+        p2Base = { x: 7, y: 7 };
+        break;
+
+      case 7:
+        // Lesson 7: Base Defense & Siege Mechanics — Liberation Protocol
+        // Forward Depot Z is occupied/besieged by adjacent enemy raider
+        layout = [
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['B1', '.', '.', 'Z', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', 'B2']
+        ];
+        p1Base = { x: 0, y: 3 };
+        p2Base = { x: 7, y: 7 };
+        break;
+
+      case 8:
       default:
-        // Lesson 5: Graduation Skirmish — Compact tactical layout
+        // Lesson 8: Grand Graduation Skirmish — Operation Diesel Storm
+        // Rich 8x8 battlefield with Mud hazard, Forest cover, and 2 Depots
         layout = [
           ['B1', '.', '.', '.', '.', '.', '.', '.'],
           ['.', '.', 'F', '.', '.', 'F', '.', '.'],
           ['.', '.', '.', 'Z', '.', '.', '.', '.'],
-          ['.', 'F', '.', '.', '.', '.', 'F', '.'],
-          ['.', '.', '.', '.', 'Z', '.', '.', '.'],
+          ['.', 'F', 'S', 'S', '.', '.', 'F', '.'],
+          ['.', '.', '.', 'S', 'S', 'Z', '.', '.'],
           ['.', '.', 'F', '.', '.', 'F', '.', '.'],
           ['.', '.', '.', '.', '.', '.', '.', '.'],
           ['.', '.', '.', '.', '.', '.', '.', 'B2']
@@ -748,14 +800,51 @@ class GameEngine {
         const erf1 = new Unit('RIFLEMAN', 2, 4, 5);
         this.players[2].units.push(ev1, eat1, erf1);
       } else if (this.bootcampLesson === 5) {
+        // Lesson 5: The Mud Trap
+        const rf = new Unit('RIFLEMAN', 1, 2, 2);
+        const vc = new Unit('LIGHT_VEHICLE', 1, 1, 4);
+        this.players[1].units.push(rf, vc);
+
+        const ev = new Unit('LIGHT_VEHICLE', 2, 5, 2);
+        this.players[2].units.push(ev);
+        this.players[1].ink = 0;
+        this.players[2].ink = 0;
+      } else if (this.bootcampLesson === 6) {
+        // Lesson 6: Command Abilities (Air & Firepower)
+        const rf = new Unit('RIFLEMAN', 1, 1, 3);
+        this.players[1].units.push(rf);
+        this.players[1].ink = 160;
+        this.players[1].cp = 10; // Max CP for Flare + Artillery
+
+        const erf = new Unit('RIFLEMAN', 2, 6, 3);
+        erf.hp = 60;
+        this.players[2].units.push(erf);
+        this.players[2].ink = 0;
+      } else if (this.bootcampLesson === 7) {
+        // Lesson 7: Base Defense & Siege (Liberation Protocol)
+        if (this.grid[3] && this.grid[3][3]) {
+          this.grid[3][3].owner = 1;
+        }
+        const at = new Unit('ANTI_TANK', 1, 2, 3);
+        this.players[1].units.push(at);
+        this.players[1].ink = 30;
+
+        const raider = new Unit('LIGHT_VEHICLE', 2, 4, 3);
+        raider.hp = 40;
+        this.players[2].units.push(raider);
+        this.players[2].ink = 0;
+      } else if (this.bootcampLesson === 8) {
+        // Lesson 8: Grand Graduation Skirmish (Operation Diesel Storm)
         const u1 = new Unit('RIFLEMAN', 1, 1, 0);
         const u2 = new Unit('SCOUT', 1, 0, 1);
         const u3 = new Unit('RIFLEMAN', 2, 6, 7);
         const u4 = new Unit('SCOUT', 2, 7, 6);
         this.players[1].units.push(u1, u2);
         this.players[2].units.push(u3, u4);
-        this.players[1].ink = 40;
-        this.players[2].ink = 20;
+        this.players[1].ink = 60;
+        this.players[2].ink = 40;
+        this.players[1].cp = 6;
+        this.players[2].cp = 4;
       }
       return;
     }
@@ -944,15 +1033,21 @@ class GameEngine {
         x: targetX,
         y: targetY
       });
+      if (playerId === 1 && this.bootcampLesson === 6 && this.bootcampManager) {
+        const p1Squad = this.players[1].units.find(u => u.isAlive());
+        const isFriendlyTarget = (p1Squad && Math.abs(p1Squad.x - targetX) <= 1 && Math.abs(p1Squad.y - targetY) <= 1) || (targetX === this.players[1].basePos.x && targetY === this.players[1].basePos.y);
+        if (isFriendlyTarget) {
+          this.bootcampManager.triggerLessonEasterEgg(6, "Friendly fire isn't friendly, Cadet! Are you trying to court-martial yourself before lunchtime?!");
+        }
+      }
     }
 
     this.notifyStateChange();
     return { success: true };
   }
 
-  // FOG OF WAR VISION MATRIX CALCULATION
   calculateVision(playerId) {
-    if (this.bootcampLesson && this.bootcampLesson <= 4) {
+    if (this.bootcampLesson && (this.bootcampLesson <= 5 || this.bootcampLesson === 7)) {
       return Array(8).fill(null).map(() => Array(8).fill(true));
     }
     const visible = Array(8).fill(null).map(() => Array(8).fill(false));
@@ -1241,7 +1336,7 @@ class GameEngine {
 
           // Check if allied unit stepped onto enemy HQ during tutorial lessons 1-4 (Easter Egg)
           const p2BasePos = this.players[2]?.basePos;
-          if (unit.owner === 1 && this.bootcampLesson && this.bootcampLesson < 5 && p2BasePos && unit.x === p2BasePos.x && unit.y === p2BasePos.y) {
+          if (unit.owner === 1 && this.bootcampLesson && this.bootcampLesson < 8 && p2BasePos && unit.x === p2BasePos.x && unit.y === p2BasePos.y) {
             unit.waypoints = [];
             unit.x = (unit.prevX !== undefined && unit.prevX !== p2BasePos.x) ? unit.prevX : 6;
             unit.y = (unit.prevY !== undefined && unit.prevY !== p2BasePos.y) ? unit.prevY : 7;
@@ -1342,7 +1437,7 @@ class GameEngine {
         });
       }
       else if (tile.id === 'MAIN_BASE' && tile.owner !== unit.owner) {
-        if (this.bootcampLesson && this.bootcampLesson < 5 && unit.owner === 1) {
+        if (this.bootcampLesson && this.bootcampLesson < 8 && unit.owner === 1) {
           if (this.bootcampManager) {
             this.bootcampManager.triggerEasterEgg(unit);
           }
@@ -1370,7 +1465,7 @@ class GameEngine {
       return;
     }
     if (p2Base.owner === 1) {
-      if (this.bootcampLesson && this.bootcampLesson < 5) return;
+      if (this.bootcampLesson && this.bootcampLesson < 8) return;
       this.winner = 1;
       this.winReason = 'BASE_CAPTURE';
       this.phase = GAME_PHASES.GAME_OVER;
@@ -1494,7 +1589,7 @@ class CommanderAI {
 
     // BOOTCAMP SCRIPTED AI BEHAVIOR
     if (engine.bootcampLesson) {
-      if (engine.bootcampLesson === 1 || engine.bootcampLesson === 3) {
+      if (engine.bootcampLesson === 1 || engine.bootcampLesson === 3 || engine.bootcampLesson === 6) {
         return; // Zero AI actions
       }
       if (engine.bootcampLesson === 2) {
@@ -1505,8 +1600,8 @@ class CommanderAI {
         }
         return;
       }
-      if (engine.bootcampLesson === 4 || engine.bootcampLesson === 5) {
-        // Hold defense stances to allow clear demonstration
+      if (engine.bootcampLesson === 4) {
+        // Hold defense stances to allow clear counter demonstration
         aiPlayer.units.forEach(unit => {
           if (unit.isAlive()) {
             unit.setStance(STANCES.DEFEND.id);
@@ -1515,6 +1610,25 @@ class CommanderAI {
         });
         return;
       }
+      if (engine.bootcampLesson === 5) {
+        // Enemy vehicle holds position across mud barrier
+        const ev = aiPlayer.units.find(u => u.isAlive());
+        if (ev) {
+          ev.setStance(STANCES.DEFEND.id);
+          ev.setWaypoints([]);
+        }
+        return;
+      }
+      if (engine.bootcampLesson === 7) {
+        // Enemy raider holds siege position adjacent to depot
+        const raider = aiPlayer.units.find(u => u.isAlive());
+        if (raider) {
+          raider.setStance(STANCES.DEFEND.id);
+          raider.setWaypoints([]);
+        }
+        return;
+      }
+      // Lesson 8 falls through to full dynamic AI
     }
 
     // 1. Dynamic Counter & Doctrine Recruitment
@@ -3502,6 +3616,9 @@ class UIManager {
         btn.style.cursor = 'not-allowed';
         btn.addEventListener('click', () => {
           this.showToast('Under Siege', `Cannot deploy at ${formatCoord(sp.x, sp.y)} while enemy is adjacent!`);
+          if (engine.bootcampLesson === 7 && engine.bootcampManager) {
+            engine.bootcampManager.triggerLessonEasterEgg(7, "You can't deploy through enemy bayonets, Rookie! Clear out the hostiles first!");
+          }
         });
       } else if (occupyingUnit) {
         btn.innerHTML = `
@@ -3897,7 +4014,7 @@ class BootcampManager {
   }
 
   getCompletedCount() {
-    return [1, 2, 3, 4, 5].filter(id => this.isLessonCompleted(id)).length;
+    return [1, 2, 3, 4, 5, 6, 7, 8].filter(id => this.isLessonCompleted(id)).length;
   }
 
   startLesson(lessonId) {
@@ -3917,10 +4034,10 @@ class BootcampManager {
     const count = this.getCompletedCount();
     const fill = document.getElementById('bootcamp-progress-fill');
     const label = document.getElementById('bootcamp-progress-label');
-    if (fill) fill.style.width = `${(count / 5) * 100}%`;
-    if (label) label.textContent = `Bootcamp Progress: ${count}/5 Lessons Completed`;
+    if (fill) fill.style.width = `${(count / 8) * 100}%`;
+    if (label) label.textContent = `Bootcamp Progress: ${count}/8 Lessons Completed`;
 
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= 8; i++) {
       const card = document.getElementById(`bootcamp-card-${i}`);
       if (card) {
         if (this.isLessonCompleted(i)) {
@@ -3930,7 +4047,7 @@ class BootcampManager {
         } else {
           card.classList.remove('completed');
           const btn = card.querySelector('.btn-bootcamp-start');
-          if (btn) btn.textContent = i === 5 ? 'Start Graduation' : `Start Lesson ${i}`;
+          if (btn) btn.textContent = i === 8 ? 'Start Graduation' : `Start Lesson ${i}`;
         }
       }
     }
@@ -3939,17 +4056,47 @@ class BootcampManager {
     const certDetails = document.getElementById('bootcamp-cert-details');
     const certIcon = document.getElementById('bootcamp-cert-icon');
     if (certTitle && certDetails) {
-      if (count >= 5) {
+      if (count >= 8) {
         certTitle.textContent = 'Tactical Certification: CERTIFIED COMMANDER';
         certTitle.classList.add('unlocked');
-        certDetails.textContent = 'You have mastered all 5 tactical training doctrines!';
+        certDetails.textContent = 'You have mastered all 8 tactical training doctrines!';
         if (certIcon) certIcon.textContent = '★';
       } else {
-        certTitle.textContent = `Tactical Certification: ${count}/5 Completed`;
+        certTitle.textContent = `Tactical Certification: ${count}/8 Completed`;
         certTitle.classList.remove('unlocked');
-        certDetails.textContent = `Complete all 5 Officer Bootcamp lessons to earn Certified Commander.`;
+        certDetails.textContent = `Complete all 8 Officer Bootcamp lessons to earn Certified Commander.`;
         if (certIcon) certIcon.textContent = '';
       }
+    }
+  }
+
+  triggerLessonEasterEgg(lessonId, customQuip) {
+    if (this.easterEggActive) return;
+    this.easterEggActive = true;
+
+    try {
+      if (this.app.audio) {
+        this.app.audio.playAlarmSound();
+        setTimeout(() => {
+          try { this.app.audio.playPencilScratch(); } catch(e){}
+        }, 250);
+      }
+    } catch(e) {}
+
+    const modal = document.getElementById('modal-bootcamp-easteregg');
+    const quoteEl = document.getElementById('bootcamp-easteregg-quote');
+    if (modal) {
+      if (quoteEl) quoteEl.textContent = `"${customQuip}"`;
+      modal.style.display = 'flex';
+    }
+
+    const instructorText = document.getElementById('bootcamp-instructor-text');
+    if (instructorText) {
+      instructorText.innerHTML = `<span style="color:#f59e0b; font-weight:700;">[UNAUTHORIZED TACTIC]</span> ${customQuip}`;
+    }
+
+    if (this.app.ui) {
+      this.app.ui.showToast('🥚 General Crow Intercept', customQuip);
     }
   }
 
@@ -4129,8 +4276,79 @@ class BootcampManager {
       if (textEl) textEl.textContent = 'AT pierces Armor (2.5x), Rifle flanks AT, Vehicle crushes Infantry (1.5x). Plot attacks and click End Phase!';
       this.positionPointerAtElement('btn-end-turn', 'Execute Counters');
     } else if (this.activeLesson === 5) {
-      if (stepLabel) stepLabel.textContent = 'Graduation Skirmish';
-      if (textEl) textEl.textContent = 'Capture the central depots for Ink, recruit counter-units, and destroy the Red HQ Base to graduate!';
+      // Lesson 5: Terrain Hazards & Sightlines (The Mud Trap)
+      const squad = engine.players[1].units.find(u => u.category === 'INFANTRY' && u.isAlive());
+      const pVehicle = engine.players[1].units.find(u => u.category === 'VEHICLE' && u.isAlive());
+      const enemies = engine.players[2].units.filter(u => u.isAlive());
+      const inMud = squad && engine.grid[squad.y] && engine.grid[squad.y][squad.x].id === 'SWAMP';
+
+      if (!inMud && squad && squad.x < 3) {
+        this.currentStep = 1;
+        if (stepLabel) stepLabel.textContent = 'Step 1 of 3 • Entering Mud';
+        if (textEl) textEl.innerHTML = `Select your Rifle Squad at ${formatCoord(squad.x, squad.y)} and plot a path into the Mud sector at ${formatCoord(3, 2)}.`;
+        this.positionPointerAtTile(3, 2, '1. Advance into Mud');
+      } else if (inMud || (squad && squad.miredThisTurn)) {
+        this.currentStep = 2;
+        if (stepLabel) stepLabel.textContent = 'Step 2 of 3 • Mud Mires Troops & Blocks Tanks';
+        if (textEl) textEl.innerHTML = `Notice your infantry is <b>MIRED</b> (halts for 1 turn, defense -10%). However, <b>enemy vehicles are strictly impassable</b> and cannot cross! Click "End Phase".`;
+        this.positionPointerAtElement('btn-end-turn', '2. Click End Phase');
+      } else {
+        this.currentStep = 3;
+        if (stepLabel) stepLabel.textContent = 'Step 3 of 3 • Destroy Stalled Enemy';
+        if (textEl) textEl.innerHTML = `The enemy vehicle is trapped across the mud line. Advance your forces and eliminate the enemy Armored Car at ${formatCoord(5, 2)}!`;
+        if (enemies.length > 0) {
+          this.positionPointerAtTile(enemies[0].x, enemies[0].y, '3. Attack Enemy Vehicle');
+        } else {
+          this.positionPointerAtElement('btn-end-turn', 'Click End Phase');
+        }
+      }
+    } else if (this.activeLesson === 6) {
+      // Lesson 6: Command Abilities (Air & Firepower)
+      const enemies = engine.players[2].units.filter(u => u.isAlive());
+      const p1Vision = engine.calculateVision(1);
+      const enemySpotted = enemies.some(e => p1Vision[e.y] && p1Vision[e.y][e.x]);
+      const artilleryActive = engine.activeArtilleryStrikes.some(art => art.owner === 1);
+
+      if (!enemySpotted && engine.activeFlares.length === 0) {
+        this.currentStep = 1;
+        if (stepLabel) stepLabel.textContent = 'Step 1 of 3 • Recon Flare';
+        if (textEl) textEl.innerHTML = `Hostiles are concealed by Fog of War behind the ridge. Click <b>"Recon Flare"</b> (2 CP) in the Command panel and launch it at ${formatCoord(6, 3)}!`;
+        this.positionPointerAtElement('btn-ability-flare', '1. Click Recon Flare');
+      } else if (!artilleryActive && enemies.length > 0) {
+        this.currentStep = 2;
+        if (stepLabel) stepLabel.textContent = 'Step 2 of 3 • Artillery Strike';
+        if (textEl) textEl.innerHTML = `Target revealed at ${formatCoord(6, 3)}! Click <b>"Artillery Strike"</b> (4 CP) and target the enemy squad to call in an off-map barrage!`;
+        this.positionPointerAtElement('btn-ability-artillery', '2. Call Artillery Strike');
+      } else {
+        this.currentStep = 3;
+        if (stepLabel) stepLabel.textContent = 'Step 3 of 3 • Execute Barrage';
+        if (textEl) textEl.innerHTML = `Coordinates confirmed! Click <b>"End Phase"</b> to watch the artillery strike obliterate the enemy!`;
+        this.positionPointerAtElement('btn-end-turn', '3. Launch Strike');
+      }
+    } else if (this.activeLesson === 7) {
+      // Lesson 7: Base Defense & Siege (Liberation Protocol)
+      const enemies = engine.players[2].units.filter(u => u.isAlive());
+      const recruitedUnit = engine.players[1].units.length >= 2;
+
+      if (enemies.length > 0) {
+        this.currentStep = 1;
+        if (stepLabel) stepLabel.textContent = 'Step 1 of 3 • Break the Siege';
+        if (textEl) textEl.innerHTML = `Your forward Depot at ${formatCoord(3, 3)} is <b style="color:#ef4444;">UNDER SIEGE</b> by an adjacent enemy raider! Deployment is blocked. Select your AT Crew at ${formatCoord(2, 3)} and attack the raider at ${formatCoord(4, 3)}!`;
+        this.positionPointerAtTile(4, 3, '1. Eliminate Raider');
+      } else if (!recruitedUnit) {
+        this.currentStep = 2;
+        if (stepLabel) stepLabel.textContent = 'Step 2 of 3 • Forward Deployment';
+        if (textEl) textEl.innerHTML = `<b>Siege lifted!</b> The forward Supply Depot is liberated and clear. Recruit a <b>Rifle Squad</b> and deploy them directly onto the forward Depot at ${formatCoord(3, 3)}!`;
+        this.positionPointerAtElement('store-card-RIFLEMAN', '2. Deploy at Depot');
+      } else {
+        this.currentStep = 3;
+        if (stepLabel) stepLabel.textContent = 'Step 3 of 3 • Lock Sector';
+        if (textEl) textEl.innerHTML = `Reinforcements positioned! Click <b>"End Phase"</b> to complete your siege & logistics doctrine.`;
+        this.positionPointerAtElement('btn-end-turn', '3. End Phase');
+      }
+    } else if (this.activeLesson === 8) {
+      if (stepLabel) stepLabel.textContent = 'Grand Graduation Skirmish';
+      if (textEl) textEl.textContent = 'Operation Diesel Storm: Capture forward Depots, utilize mud corridors & forest cover, call in Command Abilities, and destroy the enemy HQ at [H8] to graduate!';
       this.positionPointerAtTile(null, null);
     }
   }
@@ -4197,6 +4415,19 @@ class BootcampManager {
       return enemies.length === 0;
     }
     if (this.activeLesson === 5) {
+      const enemies = engine.players[2].units.filter(u => u.isAlive());
+      return enemies.length === 0;
+    }
+    if (this.activeLesson === 6) {
+      const enemies = engine.players[2].units.filter(u => u.isAlive());
+      return enemies.length === 0;
+    }
+    if (this.activeLesson === 7) {
+      const enemies = engine.players[2].units.filter(u => u.isAlive());
+      const recruited = engine.players[1].units.length >= 2;
+      return enemies.length === 0 && recruited;
+    }
+    if (this.activeLesson === 8) {
       return engine.winner === 1;
     }
     return false;
@@ -4216,7 +4447,7 @@ class BootcampManager {
 
     if (modal) {
       modal.style.display = 'flex';
-      if (currentId < 5) {
+      if (currentId < 8) {
         if (title) title.textContent = `Lesson ${currentId} Complete!`;
         if (sub) sub.textContent = `Tactical objective accomplished. Ready for Lesson ${currentId + 1}?`;
         if (badgeArea) badgeArea.style.display = 'none';
@@ -4227,7 +4458,7 @@ class BootcampManager {
         }
       } else {
         if (title) title.textContent = `BOOTCAMP GRADUATION!`;
-        if (sub) sub.textContent = `Outstanding work, Commander! You have mastered all 5 doctrines.`;
+        if (sub) sub.textContent = `Outstanding work, Commander! You have mastered all 8 doctrines.`;
         if (badgeArea) badgeArea.style.display = 'block';
         if (nextBtn) {
           nextBtn.textContent = `Deploy to Battlefield!`;
@@ -4326,7 +4557,7 @@ window.nextBootcampLesson = function() {
   if (modal) modal.style.display = 'none';
   if (window.gApp && window.gApp.bootcampManager) {
     const nextId = (window.gApp.bootcampManager.activeLesson || 1) + 1;
-    if (nextId <= 5) {
+    if (nextId <= 8) {
       window.gApp.bootcampManager.startLesson(nextId);
     } else {
       window.returnToBootcampMenu();
@@ -4567,6 +4798,9 @@ class App {
           if (unit.category === 'VEHICLE' && this.engine.grid[gridCoords.y][gridCoords.x].id === 'SWAMP') {
             this.ui.showToast('Terrain Blocked', 'Mud, Swamp & Pond terrain is completely impassable to vehicles and tanks!');
             if (this.audio) this.audio.playEraserSmudge();
+            if (this.engine.bootcampLesson === 5 && this.bootcampManager) {
+              this.bootcampManager.triggerLessonEasterEgg(5, "Nice try, Mario Andretti! Tanks sink in the bog like lead weights. Did you skip the terrain briefing?!");
+            }
           }
 
           // Pathfind FROM the unit's last queued waypoint position,
