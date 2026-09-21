@@ -3143,6 +3143,24 @@ select.diesel-hidden-select {
   color: #c084fc;
   border: 1px solid rgba(168, 85, 247, 0.35);
 }
+.dossier-pill-hazard {
+  background: rgba(217, 119, 6, 0.18);
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.5);
+}
+.dossier-terrain-intel {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  line-height: 1.4;
+  padding: 6px 8px;
+  border-radius: 4px;
+}
+.dossier-intel-hazard {
+  background: rgba(180, 83, 9, 0.15);
+  border: 1px dashed rgba(245, 158, 11, 0.6);
+  color: #fef3c7;
+}
 
 .dossier-spawn-status {
   margin-top: 6px;

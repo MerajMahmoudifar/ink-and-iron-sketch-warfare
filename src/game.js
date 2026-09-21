@@ -30,7 +30,7 @@ const FACTIONS = {
 const TERRAIN = {
   PLAINS: { id: 'PLAINS', name: 'Plains', symbol: '.', isVehiclePassable: true, isInfantryPassable: true, moveCostInfantry: 1.0, moveCostVehicle: 1.0, defenseBonus: 0, sketchPattern: 'none' },
   FOREST: { id: 'FOREST', name: 'Forest', symbol: 'F', isVehiclePassable: true, isInfantryPassable: true, moveCostInfantry: 1.5, moveCostVehicle: 2.0, defenseBonus: 0.30, allowsAmbush: true, sketchPattern: 'trees' },
-  SWAMP: { id: 'SWAMP', name: 'Swamp / Pond', symbol: 'S', isVehiclePassable: false, isInfantryPassable: true, moveCostInfantry: 2.5, moveCostVehicle: 99, defenseBonus: -0.10, sketchPattern: 'reeds' },
+  SWAMP: { id: 'SWAMP', name: 'Deep Mud / Swamp', symbol: 'S', isVehiclePassable: false, isInfantryPassable: true, moveCostInfantry: 2.0, moveCostVehicle: 99, defenseBonus: -0.10, trait: 'MIRES_INFANTRY_1_TURN', sketchPattern: 'reeds' },
   MOUNTAIN: { id: 'MOUNTAIN', name: 'Mountain', symbol: 'M', isVehiclePassable: false, isInfantryPassable: false, moveCostInfantry: 99, moveCostVehicle: 99, defenseBonus: 0, sketchPattern: 'peaks' },
   WATER: { id: 'WATER', name: 'Water', symbol: 'W', isVehiclePassable: false, isInfantryPassable: false, moveCostInfantry: 99, moveCostVehicle: 99, defenseBonus: 0, sketchPattern: 'waves' },
   CAPTURE_ZONE: { id: 'CAPTURE_ZONE', name: 'Supply Zone', symbol: 'Z', isVehiclePassable: true, isInfantryPassable: true, moveCostInfantry: 1.0, moveCostVehicle: 1.0, defenseBonus: 0.15, inkPerTurn: 25, sketchPattern: 'flag' },
@@ -59,7 +59,7 @@ const UNIT_TYPES = {
     moveRange: 3,
     attackRange: 1,
     visionRange: 4,
-    description: 'Fast, high vision range, ideal for capturing distant zones quickly.',
+    description: 'Fast, high vision range, ideal for capturing distant zones quickly. Mired for 1 turn upon entering deep mud.',
     icon: 'SCOUT',
     symbol: '⧟'
   },
@@ -73,7 +73,7 @@ const UNIT_TYPES = {
     moveRange: 2,
     attackRange: 1,
     visionRange: 2,
-    description: 'Balanced frontline troop. Strong against Anti-Tank crews.',
+    description: 'Balanced frontline troop. Strong against AT crews. Mired for 1 turn upon entering deep mud.',
     icon: 'RIFLE',
     symbol: '✕'
   },
@@ -88,7 +88,7 @@ const UNIT_TYPES = {
     moveRange: 1,
     attackRange: 2,
     visionRange: 2,
-    description: 'Essential anti-armor crew. 2.5x penetration obliterates enemy tanks!',
+    description: 'Essential anti-armor crew. 2.5x penetration vs tanks. Mired for 1 turn upon entering deep mud.',
     icon: 'ANTI-TANK',
     symbol: '⌖'
   },
@@ -103,7 +103,7 @@ const UNIT_TYPES = {
     moveRange: 3,
     attackRange: 1,
     visionRange: 3,
-    description: 'Fast armored vehicle. Obliterates basic infantry; blocked by swamps.',
+    description: 'Fast armored vehicle. Obliterates infantry. Completely impassable to deep mud & water.',
     icon: 'ARMORED',
     symbol: '⬭'
   },
@@ -118,7 +118,7 @@ const UNIT_TYPES = {
     attackRange: 2,
     visionRange: 2,
     factionLock: 'IRON_CORPS',
-    description: 'Iron Corps Exclusive. Massive armored beast with crushing firepower.',
+    description: 'Iron Corps Exclusive. Massive armored beast with crushing firepower. Impassable to deep mud & water.',
     icon: 'TANK',
     symbol: '⬚'
   },
@@ -133,7 +133,7 @@ const UNIT_TYPES = {
     attackRange: 1,
     visionRange: 4,
     factionLock: 'VANGUARD_LEGION',
-    description: 'Vanguard Legion Exclusive. Rapid hit-and-run raider with extreme mobility.',
+    description: 'Vanguard Exclusive. Rapid hit-and-run raider with extreme mobility. Impassable to deep mud & water.',
     icon: 'RECON',
     symbol: '🗲'
   }
@@ -848,6 +848,7 @@ class GameEngine {
     this.getAllUnits().forEach(u => {
       u.prevX = u.x; u.prevY = u.y;
       u.targetX = u.x; u.targetY = u.y;
+      u.miredThisTurn = false;
     });
 
     this.executeSinglePlaybackStep(0);
@@ -873,6 +874,7 @@ class GameEngine {
     [...this.players[1].units, ...this.players[2].units].forEach(u => {
       u.hasMovedThisTurn = false;
       u.hasAttackedThisTurn = false;
+      u.miredThisTurn = false;
       u.prevX = u.x; u.prevY = u.y;
       u.renderX = u.x; u.renderY = u.y;
       const terrainTile = this.grid[u.y][u.x];
@@ -1187,6 +1189,17 @@ class GameEngine {
         speedMax += FACTIONS.VANGUARD_LEGION.movementSpeedBonus;
       }
 
+      // If unit is currently standing in SWAMP / Deep Mud, movement is sluggish (1 tile per turn)
+      const currentTile = this.grid[unit.y][unit.x];
+      if (currentTile.id === 'SWAMP') {
+        speedMax = 1;
+      }
+
+      // If unit entered mud this turn, it is mired and must stay for the remainder of this turn!
+      if (unit.miredThisTurn) {
+        return;
+      }
+
       if (unit.waypoints.length > 0 && unit.isAlive() && stepIndex < speedMax) {
         const nextTile = unit.waypoints[0];
         const tile = this.grid[nextTile.y][nextTile.x];
@@ -1208,6 +1221,23 @@ class GameEngine {
           unit.hasMovedThisTurn = true;
           this.evaluateAutoStances();
           if (this.audio && unit.owner === 1) this.audio.playMarching(unit.category === 'VEHICLE');
+
+          // Check if infantry entered Deep Mud / Swamp
+          if (tile.id === 'SWAMP') {
+            unit.miredThisTurn = true;
+            this.actionLogs.push({
+              type: 'MIRED',
+              turn: this.turnNumber,
+              playerOwner: unit.owner,
+              playerName: this.players[unit.owner]?.name || 'Commander',
+              unitName: unit.name,
+              unitIcon: unit.icon,
+              x: unit.x,
+              y: unit.y,
+              message: `${unit.name} mired in Deep Mud at ${formatCoord(unit.x, unit.y)}! Halted for 1 turn.`
+            });
+            if (this.audio) this.audio.playEraserSmudge();
+          }
 
           // Check if allied unit stepped onto enemy HQ during tutorial lessons 1-4 (Easter Egg)
           const p2BasePos = this.players[2]?.basePos;
@@ -1432,7 +1462,10 @@ class GameEngine {
         // for long-range planning, enemies may move before the unit arrives.
         // We skip this check so paths always plan through the full board.
 
-        const tileCost = unit.category === 'VEHICLE' ? tile.moveCostVehicle : tile.moveCostInfantry;
+        let tileCost = unit.category === 'VEHICLE' ? tile.moveCostVehicle : tile.moveCostInfantry;
+        if (tile.id === 'SWAMP' && unit.category !== 'VEHICLE') {
+          tileCost = 4.0; // High path cost reflecting 1-turn mire delay
+        }
         const tentativeG = gScore.get(currKey) + tileCost;
 
         if (!gScore.has(nKey) || tentativeG < gScore.get(nKey)) {
@@ -3548,8 +3581,37 @@ class UIManager {
       `;
     } else {
       const defPct = Math.round((tile.defenseBonus || 0) * 100);
-      const moveCost = tile.id === 'SWAMP' ? '2.0x' : (tile.id === 'FOREST' ? '1.5x' : '1.0x');
       const isLOSBlocked = tile.id === 'FOREST' || tile.id === 'MOUNTAIN';
+
+      let badgesHtml = '';
+      let terrainIntelHtml = '';
+      if (tile.id === 'SWAMP') {
+        badgesHtml = `
+          <span class="dossier-pill dossier-pill-block" title="Hazardous Defense Penalty">DEF -10%</span>
+          <span class="dossier-pill dossier-pill-hazard" title="Infantry halts immediately for 1 turn upon entry">&#x1F6B6; INFANTRY: MIRED 1T (SLOW)</span>
+          <span class="dossier-pill dossier-pill-block" title="Vehicles are completely impassable">&#x1F6AB; VEHICLES: IMPASSABLE</span>
+          <span class="dossier-pill dossier-pill-los" title="Tactical Sightlines">VISION OPEN</span>
+        `;
+        terrainIntelHtml = `
+          <div class="dossier-terrain-intel dossier-intel-hazard">
+            <strong>⚠️ HAZARD INTEL:</strong> Heavy mud &amp; mire. Infantry entering this sector are mired and forced to stay for 1 turn. Subsequent mud movement is slowed to 1 tile/turn. <strong>Completely impassable to vehicles.</strong>
+          </div>
+        `;
+      } else {
+        const moveCost = tile.id === 'FOREST' ? '1.5x' : ((tile.id === 'MOUNTAIN' || tile.id === 'WATER') ? 'IMPASSABLE' : '1.0x');
+        badgesHtml = `
+          <span class="dossier-pill dossier-pill-def" title="Ballistic Cover Defense Bonus">
+            DEF ${defPct >= 0 ? '+' : ''}${defPct}%
+          </span>
+          <span class="dossier-pill ${moveCost === 'IMPASSABLE' ? 'dossier-pill-block' : 'dossier-pill-mov'}" title="Movement Factor">
+            MOV ${moveCost}
+          </span>
+          <span class="dossier-pill ${isLOSBlocked ? 'dossier-pill-block' : 'dossier-pill-los'}" title="Tactical Vision & Sightline">
+            ${isLOSBlocked ? 'VISION BLOCKED' : 'VISION OPEN'}
+          </span>
+          ${(tile.id === 'CAPTURE_ZONE' || tile.id === 'MAIN_BASE') ? `<span class="dossier-pill dossier-pill-ink">+10 INK</span>` : ''}
+        `;
+      }
 
       let spawnStatusHtml = '';
       if ((tile.id === 'CAPTURE_ZONE' || tile.id === 'MAIN_BASE') && tile.owner === 1) {
@@ -3567,17 +3629,9 @@ class UIManager {
             <span class="dossier-terrain-title">${tile.name}</span>
           </div>
           <div class="dossier-badge-row">
-            <span class="dossier-pill dossier-pill-def" title="Ballistic Cover Defense Bonus">
-              DEF +${defPct}%
-            </span>
-            <span class="dossier-pill dossier-pill-mov" title="Movement Friction Factor">
-              MOV ${moveCost}
-            </span>
-            <span class="dossier-pill ${isLOSBlocked ? 'dossier-pill-block' : 'dossier-pill-los'}" title="Tactical Vision & Sightline">
-              ${isLOSBlocked ? 'VISION BLOCKED' : 'VISION OPEN'}
-            </span>
-            ${(tile.id === 'CAPTURE_ZONE' || tile.id === 'MAIN_BASE') ? `<span class="dossier-pill dossier-pill-ink">+10 INK</span>` : ''}
+            ${badgesHtml}
           </div>
+          ${terrainIntelHtml}
           ${spawnStatusHtml}
         </div>
       `;
@@ -3620,6 +3674,7 @@ class UIManager {
             <span>VIS <strong>${unitOnTile.visionRange || 2}</strong></span>
           </div>
 
+          ${(tile.id === 'SWAMP' && unitOnTile.category === 'INFANTRY') ? `<div class="dossier-mired-tag" style="background:rgba(217,119,6,0.25); color:#fde68a; border:1px solid #d97706; padding:3px 6px; font-size:0.7rem; font-family:var(--font-mono); border-radius:3px; margin-top:6px; font-weight:700; text-align:center;">⚠️ MIRED IN DEEP MUD (SLOWED TO 1 TILE/TURN)</div>` : ''}
           ${(isFriendly && waypointsCount > 0) ? `<div class="dossier-orders-tag">ORDERS: ${waypointsCount} WAYPOINTS QUEUED</div>` : ''}
       `;
 
@@ -4509,6 +4564,11 @@ class App {
       if (this.engine.phase === 'PLANNING' && prevSelected) {
         const unit = this.engine.getAllUnits().find(u => u.x === prevSelected.x && u.y === prevSelected.y && u.owner === 1);
         if (unit) {
+          if (unit.category === 'VEHICLE' && this.engine.grid[gridCoords.y][gridCoords.x].id === 'SWAMP') {
+            this.ui.showToast('Terrain Blocked', 'Deep Mud is completely impassable to vehicles and tanks!');
+            if (this.audio) this.audio.playEraserSmudge();
+          }
+
           // Pathfind FROM the unit's last queued waypoint position,
           // so long multi-click chains extend naturally.
           let fromX = unit.x, fromY = unit.y;
@@ -4558,8 +4618,24 @@ class App {
     const colLetter = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][hoveredTile.x] || '';
     const rowNum = hoveredTile.y + 1;
     const defPct = Math.round((tile.defenseBonus || 0) * 100);
-    const movPenalty = tile.id === 'SWAMP' ? 'MUD 2.0x' : (tile.id === 'FOREST' ? 'MOV 1.5x' : 'MOV 1.0x');
     const losStatus = (tile.id === 'FOREST' || tile.id === 'MOUNTAIN') ? 'VISION BLOCKED' : 'VISION OPEN';
+
+    let terrainDetails = '';
+    if (tile.id === 'SWAMP') {
+      terrainDetails = `<span style="color:#f87171; font-weight:700;">DEF -10%</span> &bull; <span style="color:#fbbf24; font-weight:700;">INFANTRY MIRED (HALTS 1 TURN &bull; SLOW)</span> &bull; <span style="color:#ef4444; font-weight:700;">VEHICLES IMPASSABLE</span> &bull; ${losStatus}`;
+    } else if (tile.id === 'FOREST') {
+      terrainDetails = `DEF +${defPct}% &bull; MOV 1.5x &bull; ${losStatus} (AMBUSH COVER)`;
+    } else if (tile.id === 'MOUNTAIN') {
+      terrainDetails = `<span style="color:#ef4444; font-weight:700;">IMPASSABLE (ALL UNITS)</span> &bull; ${losStatus}`;
+    } else if (tile.id === 'WATER') {
+      terrainDetails = `<span style="color:#ef4444; font-weight:700;">WATER HAZARD (IMPASSABLE)</span> &bull; ${losStatus}`;
+    } else if (tile.id === 'CAPTURE_ZONE') {
+      terrainDetails = `DEF +${defPct}% &bull; MOV 1.0x &bull; SUPPLY DEPOT (+25 INK/T) &bull; ${losStatus}`;
+    } else if (tile.id === 'MAIN_BASE') {
+      terrainDetails = `DEF +${defPct}% &bull; MOV 1.0x &bull; COMMAND HQ (+50 INK/T) &bull; ${losStatus}`;
+    } else {
+      terrainDetails = `DEF +${defPct}% &bull; MOV 1.0x &bull; ${losStatus}`;
+    }
     
     // Check if tile is visible to P1
     const p1Vision = this.engine.phase === 'GAME_OVER' ? Array(8).fill(null).map(() => Array(8).fill(true)) : this.engine.calculateVision(1);
@@ -4571,10 +4647,14 @@ class App {
     }
     
     const unit = this.engine.getAllUnits().find(u => u.x === hoveredTile.x && u.y === hoveredTile.y && u.isAlive());
+    let unitMiredTag = '';
+    if (unit && tile.id === 'SWAMP' && unit.category === 'INFANTRY') {
+      unitMiredTag = ' <span style="color:#fbbf24; font-weight:700;">[MIRED IN MUD]</span>';
+    }
     const stancePart = (unit && unit.stance && unit.stance !== 'ADVANCE') ? ` [${unit.stance}]` : '';
-    const unitPart = unit ? ` &bull; <span style="color:${unit.owner === 1 ? '#60a5fa' : '#f87171'}; font-weight:700;">${unit.owner === 1 ? 'ALLIED' : 'HOSTILE'}: ${unit.name} (${unit.hp}/${unit.maxHp} HP)${stancePart}</span>` : '';
+    const unitPart = unit ? ` &bull; <span style="color:${unit.owner === 1 ? '#60a5fa' : '#f87171'}; font-weight:700;">${unit.owner === 1 ? 'ALLIED' : 'HOSTILE'}: ${unit.name} (${unit.hp}/${unit.maxHp} HP)${stancePart}${unitMiredTag}</span>` : '';
 
-    el.innerHTML = `SECTOR [${colLetter}${rowNum}] &bull; <strong>${tile.name}</strong> &bull; DEF +${defPct}% &bull; ${movPenalty} &bull; ${losStatus}${unitPart}`;
+    el.innerHTML = `SECTOR [${colLetter}${rowNum}] &bull; <strong>${tile.name}</strong> &bull; ${terrainDetails}${unitPart}`;
   }
 
   startRenderLoop() {
