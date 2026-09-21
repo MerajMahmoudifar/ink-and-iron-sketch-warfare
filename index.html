@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ink &amp; Iron: Sketch Warfare | Turn-Based Grid Strategy</title>
   <meta name="description" content="Ink &amp; Iron: Sketch Warfare is a turn-based grid strategy game with hand-drawn paper aesthetics, unique factions, command abilities, and simultaneous combat playback.">
-  <link rel="stylesheet" href="styles/main.css?v=2.9.14">
+  <link rel="stylesheet" href="styles/main.css?v=2.9.15">
 </head>
 <body>
 
@@ -26,6 +26,11 @@
 
     <!-- Toast Notification Container -->
     <div id="sketch-toast-container" class="sketch-toast-container"></div>
+
+    <!-- Animated Bootcamp Pointer (Global Viewport Overlay) -->
+    <div id="bootcamp-pointer-hint" class="bootcamp-pointer-hint" style="display: none;">
+      <div id="bootcamp-pointer-label" class="bootcamp-pointer-label">Click Here</div>
+    </div>
 
     <!-- Terrain View Banner -->
     <div id="terrain-view-banner">
@@ -667,11 +672,6 @@
             </div>
             <button id="btn-bootcamp-instructor-toggle" class="bootcamp-instructor-toggle" title="Minimize / Expand Briefing" onclick="this.closest('.bootcamp-instructor-card').classList.toggle('minimized')">&#x25BC;</button>
           </div>
-
-          <!-- Animated Pointer Label -->
-          <div id="bootcamp-pointer-hint" class="bootcamp-pointer-hint" style="display: none;">
-            <div id="bootcamp-pointer-label" class="bootcamp-pointer-label">Click Here</div>
-          </div>
         </section>
 
         <!-- Right Sidebar: Controls, Inspector, Abilities, Recruitment -->
@@ -1221,6 +1221,6 @@
   </div>
 
   <script src="src/firebase-config.js"></script>
-  <script src="src/game.js?v=2.9.14"></script>
+  <script src="src/game.js?v=2.9.15"></script>
 </body>
 </html>

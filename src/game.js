@@ -3990,6 +3990,12 @@ class BootcampManager {
     this.currentStep = 1;
     this.savedProgress = this.loadProgress();
     this.easterEggActive = false;
+
+    window.addEventListener('resize', () => {
+      if (this.activeLesson && this.app?.engine) {
+        this.updateHUD(this.app.engine);
+      }
+    });
   }
 
   loadProgress() {
@@ -4166,9 +4172,10 @@ class BootcampManager {
   nudgePointer() {
     const hint = document.getElementById('bootcamp-pointer-hint');
     if (hint) {
+      const animName = hint.classList.contains('pointer-below') ? 'pointerPulseBelow' : 'pointerPulse';
       hint.style.animation = 'none';
       void hint.offsetWidth;
-      hint.style.animation = 'pointerPulse 0.3s 3 alternate';
+      hint.style.animation = `${animName} 0.3s 3 alternate`;
     }
   }
 
@@ -4364,15 +4371,13 @@ class BootcampManager {
     const canvas = this.app.canvas;
     if (!canvas) return;
     const canvasRect = canvas.getBoundingClientRect();
-    const wrapper = canvas.parentElement;
-    if (!wrapper) return;
-    const wrapperRect = wrapper.getBoundingClientRect();
     const scaleX = canvasRect.width / canvas.width;
     const scaleY = canvasRect.height / canvas.height;
     const canvasPt = this.app.renderer.getScreenCoords(gx, gy);
-    const screenX = (canvasPt.x + 35) * scaleX + (canvasRect.left - wrapperRect.left);
-    const screenY = (canvasPt.y + 15) * scaleY + (canvasRect.top - wrapperRect.top);
+    const screenX = canvasRect.left + (canvasPt.x + 35) * scaleX;
+    const screenY = canvasRect.top + (canvasPt.y + 15) * scaleY;
 
+    hint.classList.remove('pointer-below');
     hint.style.left = `${screenX}px`;
     hint.style.top = `${screenY}px`;
     hint.style.display = 'flex';
@@ -4385,12 +4390,23 @@ class BootcampManager {
     const targetEl = document.getElementById(elementId);
     if (!hint || !targetEl) return;
     const targetRect = targetEl.getBoundingClientRect();
-    const wrapper = document.querySelector('.canvas-wrapper');
-    if (!wrapper) return;
-    const wrapperRect = wrapper.getBoundingClientRect();
 
-    hint.style.left = `${targetRect.left - wrapperRect.left + targetRect.width / 2}px`;
-    hint.style.top = `${targetRect.top - wrapperRect.top}px`;
+    let screenX = targetRect.left + targetRect.width / 2;
+    // Clamp screenX so tooltip never overflows viewport horizontally
+    const pad = 100;
+    screenX = Math.max(pad, Math.min(window.innerWidth - pad, screenX));
+
+    // If element is near top edge of viewport (e.g. End Phase button), point from below
+    if (targetRect.top < 65) {
+      hint.classList.add('pointer-below');
+      hint.style.left = `${screenX}px`;
+      hint.style.top = `${targetRect.bottom + 6}px`;
+    } else {
+      hint.classList.remove('pointer-below');
+      hint.style.left = `${screenX}px`;
+      hint.style.top = `${targetRect.top - 6}px`;
+    }
+
     hint.style.display = 'flex';
     if (label) label.textContent = labelText;
   }

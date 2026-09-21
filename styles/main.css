@@ -2855,8 +2855,9 @@ select.diesel-hidden-select {
   bottom: 14px;
   left: 50%;
   transform: translateX(-50%);
-  width: 90%;
-  max-width: 580px;
+  box-sizing: border-box;
+  width: min(560px, calc(100% - 24px));
+  max-width: calc(100% - 24px);
   background: rgba(10, 15, 28, 0.94);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -2972,21 +2973,29 @@ select.diesel-hidden-select {
   100% { transform: scale(1); opacity: 1; }
 }
 
-/* Spotlight & Tactical Pointer */
+/* Spotlight & Tactical Pointer (Global Viewport Overlay) */
 .bootcamp-pointer-hint {
-  position: absolute;
+  position: fixed;
   pointer-events: none;
-  z-index: 95;
+  z-index: 999999;
   display: flex;
   flex-direction: column;
   align-items: center;
   animation: pointerPulse 1.2s infinite alternate;
   transform: translate(-50%, -100%);
-  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.8));
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.9));
 }
 @keyframes pointerPulse {
   0% { transform: translate(-50%, -100%) translateY(0); }
   100% { transform: translate(-50%, -100%) translateY(-8px); }
+}
+.bootcamp-pointer-hint.pointer-below {
+  transform: translate(-50%, 0);
+  animation: pointerPulseBelow 1.2s infinite alternate;
+}
+@keyframes pointerPulseBelow {
+  0% { transform: translate(-50%, 0) translateY(0); }
+  100% { transform: translate(-50%, 0) translateY(8px); }
 }
 .bootcamp-pointer-label {
   background: var(--gold-400);
@@ -3013,6 +3022,12 @@ select.diesel-hidden-select {
   border-color: var(--gold-400) transparent transparent;
   display: block;
   width: 0;
+}
+.bootcamp-pointer-hint.pointer-below .bootcamp-pointer-label::after {
+  bottom: auto;
+  top: -6px;
+  border-width: 0 6px 6px;
+  border-color: transparent transparent var(--gold-400);
 }
 
 /* Profile Certification Badge */
