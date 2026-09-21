@@ -24,7 +24,7 @@ export const FACTIONS = {
 export const TERRAIN = {
   PLAINS: { id: 'PLAINS', name: 'Plains', symbol: '.', isVehiclePassable: true, isInfantryPassable: true, moveCostInfantry: 1, moveCostVehicle: 1, defenseBonus: 0, sketchPattern: 'none' },
   FOREST: { id: 'FOREST', name: 'Forest', symbol: 'F', isVehiclePassable: true, isInfantryPassable: true, moveCostInfantry: 1, moveCostVehicle: 1.5, defenseBonus: 0.30, allowsAmbush: true, sketchPattern: 'trees' },
-  SWAMP: { id: 'SWAMP', name: 'Deep Mud / Swamp', symbol: 'S', isVehiclePassable: false, isInfantryPassable: true, moveCostInfantry: 2, moveCostVehicle: 99, defenseBonus: -0.10, trait: 'MIRES_INFANTRY_1_TURN', sketchPattern: 'reeds' },
+  SWAMP: { id: 'SWAMP', name: 'Mud / Swamp / Pond', symbol: 'S', isVehiclePassable: false, isInfantryPassable: true, moveCostInfantry: 2, moveCostVehicle: 99, defenseBonus: -0.10, trait: 'MIRES_INFANTRY_1_TURN', sketchPattern: 'reeds' },
   MOUNTAIN: { id: 'MOUNTAIN', name: 'Mountain', symbol: 'M', isVehiclePassable: false, isInfantryPassable: false, moveCostInfantry: 99, moveCostVehicle: 99, defenseBonus: 0, sketchPattern: 'peaks' },
   WATER: { id: 'WATER', name: 'Water', symbol: 'W', isVehiclePassable: false, isInfantryPassable: false, moveCostInfantry: 99, moveCostVehicle: 99, defenseBonus: 0, sketchPattern: 'waves' },
   CAPTURE_ZONE: { id: 'CAPTURE_ZONE', name: 'Supply Zone', symbol: 'Z', isVehiclePassable: true, isInfantryPassable: true, moveCostInfantry: 1, moveCostVehicle: 1, defenseBonus: 0.15, inkPerTurn: 25, sketchPattern: 'flag' },
@@ -42,7 +42,7 @@ export const UNIT_TYPES = {
     moveRange: 3,
     attackRange: 1,
     visionRange: 4,
-    description: 'Fast, high vision range, ideal for capturing distant zones quickly.',
+    description: 'Fast, high vision range, captures distant zones quickly. Mired for 1 turn upon entering mud, swamps, or ponds.',
     icon: '🕵️'
   },
   RIFLEMAN: {
@@ -55,7 +55,7 @@ export const UNIT_TYPES = {
     moveRange: 2,
     attackRange: 1,
     visionRange: 2,
-    description: 'Balanced frontline troop. Strong against Anti-Tank crews.',
+    description: 'Balanced frontline troop. Strong against AT crews. Mired for 1 turn upon entering mud, swamps, or ponds.',
     icon: '🪖'
   },
   ANTI_TANK: {
@@ -69,7 +69,7 @@ export const UNIT_TYPES = {
     moveRange: 1,
     attackRange: 2,
     visionRange: 2,
-    description: 'Slow heavy artillery crew. Devastating against enemy armor.',
+    description: 'Slow heavy artillery crew. Devastating vs armor. Mired for 1 turn upon entering mud, swamps, or ponds.',
     icon: '🎯'
   },
   LIGHT_VEHICLE: {
@@ -83,7 +83,7 @@ export const UNIT_TYPES = {
     moveRange: 3,
     attackRange: 1,
     visionRange: 3,
-    description: 'Fast armored vehicle. Obliterates basic infantry; completely impassable to deep mud & water.',
+    description: 'Fast armored vehicle. Obliterates basic infantry; completely impassable to mud, swamps, ponds & deep water.',
     icon: '🏎️'
   },
   HEAVY_SIEGE_TANK: {
@@ -97,7 +97,7 @@ export const UNIT_TYPES = {
     attackRange: 2,
     visionRange: 2,
     factionLock: 'IRON_CORPS',
-    description: 'Iron Corps Exclusive. Massive armored beast with crushing firepower. Impassable to deep mud & water.',
+    description: 'Iron Corps Exclusive. Massive armored beast with crushing firepower. Impassable to mud, swamps, ponds & water.',
     icon: '🚜'
   },
   BLITZ_RECON: {
@@ -111,7 +111,7 @@ export const UNIT_TYPES = {
     attackRange: 1,
     visionRange: 4,
     factionLock: 'VANGUARD_LEGION',
-    description: 'Vanguard Exclusive. Rapid hit-and-run raider with extreme mobility. Impassable to deep mud & water.',
+    description: 'Vanguard Exclusive. Rapid hit-and-run raider with extreme mobility. Impassable to mud, swamps, ponds & water.',
     icon: '⚡'
   }
 };

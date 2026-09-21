@@ -30,7 +30,7 @@ const FACTIONS = {
 const TERRAIN = {
   PLAINS: { id: 'PLAINS', name: 'Plains', symbol: '.', isVehiclePassable: true, isInfantryPassable: true, moveCostInfantry: 1.0, moveCostVehicle: 1.0, defenseBonus: 0, sketchPattern: 'none' },
   FOREST: { id: 'FOREST', name: 'Forest', symbol: 'F', isVehiclePassable: true, isInfantryPassable: true, moveCostInfantry: 1.5, moveCostVehicle: 2.0, defenseBonus: 0.30, allowsAmbush: true, sketchPattern: 'trees' },
-  SWAMP: { id: 'SWAMP', name: 'Deep Mud / Swamp', symbol: 'S', isVehiclePassable: false, isInfantryPassable: true, moveCostInfantry: 2.0, moveCostVehicle: 99, defenseBonus: -0.10, trait: 'MIRES_INFANTRY_1_TURN', sketchPattern: 'reeds' },
+  SWAMP: { id: 'SWAMP', name: 'Mud / Swamp / Pond', symbol: 'S', isVehiclePassable: false, isInfantryPassable: true, moveCostInfantry: 2.0, moveCostVehicle: 99, defenseBonus: -0.10, trait: 'MIRES_INFANTRY_1_TURN', sketchPattern: 'reeds' },
   MOUNTAIN: { id: 'MOUNTAIN', name: 'Mountain', symbol: 'M', isVehiclePassable: false, isInfantryPassable: false, moveCostInfantry: 99, moveCostVehicle: 99, defenseBonus: 0, sketchPattern: 'peaks' },
   WATER: { id: 'WATER', name: 'Water', symbol: 'W', isVehiclePassable: false, isInfantryPassable: false, moveCostInfantry: 99, moveCostVehicle: 99, defenseBonus: 0, sketchPattern: 'waves' },
   CAPTURE_ZONE: { id: 'CAPTURE_ZONE', name: 'Supply Zone', symbol: 'Z', isVehiclePassable: true, isInfantryPassable: true, moveCostInfantry: 1.0, moveCostVehicle: 1.0, defenseBonus: 0.15, inkPerTurn: 25, sketchPattern: 'flag' },
@@ -59,7 +59,7 @@ const UNIT_TYPES = {
     moveRange: 3,
     attackRange: 1,
     visionRange: 4,
-    description: 'Fast, high vision range, ideal for capturing distant zones quickly. Mired for 1 turn upon entering deep mud.',
+    description: 'Fast, high vision range, ideal for capturing distant zones quickly. Mired for 1 turn upon entering mud, swamps, or ponds.',
     icon: 'SCOUT',
     symbol: '⧟'
   },
@@ -73,7 +73,7 @@ const UNIT_TYPES = {
     moveRange: 2,
     attackRange: 1,
     visionRange: 2,
-    description: 'Balanced frontline troop. Strong against AT crews. Mired for 1 turn upon entering deep mud.',
+    description: 'Balanced frontline troop. Strong against AT crews. Mired for 1 turn upon entering mud, swamps, or ponds.',
     icon: 'RIFLE',
     symbol: '✕'
   },
@@ -88,7 +88,7 @@ const UNIT_TYPES = {
     moveRange: 1,
     attackRange: 2,
     visionRange: 2,
-    description: 'Essential anti-armor crew. 2.5x penetration vs tanks. Mired for 1 turn upon entering deep mud.',
+    description: 'Essential anti-armor crew. 2.5x penetration vs tanks. Mired for 1 turn upon entering mud, swamps, or ponds.',
     icon: 'ANTI-TANK',
     symbol: '⌖'
   },
@@ -103,7 +103,7 @@ const UNIT_TYPES = {
     moveRange: 3,
     attackRange: 1,
     visionRange: 3,
-    description: 'Fast armored vehicle. Obliterates infantry. Completely impassable to deep mud & water.',
+    description: 'Fast armored vehicle. Obliterates infantry. Completely impassable to mud, swamps, ponds & deep water.',
     icon: 'ARMORED',
     symbol: '⬭'
   },
@@ -118,7 +118,7 @@ const UNIT_TYPES = {
     attackRange: 2,
     visionRange: 2,
     factionLock: 'IRON_CORPS',
-    description: 'Iron Corps Exclusive. Massive armored beast with crushing firepower. Impassable to deep mud & water.',
+    description: 'Iron Corps Exclusive. Massive armored beast with crushing firepower. Impassable to mud, swamps, ponds & water.',
     icon: 'TANK',
     symbol: '⬚'
   },
@@ -133,7 +133,7 @@ const UNIT_TYPES = {
     attackRange: 1,
     visionRange: 4,
     factionLock: 'VANGUARD_LEGION',
-    description: 'Vanguard Exclusive. Rapid hit-and-run raider with extreme mobility. Impassable to deep mud & water.',
+    description: 'Vanguard Exclusive. Rapid hit-and-run raider with extreme mobility. Impassable to mud, swamps, ponds & water.',
     icon: 'RECON',
     symbol: '🗲'
   }
@@ -1222,7 +1222,7 @@ class GameEngine {
           this.evaluateAutoStances();
           if (this.audio && unit.owner === 1) this.audio.playMarching(unit.category === 'VEHICLE');
 
-          // Check if infantry entered Deep Mud / Swamp
+          // Check if infantry entered Deep Mud / Swamp / Pond
           if (tile.id === 'SWAMP') {
             unit.miredThisTurn = true;
             this.actionLogs.push({
@@ -1234,7 +1234,7 @@ class GameEngine {
               unitIcon: unit.icon,
               x: unit.x,
               y: unit.y,
-              message: `${unit.name} mired in Deep Mud at ${formatCoord(unit.x, unit.y)}! Halted for 1 turn.`
+              message: `${unit.name} mired in Mud / Pond at ${formatCoord(unit.x, unit.y)}! Halted for 1 turn.`
             });
             if (this.audio) this.audio.playEraserSmudge();
           }
@@ -3594,7 +3594,7 @@ class UIManager {
         `;
         terrainIntelHtml = `
           <div class="dossier-terrain-intel dossier-intel-hazard">
-            <strong>⚠️ HAZARD INTEL:</strong> Heavy mud &amp; mire. Infantry entering this sector are mired and forced to stay for 1 turn. Subsequent mud movement is slowed to 1 tile/turn. <strong>Completely impassable to vehicles.</strong>
+            <strong>⚠️ HAZARD INTEL:</strong> Heavy mud, swamp &amp; pond mire. Infantry entering this sector are mired and forced to stay for 1 turn. Subsequent mud &amp; pond traversal is slowed to 1 tile/turn. <strong>Completely impassable to vehicles.</strong>
           </div>
         `;
       } else {
@@ -3674,7 +3674,7 @@ class UIManager {
             <span>VIS <strong>${unitOnTile.visionRange || 2}</strong></span>
           </div>
 
-          ${(tile.id === 'SWAMP' && unitOnTile.category === 'INFANTRY') ? `<div class="dossier-mired-tag" style="background:rgba(217,119,6,0.25); color:#fde68a; border:1px solid #d97706; padding:3px 6px; font-size:0.7rem; font-family:var(--font-mono); border-radius:3px; margin-top:6px; font-weight:700; text-align:center;">⚠️ MIRED IN DEEP MUD (SLOWED TO 1 TILE/TURN)</div>` : ''}
+          ${(tile.id === 'SWAMP' && unitOnTile.category === 'INFANTRY') ? `<div class="dossier-mired-tag" style="background:rgba(217,119,6,0.25); color:#fde68a; border:1px solid #d97706; padding:3px 6px; font-size:0.7rem; font-family:var(--font-mono); border-radius:3px; margin-top:6px; font-weight:700; text-align:center;">⚠️ MIRED IN MUD / POND (SLOWED TO 1 TILE/TURN)</div>` : ''}
           ${(isFriendly && waypointsCount > 0) ? `<div class="dossier-orders-tag">ORDERS: ${waypointsCount} WAYPOINTS QUEUED</div>` : ''}
       `;
 
@@ -4565,7 +4565,7 @@ class App {
         const unit = this.engine.getAllUnits().find(u => u.x === prevSelected.x && u.y === prevSelected.y && u.owner === 1);
         if (unit) {
           if (unit.category === 'VEHICLE' && this.engine.grid[gridCoords.y][gridCoords.x].id === 'SWAMP') {
-            this.ui.showToast('Terrain Blocked', 'Deep Mud is completely impassable to vehicles and tanks!');
+            this.ui.showToast('Terrain Blocked', 'Mud, Swamp & Pond terrain is completely impassable to vehicles and tanks!');
             if (this.audio) this.audio.playEraserSmudge();
           }
 
@@ -4649,7 +4649,7 @@ class App {
     const unit = this.engine.getAllUnits().find(u => u.x === hoveredTile.x && u.y === hoveredTile.y && u.isAlive());
     let unitMiredTag = '';
     if (unit && tile.id === 'SWAMP' && unit.category === 'INFANTRY') {
-      unitMiredTag = ' <span style="color:#fbbf24; font-weight:700;">[MIRED IN MUD]</span>';
+      unitMiredTag = ' <span style="color:#fbbf24; font-weight:700;">[MIRED IN MUD/POND]</span>';
     }
     const stancePart = (unit && unit.stance && unit.stance !== 'ADVANCE') ? ` [${unit.stance}]` : '';
     const unitPart = unit ? ` &bull; <span style="color:${unit.owner === 1 ? '#60a5fa' : '#f87171'}; font-weight:700;">${unit.owner === 1 ? 'ALLIED' : 'HOSTILE'}: ${unit.name} (${unit.hp}/${unit.maxHp} HP)${stancePart}${unitMiredTag}</span>` : '';
