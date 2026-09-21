@@ -4284,6 +4284,8 @@ window.dismissBootcampEasterEgg = function() {
   if (modal) modal.style.display = 'none';
   if (window.gApp && window.gApp.bootcampManager) {
     window.gApp.bootcampManager.easterEggActive = false;
+    const currentId = window.gApp.bootcampManager.activeLesson || 1;
+    window.gApp.bootcampManager.startLesson(currentId);
   }
 };
 
