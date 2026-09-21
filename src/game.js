@@ -153,7 +153,10 @@ const ABILITIES = {
 class MapGenerator {
   static createMap(mapType = 'PRESET_1') {
     let result;
-    if (mapType === 'PROCEDURAL') {
+    if (mapType.startsWith('BOOTCAMP_')) {
+      const lessonNum = parseInt(mapType.replace('BOOTCAMP_', ''), 10) || 1;
+      result = this.loadBootcampMap(lessonNum);
+    } else if (mapType === 'PROCEDURAL') {
       result = this.generateProceduralSymmetrical();
     } else {
       switch (mapType) {
@@ -166,6 +169,93 @@ class MapGenerator {
     // Always enforce full infantry connectivity after generation
     this.enforceConnectivity(result.grid, result.player1Base, result.player2Base);
     return result;
+  }
+
+  static loadBootcampMap(lessonId) {
+    let layout, p1Base, p2Base;
+    switch (lessonId) {
+      case 1:
+        // Lesson 1: The WEGO Clock — Straight corridor to flag
+        layout = [
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', 'B1', '.', '.', '.', 'Z', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', 'B2']
+        ];
+        p1Base = { x: 1, y: 3 };
+        p2Base = { x: 7, y: 7 };
+        break;
+
+      case 2:
+        // Lesson 2: Cover & Ambush Stance — Central forest corridor
+        layout = [
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', 'F', 'F', '.', '.', '.', '.'],
+          ['.', '.', 'F', 'F', '.', '.', '.', '.'],
+          ['B1', '.', 'F', 'F', '.', '.', '.', '.'],
+          ['.', '.', 'F', 'F', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', 'B2']
+        ];
+        p1Base = { x: 0, y: 3 };
+        p2Base = { x: 7, y: 7 };
+        break;
+
+      case 3:
+        // Lesson 3: Supply Depots & Recruiting
+        layout = [
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', 'B1', '.', '.', 'Z', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', 'B2']
+        ];
+        p1Base = { x: 1, y: 3 };
+        p2Base = { x: 7, y: 7 };
+        break;
+
+      case 4:
+        // Lesson 4: The Counter Triangle — 3 distinct lanes
+        layout = [
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', 'B1', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', 'B2']
+        ];
+        p1Base = { x: 1, y: 1 };
+        p2Base = { x: 7, y: 7 };
+        break;
+
+      case 5:
+      default:
+        // Lesson 5: Graduation Skirmish — Compact tactical layout
+        layout = [
+          ['B1', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', 'F', '.', '.', 'F', '.', '.'],
+          ['.', '.', '.', 'Z', '.', '.', '.', '.'],
+          ['.', 'F', '.', '.', '.', '.', 'F', '.'],
+          ['.', '.', '.', '.', 'Z', '.', '.', '.'],
+          ['.', '.', 'F', '.', '.', 'F', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', '.'],
+          ['.', '.', '.', '.', '.', '.', '.', 'B2']
+        ];
+        p1Base = { x: 0, y: 0 };
+        p2Base = { x: 7, y: 7 };
+        break;
+    }
+    return this.parseLayout(layout, p1Base, p2Base);
   }
 
   // -----------------------------------------------
@@ -514,6 +604,7 @@ class GameEngine {
   constructor(config = {}) {
     this.mapType = config.mapType || 'PRESET_1';
     this.isTutorialMode = !!config.isTutorialMode;
+    this.bootcampLesson = config.bootcampLesson || null;
     this.player1Faction = config.p1Faction || FACTIONS.IRON_CORPS;
     this.player2Faction = config.p2Faction || FACTIONS.VANGUARD_LEGION;
     this.isSinglePlayer = config.isSinglePlayer !== undefined ? config.isSinglePlayer : true;
@@ -524,7 +615,7 @@ class GameEngine {
 
     this.turnNumber = 1;
     this.phase = GAME_PHASES.PLANNING;
-    this.planningTimeRemaining = 20;
+    this.planningTimeRemaining = this.bootcampLesson ? Infinity : 20;
     this.playbackTimeRemaining = this.playbackDurationConfig;
     this.currentPlaybackStep = 0;
     this.timerInterval = null;
@@ -553,6 +644,44 @@ class GameEngine {
   }
 
   spawnInitialUnits() {
+    if (this.bootcampLesson) {
+      if (this.bootcampLesson === 1) {
+        const u = new Unit('RIFLEMAN', 1, 1, 3);
+        this.players[1].units.push(u);
+      } else if (this.bootcampLesson === 2) {
+        const u1 = new Unit('RIFLEMAN', 1, 2, 3);
+        u1.setStance(STANCES.AMBUSH.id);
+        u1.isAmbusherHidden = true;
+        const u2 = new Unit('SCOUT', 2, 5, 3);
+        this.players[1].units.push(u1);
+        this.players[2].units.push(u2);
+      } else if (this.bootcampLesson === 3) {
+        const u = new Unit('SCOUT', 1, 1, 3);
+        this.players[1].units.push(u);
+        this.players[1].ink = 25; // Enough for Rifle Squad
+      } else if (this.bootcampLesson === 4) {
+        const at1 = new Unit('ANTI_TANK', 1, 1, 1);
+        const rf1 = new Unit('RIFLEMAN', 1, 1, 3);
+        const lc1 = new Unit('LIGHT_VEHICLE', 1, 1, 5);
+        this.players[1].units.push(at1, rf1, lc1);
+
+        const ev1 = new Unit('LIGHT_VEHICLE', 2, 4, 1);
+        const eat1 = new Unit('ANTI_TANK', 2, 4, 3);
+        const erf1 = new Unit('RIFLEMAN', 2, 4, 5);
+        this.players[2].units.push(ev1, eat1, erf1);
+      } else if (this.bootcampLesson === 5) {
+        const u1 = new Unit('RIFLEMAN', 1, 1, 0);
+        const u2 = new Unit('SCOUT', 1, 0, 1);
+        const u3 = new Unit('RIFLEMAN', 2, 6, 7);
+        const u4 = new Unit('SCOUT', 2, 7, 6);
+        this.players[1].units.push(u1, u2);
+        this.players[2].units.push(u3, u4);
+        this.players[1].ink = 40;
+        this.players[2].ink = 20;
+      }
+      return;
+    }
+
     if (this.isTutorialMode) {
       // In Tutorial Mode, P1 starts with 0 units so Step 1 (recruiting at Base) triggers first!
       const u3 = new Unit('RIFLEMAN', 2, this.p2Base.x - 1, this.p2Base.y);
@@ -1234,6 +1363,31 @@ class CommanderAI {
     const humanPlayer = engine.players[1];
     if (!aiPlayer) return;
 
+    // BOOTCAMP SCRIPTED AI BEHAVIOR
+    if (engine.bootcampLesson) {
+      if (engine.bootcampLesson === 1 || engine.bootcampLesson === 3) {
+        return; // Zero AI actions
+      }
+      if (engine.bootcampLesson === 2) {
+        // Scout advances straight into the forest ambush trap
+        const scout = aiPlayer.units.find(u => u.isAlive());
+        if (scout) {
+          scout.setWaypoints([{ x: 4, y: 3 }, { x: 3, y: 3 }]);
+        }
+        return;
+      }
+      if (engine.bootcampLesson === 4 || engine.bootcampLesson === 5) {
+        // Hold defense stances to allow clear demonstration
+        aiPlayer.units.forEach(unit => {
+          if (unit.isAlive()) {
+            unit.setStance(STANCES.DEFEND.id);
+            unit.setWaypoints([]);
+          }
+        });
+        return;
+      }
+    }
+
     // TUTORIAL MODE: STRICTLY PASSIVE AI (No recruitment, no abilities, holds defense position)
     if (engine.isTutorialMode) {
       aiPlayer.units.forEach(unit => {
@@ -1253,7 +1407,7 @@ class CommanderAI {
 
     // 3. Dynamic Strategic Evaluation (Force Balance & Tactical State)
     const aiVision = engine.calculateVision(2);
-    const visibleHumanUnits = humanPlayer.units.filter(u => u.isAlive() && (difficulty === 'RECRUIT' ? true : aiVision[u.y][u.x]));
+    const visibleHumanUnits = humanPlayer.units.filter(u => u.isAlive() && aiVision[u.y][u.x]);
     const aiUnits = aiPlayer.units.filter(u => u.isAlive());
 
     // Compute Force Power Ratio
@@ -1387,8 +1541,17 @@ class CommanderAI {
 
   static buyUnitsAI(engine, difficulty, personality) {
     const ai = engine.players[2];
+
+    // GENTLE RECRUIT PACING: Cap unit count to 3 and 50% chance to pause buying
+    if (difficulty === 'RECRUIT') {
+      const activeAiUnits = ai.units.filter(u => u.isAlive()).length;
+      if (activeAiUnits >= 3 || Math.random() < 0.50) {
+        return;
+      }
+    }
+
     const aiVision = engine.calculateVision(2);
-    const visibleHumanUnits = engine.players[1].units.filter(u => u.isAlive() && (difficulty === 'RECRUIT' ? true : aiVision[u.y][u.x]));
+    const visibleHumanUnits = engine.players[1].units.filter(u => u.isAlive() && aiVision[u.y][u.x]);
 
     let humanVehicleCount = 0;
     let humanInfantryCount = 0;
@@ -1427,7 +1590,7 @@ class CommanderAI {
     } else {
       // TACTICUS DOCTRINE: Balanced Counter-Recruitment
       if (difficulty === 'RECRUIT') {
-        const types = ['RIFLEMAN', 'SCOUT', 'LIGHT_VEHICLE'];
+        const types = ['RIFLEMAN', 'SCOUT'];
         targetType = types[Math.floor(Math.random() * types.length)];
       } else {
         if (humanVehicleCount > 0 && ai.ink >= UNIT_TYPES.ANTI_TANK.cost) {
@@ -1453,9 +1616,12 @@ class CommanderAI {
   }
 
   static useAbilitiesAI(engine, difficulty, personality) {
+    // RECRUIT bot never casts abilities on beginner players
+    if (difficulty === 'RECRUIT') return;
+
     const ai = engine.players[2];
     const aiVision = engine.calculateVision(2);
-    const visibleHumanUnits = engine.players[1].units.filter(u => u.isAlive() && (difficulty === 'RECRUIT' ? true : aiVision[u.y][u.x]));
+    const visibleHumanUnits = engine.players[1].units.filter(u => u.isAlive() && aiVision[u.y][u.x]);
 
     if (personality === 'FORTRESS') {
       // FORTRESS: Prioritize heavy Artillery on human clusters near chokes
@@ -2542,6 +2708,7 @@ class UIManager {
   setupMenuTabs() {
     const tabs = [
       { btn: 'tab-btn-play', pane: 'tab-pane-play' },
+      { btn: 'tab-btn-bootcamp', pane: 'tab-pane-bootcamp' },
       { btn: 'tab-btn-factions', pane: 'tab-pane-factions' },
       { btn: 'tab-btn-codex', pane: 'tab-pane-codex' },
       { btn: 'tab-btn-account', pane: 'tab-pane-account' },
@@ -2560,6 +2727,9 @@ class UIManager {
           });
           btnEl.classList.add('active');
           paneEl.style.display = 'flex';
+          if (t.btn === 'tab-btn-bootcamp' || t.btn === 'tab-btn-account') {
+            if (this.app && this.app.bootcampManager) this.app.bootcampManager.updateMenuUI();
+          }
           try { this.app.audio.playPencilScratch(); } catch(err){}
         });
       }
@@ -2584,15 +2754,30 @@ class UIManager {
     if (!engine) return;
     this.turnCounter.textContent = `Turn ${engine.turnNumber}`;
 
-    if (engine.phase === 'PLANNING') {
+    if (engine.bootcampLesson) {
+      this.phaseBadge.textContent = `Bootcamp — Lesson ${engine.bootcampLesson}`;
+      this.phaseBadge.style.background = '';
+      this.timerBarFill.style.width = '100%';
+      if (engine.bootcampManager) {
+        engine.bootcampManager.updateHUD(engine);
+      }
+    } else if (engine.phase === 'PLANNING') {
       this.phaseBadge.textContent = `Planning Phase — ${engine.planningTimeRemaining}s`;
       this.phaseBadge.style.background = '';
       this.timerBarFill.style.width = `${(engine.planningTimeRemaining / 20) * 100}%`;
+      const dialog = document.getElementById('bootcamp-instructor-dialog');
+      const pointer = document.getElementById('bootcamp-pointer-hint');
+      if (dialog) dialog.style.display = 'none';
+      if (pointer) pointer.style.display = 'none';
     } else if (engine.phase === 'PLAYBACK') {
       this.phaseBadge.textContent = `Combat Playback — ${engine.playbackTimeRemaining}s`;
       this.phaseBadge.style.background = '';
       const maxPlaybackSecs = engine.playbackDurationConfig || 3;
       this.timerBarFill.style.width = `${(engine.playbackTimeRemaining / maxPlaybackSecs) * 100}%`;
+      const dialog = document.getElementById('bootcamp-instructor-dialog');
+      const pointer = document.getElementById('bootcamp-pointer-hint');
+      if (dialog) dialog.style.display = 'none';
+      if (pointer) pointer.style.display = 'none';
     } else if (engine.phase === 'GAME_OVER') {
       this.phaseBadge.textContent = `Game Over`;
       this.timerBarFill.style.width = '0%';
@@ -2624,7 +2809,7 @@ class UIManager {
     const tutorialBox = document.getElementById('tutorial-hint-box');
     const tutorialText = document.getElementById('tutorial-hint-text');
     if (tutorialBox && tutorialText) {
-      if (engine.isTutorialMode) {
+      if (engine.isTutorialMode && !engine.bootcampLesson) {
         tutorialBox.style.display = 'block';
         const p1Units = engine.players[1].units.filter(u => u.isAlive());
         const hasQueuedMoves = p1Units.some(u => u.waypoints.length > 0);
@@ -2645,6 +2830,10 @@ class UIManager {
 
     if (engine.winner && !engine.victoryShown) {
       engine.victoryShown = true;
+      if (engine.bootcampLesson && engine.bootcampManager) {
+        engine.bootcampManager.onLessonVictory(engine);
+        return;
+      }
       if (window.gAuthManager) {
         window.gAuthManager.recordMatchResult(engine.winner === 1);
       }
@@ -2682,6 +2871,7 @@ class UIManager {
     Object.keys(UNIT_TYPES).filter(k => !UNIT_TYPES[k].factionLock || UNIT_TYPES[k].factionLock === p1.faction.id).forEach(key => {
       const u = UNIT_TYPES[key];
       const btn = document.createElement('button');
+      btn.id = 'store-card-' + key;
       btn.className = 'unit-card-btn';
       btn.innerHTML = `<div class="unit-card-info"><span class="unit-card-title">${u.symbol} ${u.name}</span><span class="unit-card-desc">${u.description}</span></div><span class="unit-card-cost">${u.cost} Ink</span>`;
       
@@ -2917,11 +3107,352 @@ class UIManager {
   }
 }
 
+class BootcampManager {
+  constructor(app) {
+    this.app = app;
+    this.activeLesson = null;
+    this.currentStep = 1;
+    this.savedProgress = this.loadProgress();
+  }
+
+  loadProgress() {
+    try {
+      const data = localStorage.getItem('ink_bootcamp_progress');
+      return data ? JSON.parse(data) : {};
+    } catch(e) {
+      return {};
+    }
+  }
+
+  saveProgress(lessonId) {
+    this.savedProgress[lessonId] = true;
+    try {
+      localStorage.setItem('ink_bootcamp_progress', JSON.stringify(this.savedProgress));
+    } catch(e){}
+    this.updateMenuUI();
+  }
+
+  isLessonCompleted(lessonId) {
+    return !!this.savedProgress[lessonId];
+  }
+
+  getCompletedCount() {
+    return [1, 2, 3, 4, 5].filter(id => this.isLessonCompleted(id)).length;
+  }
+
+  startLesson(lessonId) {
+    this.activeLesson = lessonId;
+    this.currentStep = 1;
+
+    const menu = document.getElementById('main-menu-overlay');
+    if (menu) menu.style.display = 'none';
+    const gameContainer = document.getElementById('game-container');
+    if (gameContainer) gameContainer.classList.remove('game-blurred');
+
+    this.app.launchBootcampLesson(lessonId);
+  }
+
+  updateMenuUI() {
+    const count = this.getCompletedCount();
+    const fill = document.getElementById('bootcamp-progress-fill');
+    const label = document.getElementById('bootcamp-progress-label');
+    if (fill) fill.style.width = `${(count / 5) * 100}%`;
+    if (label) label.textContent = `Bootcamp Progress: ${count}/5 Lessons Completed`;
+
+    for (let i = 1; i <= 5; i++) {
+      const card = document.getElementById(`bootcamp-card-${i}`);
+      if (card) {
+        if (this.isLessonCompleted(i)) {
+          card.classList.add('completed');
+          const btn = card.querySelector('.btn-bootcamp-start');
+          if (btn) btn.textContent = 'Replay Lesson';
+        } else {
+          card.classList.remove('completed');
+          const btn = card.querySelector('.btn-bootcamp-start');
+          if (btn) btn.textContent = i === 5 ? 'Start Graduation' : `Start Lesson ${i}`;
+        }
+      }
+    }
+
+    const certTitle = document.getElementById('bootcamp-cert-status');
+    const certDetails = document.getElementById('bootcamp-cert-details');
+    const certIcon = document.getElementById('bootcamp-cert-icon');
+    if (certTitle && certDetails) {
+      if (count >= 5) {
+        certTitle.textContent = 'Tactical Certification: CERTIFIED COMMANDER';
+        certTitle.classList.add('unlocked');
+        certDetails.textContent = 'You have mastered all 5 tactical training doctrines!';
+        if (certIcon) certIcon.textContent = '🎖️';
+      } else {
+        certTitle.textContent = `Tactical Certification: ${count}/5 Completed`;
+        certTitle.classList.remove('unlocked');
+        certDetails.textContent = `Complete all 5 Officer Bootcamp lessons to earn Certified Commander.`;
+        if (certIcon) certIcon.textContent = '🔒';
+      }
+    }
+  }
+
+  validateCanvasClick(gridCoords, prevSelected) {
+    if (!this.activeLesson) return true;
+    if (this.activeLesson === 1) {
+      if (this.currentStep === 1) {
+        return gridCoords.x === 1 && gridCoords.y === 3;
+      }
+      if (this.currentStep === 2) {
+        return gridCoords.y === 3 && gridCoords.x >= 1 && gridCoords.x <= 5;
+      }
+      return true;
+    }
+    if (this.activeLesson === 2) {
+      if (this.currentStep === 1) {
+        return gridCoords.x === 2 && gridCoords.y === 3;
+      }
+      return true;
+    }
+    if (this.activeLesson === 3) {
+      if (this.currentStep === 1) {
+        return gridCoords.x === 1 && gridCoords.y === 3;
+      }
+      if (this.currentStep === 2) {
+        return gridCoords.y === 3 && gridCoords.x >= 1 && gridCoords.x <= 4;
+      }
+      return true;
+    }
+    return true;
+  }
+
+  nudgePointer() {
+    const hint = document.getElementById('bootcamp-pointer-hint');
+    if (hint) {
+      hint.style.animation = 'none';
+      void hint.offsetWidth;
+      hint.style.animation = 'pointerPulse 0.3s 3 alternate';
+    }
+  }
+
+  updateHUD(engine) {
+    if (!this.activeLesson) {
+      const dialog = document.getElementById('bootcamp-instructor-dialog');
+      const pointer = document.getElementById('bootcamp-pointer-hint');
+      if (dialog) dialog.style.display = 'none';
+      if (pointer) pointer.style.display = 'none';
+      return;
+    }
+
+    const dialog = document.getElementById('bootcamp-instructor-dialog');
+    if (dialog) dialog.style.display = 'flex';
+
+    const tutorialBox = document.getElementById('tutorial-hint-box');
+    if (tutorialBox) tutorialBox.style.display = 'none';
+
+    if (this.checkVictory(engine)) {
+      this.onLessonVictory(engine);
+      return;
+    }
+
+    this.evaluateCurrentStep(engine);
+  }
+
+  evaluateCurrentStep(engine) {
+    const stepLabel = document.getElementById('bootcamp-instructor-step');
+    const textEl = document.getElementById('bootcamp-instructor-text');
+
+    if (this.activeLesson === 1) {
+      const squad = engine.players[1].units.find(u => u.isAlive());
+      const isSelected = this.app.renderer.selectedTile && this.app.renderer.selectedTile.x === 1 && this.app.renderer.selectedTile.y === 3;
+      const hasWaypoints = squad && squad.waypoints && squad.waypoints.length > 0;
+
+      if (!isSelected && !hasWaypoints) {
+        this.currentStep = 1;
+        if (stepLabel) stepLabel.textContent = 'Step 1 of 3';
+        if (textEl) textEl.textContent = 'Click your Rifle Squad at the deployment point (1, 3).';
+        this.positionPointerAtTile(1, 3, '1. Click Squad');
+      } else if (!hasWaypoints) {
+        this.currentStep = 2;
+        if (stepLabel) stepLabel.textContent = 'Step 2 of 3';
+        if (textEl) textEl.textContent = 'Click adjacent tiles to draw a path towards the Flag Extraction Point (Green Flag at 5, 3).';
+        this.positionPointerAtTile(5, 3, '2. Plot Path to Flag');
+      } else if (engine.phase === 'PLANNING') {
+        this.currentStep = 3;
+        if (stepLabel) stepLabel.textContent = 'Step 3 of 3';
+        if (textEl) textEl.textContent = 'Orders locked! Now click "End Phase" on the top right to execute simultaneous movement.';
+        this.positionPointerAtElement('btn-end-turn', '3. Click End Phase');
+      } else {
+        this.positionPointerAtTile(null, null);
+      }
+    } else if (this.activeLesson === 2) {
+      const squad = engine.players[1].units.find(u => u.isAlive());
+      const isSelected = this.app.renderer.selectedTile && this.app.renderer.selectedTile.x === 2 && this.app.renderer.selectedTile.y === 3;
+
+      if (!isSelected) {
+        this.currentStep = 1;
+        if (stepLabel) stepLabel.textContent = 'Step 1 of 3';
+        if (textEl) textEl.textContent = 'Click your Rifle Squad concealed inside the Forest corridor (🌲).';
+        this.positionPointerAtTile(2, 3, '1. Select Forest Squad');
+      } else if (engine.phase === 'PLANNING') {
+        this.currentStep = 2;
+        if (stepLabel) stepLabel.textContent = 'Step 2 of 3';
+        if (textEl) textEl.textContent = 'Notice squad is in AMBUSH stance (🛡️ 50% cover defense). Click "End Phase" to spring the trap!';
+        this.positionPointerAtElement('btn-end-turn', '2. Spring Ambush');
+      } else {
+        this.positionPointerAtTile(null, null);
+      }
+    } else if (this.activeLesson === 3) {
+      const scout = engine.players[1].units.find(u => u.typeKey === 'SCOUT' && u.isAlive());
+      const depotCaptured = engine.grid[3][4].owner === 1;
+      const recruitedUnit = engine.players[1].units.length >= 2;
+
+      if (!depotCaptured) {
+        const hasWaypoints = scout && scout.waypoints && scout.waypoints.length > 0;
+        if (!hasWaypoints) {
+          this.currentStep = 1;
+          if (stepLabel) stepLabel.textContent = 'Step 1 of 4';
+          if (textEl) textEl.textContent = 'Select your fast Scout (⚡) and draw a path to the Gold Supply Depot (+10 Ink).';
+          this.positionPointerAtTile(4, 3, '1. Move to Gold Depot');
+        } else {
+          this.currentStep = 2;
+          if (stepLabel) stepLabel.textContent = 'Step 2 of 4';
+          if (textEl) textEl.textContent = 'Click "End Phase" to move forward and secure the Depot.';
+          this.positionPointerAtElement('btn-end-turn', '2. Capture Depot');
+        }
+      } else if (!recruitedUnit) {
+        this.currentStep = 3;
+        if (stepLabel) stepLabel.textContent = 'Step 3 of 4';
+        if (textEl) textEl.textContent = 'Depot secured! Now click "Rifle Squad" in the Recruit Store to deploy reinforcements at your Base.';
+        this.positionPointerAtElement('store-card-RIFLEMAN', '3. Recruit Squad');
+      } else if (engine.phase === 'PLANNING') {
+        this.currentStep = 4;
+        if (stepLabel) stepLabel.textContent = 'Step 4 of 4';
+        if (textEl) textEl.textContent = 'Reinforcements placed! Click "End Phase" to finalize deployment.';
+        this.positionPointerAtElement('btn-end-turn', '4. End Phase');
+      } else {
+        this.positionPointerAtTile(null, null);
+      }
+    } else if (this.activeLesson === 4) {
+      if (stepLabel) stepLabel.textContent = 'The Counter Triangle';
+      if (textEl) textEl.textContent = 'AT pierces Armor (2.5x), Rifle flanks AT, Vehicle crushes Infantry (1.5x). Plot attacks and click End Phase!';
+      this.positionPointerAtElement('btn-end-turn', 'Execute Counters');
+    } else if (this.activeLesson === 5) {
+      if (stepLabel) stepLabel.textContent = 'Graduation Skirmish';
+      if (textEl) textEl.textContent = 'Capture the central depots for Ink, recruit counter-units, and destroy the Red HQ Base to graduate!';
+      this.positionPointerAtTile(null, null);
+    }
+  }
+
+  positionPointerAtTile(gx, gy, labelText = 'Click Here') {
+    const hint = document.getElementById('bootcamp-pointer-hint');
+    const label = document.getElementById('bootcamp-pointer-label');
+    if (!hint) return;
+    if (gx === null || gy === null) {
+      hint.style.display = 'none';
+      return;
+    }
+    const canvas = this.app.canvas;
+    if (!canvas) return;
+    const canvasRect = canvas.getBoundingClientRect();
+    const wrapper = canvas.parentElement;
+    if (!wrapper) return;
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const scaleX = canvasRect.width / canvas.width;
+    const scaleY = canvasRect.height / canvas.height;
+    const canvasPt = this.app.renderer.getScreenCoords(gx, gy);
+    const screenX = (canvasPt.x + 35) * scaleX + (canvasRect.left - wrapperRect.left);
+    const screenY = (canvasPt.y + 15) * scaleY + (canvasRect.top - wrapperRect.top);
+
+    hint.style.left = `${screenX}px`;
+    hint.style.top = `${screenY}px`;
+    hint.style.display = 'flex';
+    if (label) label.textContent = labelText;
+  }
+
+  positionPointerAtElement(elementId, labelText = 'Click Here') {
+    const hint = document.getElementById('bootcamp-pointer-hint');
+    const label = document.getElementById('bootcamp-pointer-label');
+    const targetEl = document.getElementById(elementId);
+    if (!hint || !targetEl) return;
+    const targetRect = targetEl.getBoundingClientRect();
+    const wrapper = document.querySelector('.canvas-wrapper');
+    if (!wrapper) return;
+    const wrapperRect = wrapper.getBoundingClientRect();
+
+    hint.style.left = `${targetRect.left - wrapperRect.left + targetRect.width / 2}px`;
+    hint.style.top = `${targetRect.top - wrapperRect.top}px`;
+    hint.style.display = 'flex';
+    if (label) label.textContent = labelText;
+  }
+
+  checkVictory(engine) {
+    if (!this.activeLesson) return false;
+    if (this.activeLesson === 1) {
+      const squad = engine.players[1].units.find(u => u.isAlive());
+      return squad && squad.x >= 4 && squad.y === 3;
+    }
+    if (this.activeLesson === 2) {
+      const enemies = engine.players[2].units.filter(u => u.isAlive());
+      return enemies.length === 0;
+    }
+    if (this.activeLesson === 3) {
+      const depotCaptured = engine.grid[3][4].owner === 1;
+      const recruited = engine.players[1].units.length >= 2;
+      return depotCaptured && recruited;
+    }
+    if (this.activeLesson === 4) {
+      const enemies = engine.players[2].units.filter(u => u.isAlive());
+      return enemies.length === 0;
+    }
+    if (this.activeLesson === 5) {
+      return engine.winner === 1;
+    }
+    return false;
+  }
+
+  onLessonVictory(engine) {
+    const currentId = this.activeLesson;
+    this.saveProgress(currentId);
+
+    try { this.app.audio.playVictorySound(); } catch(e){}
+
+    const modal = document.getElementById('modal-bootcamp-complete');
+    const title = document.getElementById('bootcamp-complete-title');
+    const sub = document.getElementById('bootcamp-complete-subtitle');
+    const badgeArea = document.getElementById('bootcamp-complete-badge-area');
+    const nextBtn = document.getElementById('btn-bootcamp-next');
+
+    if (modal) {
+      modal.style.display = 'flex';
+      if (currentId < 5) {
+        if (title) title.textContent = `Lesson ${currentId} Complete!`;
+        if (sub) sub.textContent = `Tactical objective accomplished. Ready for Lesson ${currentId + 1}?`;
+        if (badgeArea) badgeArea.style.display = 'none';
+        if (nextBtn) {
+          nextBtn.textContent = `Next: Lesson ${currentId + 1}`;
+          nextBtn.style.display = 'block';
+        }
+      } else {
+        if (title) title.textContent = `🎖️ BOOTCAMP GRADUATION!`;
+        if (sub) sub.textContent = `Outstanding work, Commander! You have mastered all 5 doctrines.`;
+        if (badgeArea) badgeArea.style.display = 'block';
+        if (nextBtn) {
+          nextBtn.textContent = `Deploy to Battlefield!`;
+          nextBtn.onclick = () => {
+            modal.style.display = 'none';
+            window.switchMenuTab('tab-btn-play', 'tab-pane-play');
+            const menu = document.getElementById('main-menu-overlay');
+            if (menu) menu.style.display = 'flex';
+          };
+        }
+      }
+    }
+  }
+}
+
 window.switchMenuTab = function(btnId, paneId) {
   const tabs = [
     { btn: 'tab-btn-play', pane: 'tab-pane-play' },
+    { btn: 'tab-btn-bootcamp', pane: 'tab-pane-bootcamp' },
     { btn: 'tab-btn-factions', pane: 'tab-pane-factions' },
     { btn: 'tab-btn-codex', pane: 'tab-pane-codex' },
+    { btn: 'tab-btn-account', pane: 'tab-pane-account' },
     { btn: 'tab-btn-settings', pane: 'tab-pane-settings' }
   ];
   tabs.forEach(t => {
@@ -2934,6 +3465,9 @@ window.switchMenuTab = function(btnId, paneId) {
   const activePane = document.getElementById(paneId);
   if (activeBtn) activeBtn.classList.add('active');
   if (activePane) activePane.style.display = 'flex';
+  if (btnId === 'tab-btn-bootcamp' || btnId === 'tab-btn-account') {
+    if (window.gApp && window.gApp.bootcampManager) window.gApp.bootcampManager.updateMenuUI();
+  }
   try { if (window.gApp && window.gApp.audio) window.gApp.audio.playPencilScratch(); } catch(e){}
 };
 
@@ -2951,17 +3485,13 @@ window.deployGameFromMenu = function() {
 };
 
 window.enterTerrainView = function() {
-  // Hide victory modal
   const modal = document.getElementById('victory-modal');
   if (modal) modal.style.display = 'none';
-  // Show terrain view banner
   const banner = document.getElementById('terrain-view-banner');
   if (banner) banner.style.display = 'block';
-  // Mark terrain view active on engine (renderer will skip fog)
   if (window.gApp && window.gApp.engine) {
-    window.gApp.engine.phase = 'GAME_OVER'; // already is, but ensure
+    window.gApp.engine.phase = 'GAME_OVER';
   }
-  // Disable all game action buttons
   ['btn-end-turn', 'btn-halt-all', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery', 'btn-open-menu'].forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.disabled = true; el.style.opacity = '0.4'; }
@@ -2969,20 +3499,63 @@ window.enterTerrainView = function() {
 };
 
 window.returnToMainMenu = function() {
-  // Hide terrain banner and victory modal
   const banner = document.getElementById('terrain-view-banner');
   if (banner) banner.style.display = 'none';
   const modal = document.getElementById('victory-modal');
   if (modal) modal.style.display = 'none';
-  // Re-enable buttons in case user returns mid-view
+  const bModal = document.getElementById('modal-bootcamp-complete');
+  if (bModal) bModal.style.display = 'none';
   ['btn-end-turn', 'btn-halt-all', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery', 'btn-open-menu'].forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.disabled = false; el.style.opacity = ''; }
   });
-  // Show main menu
   const menu = document.getElementById('main-menu-overlay');
   if (menu) menu.style.display = 'flex';
   try { if (window.gApp && window.gApp.audio) window.gApp.audio.playPencilScratch(); } catch(e){}
+};
+
+window.startBootcampLesson = function(lessonId) {
+  if (window.gApp && window.gApp.bootcampManager) {
+    window.gApp.bootcampManager.startLesson(lessonId);
+  }
+};
+
+window.nextBootcampLesson = function() {
+  const modal = document.getElementById('modal-bootcamp-complete');
+  if (modal) modal.style.display = 'none';
+  if (window.gApp && window.gApp.bootcampManager) {
+    const nextId = (window.gApp.bootcampManager.activeLesson || 1) + 1;
+    if (nextId <= 5) {
+      window.gApp.bootcampManager.startLesson(nextId);
+    } else {
+      window.returnToBootcampMenu();
+    }
+  }
+};
+
+window.returnToBootcampMenu = function() {
+  const modal = document.getElementById('modal-bootcamp-complete');
+  if (modal) modal.style.display = 'none';
+  const menu = document.getElementById('main-menu-overlay');
+  if (menu) menu.style.display = 'flex';
+  window.switchMenuTab('tab-btn-bootcamp', 'tab-pane-bootcamp');
+  if (window.gApp && window.gApp.bootcampManager) {
+    window.gApp.bootcampManager.activeLesson = null;
+    window.gApp.bootcampManager.updateMenuUI();
+  }
+};
+
+window.acceptBootcampInvite = function() {
+  const modal = document.getElementById('modal-bootcamp-invite');
+  if (modal) modal.style.display = 'none';
+  try { localStorage.setItem('ink_bootcamp_invited', 'true'); } catch(e){}
+  window.startBootcampLesson(1);
+};
+
+window.declineBootcampInvite = function() {
+  const modal = document.getElementById('modal-bootcamp-invite');
+  if (modal) modal.style.display = 'none';
+  try { localStorage.setItem('ink_bootcamp_invited', 'true'); } catch(e){}
 };
 
 class App {
@@ -2992,11 +3565,69 @@ class App {
     this.renderer = new SketchRenderer(this.canvas);
     this.audio = new AudioEngine();
     this.engine = null;
+    this.bootcampManager = new BootcampManager(this);
     this.ui = new UIManager(this);
 
     this.setupCanvasInteractions();
     this.startRenderLoop();
     this.launchMatchFromMenu(); // Pre-initialize match state in background
+
+    setTimeout(() => {
+      this.bootcampManager.updateMenuUI();
+      if (!localStorage.getItem('ink_bootcamp_invited') && this.bootcampManager.getCompletedCount() === 0) {
+        const invite = document.getElementById('modal-bootcamp-invite');
+        if (invite) invite.style.display = 'flex';
+      }
+    }, 400);
+  }
+
+  launchBootcampLesson(lessonId) {
+    try {
+      if (this.engine) this.engine.pauseTimer();
+
+      this.engine = new GameEngine({
+        mapType: `BOOTCAMP_${lessonId}`,
+        p1Faction: FACTIONS.IRON_CORPS,
+        p2Faction: FACTIONS.VANGUARD_LEGION,
+        isSinglePlayer: true,
+        isTutorialMode: false,
+        bootcampLesson: lessonId,
+        aiDifficulty: 'RECRUIT',
+        aiPersonality: 'TACTICUS',
+        playbackDuration: 3,
+        audio: this.audio
+      });
+
+      this.engine.bootcampLesson = lessonId;
+      this.engine.bootcampManager = this.bootcampManager;
+      this.engine.planningTimeRemaining = Infinity;
+
+      this.engine.subscribe(() => {
+        if (this.engine.isSinglePlayer && this.engine.phase === 'PLAYBACK' && this.engine.playbackTimeRemaining === this.engine.playbackDurationConfig) {
+          CommanderAI.processTurn(this.engine, this.engine.aiDifficulty, this.engine.aiPersonality);
+        }
+        if (this.ui) this.ui.updateHUD(this.engine);
+      });
+
+      this.renderer.selectedTile = null;
+
+      // Re-enable HUD action buttons
+      ['btn-end-turn', 'btn-halt-all', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery', 'btn-open-menu'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.disabled = false; el.style.opacity = ''; el.style.pointerEvents = ''; }
+      });
+
+      const terrainBanner = document.getElementById('terrain-view-banner');
+      if (terrainBanner) terrainBanner.style.display = 'none';
+      const victoryModal = document.getElementById('victory-modal');
+      if (victoryModal) victoryModal.style.display = 'none';
+      const bModal = document.getElementById('modal-bootcamp-complete');
+      if (bModal) bModal.style.display = 'none';
+
+      if (this.ui) this.ui.updateHUD(this.engine);
+    } catch(err) {
+      console.error('Error launching Bootcamp lesson:', err);
+    }
   }
 
   launchMatchFromMenu() {
@@ -3030,6 +3661,8 @@ class App {
       });
 
       this.engine.isTutorialMode = isTutorial;
+      this.engine.bootcampLesson = null;
+      this.engine.bootcampManager = null;
       this.engine.planningTimeRemaining = timerDuration;
       this.engine.subscribe(() => {
         if (this.engine.isSinglePlayer && this.engine.phase === 'PLAYBACK' && this.engine.playbackTimeRemaining === this.engine.playbackDurationConfig) {
@@ -3046,14 +3679,12 @@ class App {
       if (terrainBanner) terrainBanner.style.display = 'none';
       const victoryModal = document.getElementById('victory-modal');
       if (victoryModal) victoryModal.style.display = 'none';
-      // Remove blur/lock from the whole game container
       const gameContainer = document.getElementById('game-container');
       if (gameContainer) {
         gameContainer.classList.remove('game-blurred');
         gameContainer.style.pointerEvents = '';
         gameContainer.style.filter = '';
       }
-      // Re-enable every action button that may have been locked
       ['btn-end-turn', 'btn-halt-all', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery', 'btn-open-menu'].forEach(id => {
         const el = document.getElementById(id);
         if (el) { el.disabled = false; el.style.opacity = ''; el.style.pointerEvents = ''; }
@@ -3071,6 +3702,13 @@ class App {
       const rect = this.canvas.getBoundingClientRect();
       const gridCoords = this.renderer.getGridCoords(e.clientX - rect.left, e.clientY - rect.top);
       if (!gridCoords) return;
+
+      if (this.bootcampManager && this.bootcampManager.activeLesson) {
+        if (!this.bootcampManager.validateCanvasClick(gridCoords, this.renderer.selectedTile)) {
+          this.bootcampManager.nudgePointer();
+          return;
+        }
+      }
 
       try { this.audio.playPencilScratch(); } catch(err){}
 
