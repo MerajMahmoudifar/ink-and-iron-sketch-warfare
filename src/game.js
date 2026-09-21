@@ -3540,8 +3540,8 @@ class UIManager {
             <span class="dossier-pill dossier-pill-mov" title="Movement Friction Factor">
               MOV ${moveCost}
             </span>
-            <span class="dossier-pill ${isLOSBlocked ? 'dossier-pill-block' : 'dossier-pill-los'}" title="Line of Sight Visibility">
-              ${isLOSBlocked ? 'LOS BLOCKED' : 'LOS OPEN'}
+            <span class="dossier-pill ${isLOSBlocked ? 'dossier-pill-block' : 'dossier-pill-los'}" title="Tactical Vision & Sightline">
+              ${isLOSBlocked ? 'VISION BLOCKED' : 'VISION OPEN'}
             </span>
             ${(tile.id === 'CAPTURE_ZONE' || tile.id === 'MAIN_BASE') ? `<span class="dossier-pill dossier-pill-ink">+10 INK</span>` : ''}
           </div>
@@ -4456,7 +4456,7 @@ class App {
     const rowNum = hoveredTile.y + 1;
     const defPct = Math.round((tile.defenseBonus || 0) * 100);
     const movPenalty = tile.id === 'SWAMP' ? 'MUD 2.0x' : (tile.id === 'FOREST' ? 'MOV 1.5x' : 'MOV 1.0x');
-    const losStatus = (tile.id === 'FOREST' || tile.id === 'MOUNTAIN') ? 'LOS BLOCKED' : 'LOS OPEN';
+    const losStatus = (tile.id === 'FOREST' || tile.id === 'MOUNTAIN') ? 'VISION BLOCKED' : 'VISION OPEN';
     
     // Check if tile is visible to P1
     const p1Vision = this.engine.phase === 'GAME_OVER' ? Array(8).fill(null).map(() => Array(8).fill(true)) : this.engine.calculateVision(1);
