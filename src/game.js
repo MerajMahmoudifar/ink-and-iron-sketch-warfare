@@ -2279,17 +2279,6 @@ class SketchRenderer {
       // Bottom-Right ⌟
       this.ctx.moveTo(hx + 67 - bLen, hy + 67); this.ctx.lineTo(hx + 67, hy + 67); this.ctx.lineTo(hx + 67, hy + 67 - bLen);
       this.ctx.stroke();
-
-      // Corner coordinate stamp badge
-      const colLetter = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][this.hoveredTile.x] || '';
-      const rowNum = this.hoveredTile.y + 1;
-      this.ctx.fillStyle = 'rgba(2, 132, 199, 0.95)';
-      this.ctx.fillRect(hx + 4, hy + 4, 20, 11);
-      this.ctx.font = 'bold 7.5px "JetBrains Mono", monospace';
-      this.ctx.fillStyle = '#ffffff';
-      this.ctx.textAlign = 'center';
-      this.ctx.textBaseline = 'middle';
-      this.ctx.fillText(`${colLetter}${rowNum}`, hx + 14, hy + 9.5);
       this.ctx.restore();
     }
 
@@ -2346,7 +2335,7 @@ class SketchRenderer {
       }
     }
 
-    // 11. Smoke Screen Overlays
+    // 11. Smoke Screen Overlays (Tactical volumetric cloud)
     engine.activeSmokes.forEach(smoke => {
       for (let r = smoke.y - 1; r <= smoke.y + 1; r++) {
         for (let c = smoke.x - 1; c <= smoke.x + 1; c++) {
@@ -2357,31 +2346,27 @@ class SketchRenderer {
             this.ctx.fillRect(pos.x, pos.y, 70, 70);
 
             // Concentric dispersion rings
-            this.ctx.strokeStyle = 'rgba(203, 213, 225, 0.35)';
-            this.ctx.lineWidth = 1.2;
+            this.ctx.strokeStyle = 'rgba(203, 213, 225, 0.4)';
+            this.ctx.lineWidth = 1.3;
             this.ctx.beginPath();
-            this.ctx.arc(pos.x + 35, pos.y + 35, 22, 0, Math.PI * 2);
-            this.ctx.arc(pos.x + 35, pos.y + 35, 12, 0, Math.PI * 2);
+            this.ctx.arc(pos.x + 35, pos.y + 35, 24, 0, Math.PI * 2);
+            this.ctx.arc(pos.x + 35, pos.y + 35, 14, 0, Math.PI * 2);
+            this.ctx.arc(pos.x + 35, pos.y + 35, 5, 0, Math.PI * 2);
             this.ctx.stroke();
-
-            this.ctx.font = 'bold 8.5px "JetBrains Mono", monospace';
-            this.ctx.fillStyle = '#e2e8f0';
-            this.ctx.textAlign = 'center';
-            this.ctx.fillText('SMOKE', pos.x + 35, pos.y + 38);
             this.ctx.restore();
           }
         }
       }
     });
 
-    // 12. Artillery Target Crosshairs
+    // 12. Artillery Target Crosshairs (Ballistic impact reticle)
     engine.activeArtilleryStrikes.forEach(art => {
       for (let r = art.y - 1; r <= art.y + 1; r++) {
         for (let c = art.x - 1; c <= art.x + 1; c++) {
           if (r >= 0 && r < 8 && c >= 0 && c < 8) {
             const pos = this.getScreenCoords(c, r);
             this.ctx.save();
-            this.ctx.strokeStyle = 'rgba(220, 38, 38, 0.7)';
+            this.ctx.strokeStyle = 'rgba(220, 38, 38, 0.75)';
             this.ctx.lineWidth = 2;
             this.ctx.strokeRect(pos.x + 3, pos.y + 3, 64, 64);
 
@@ -2391,11 +2376,13 @@ class SketchRenderer {
             this.ctx.moveTo(pos.x + 67, pos.y + 58); this.ctx.lineTo(pos.x + 58, pos.y + 67);
             this.ctx.stroke();
 
-            this.ctx.font = 'bold 9px "JetBrains Mono", monospace';
-            this.ctx.fillStyle = '#ef4444';
-            this.ctx.textAlign = 'center';
-            this.ctx.fillText('TARGET', pos.x + 35, pos.y + 22);
-            this.ctx.fillText('ZONE', pos.x + 35, pos.y + 52);
+            // Tactical Ballistic Reticle Circle & Crosshairs
+            this.ctx.lineWidth = 1.4;
+            this.ctx.beginPath();
+            this.ctx.arc(pos.x + 35, pos.y + 35, 16, 0, Math.PI * 2);
+            this.ctx.moveTo(pos.x + 35, pos.y + 12); this.ctx.lineTo(pos.x + 35, pos.y + 58);
+            this.ctx.moveTo(pos.x + 12, pos.y + 35); this.ctx.lineTo(pos.x + 58, pos.y + 35);
+            this.ctx.stroke();
             this.ctx.restore();
           }
         }
@@ -2430,13 +2417,6 @@ class SketchRenderer {
       this.ctx.lineTo(x + i, y + 70);
     }
     this.ctx.stroke();
-
-    // Center Terra Incognita watermark mark
-    this.ctx.font = 'bold 7px "JetBrains Mono", monospace';
-    this.ctx.fillStyle = 'rgba(148, 163, 184, 0.45)';
-    this.ctx.textAlign = 'center';
-    this.ctx.textBaseline = 'middle';
-    this.ctx.fillText('TERRA INCOGNITA', x + 35, y + 35);
 
     this.ctx.restore();
   }
@@ -2612,23 +2592,6 @@ class SketchRenderer {
         drawTree(x + 24, y + 18, 0.85);
         drawTree(x + 46, y + 20, 0.85);
         drawTree(x + 35, y + 13, 1.05); // Central tallest canopy
-
-        // Subdued corner micro-badge: ballistic cover shield
-        this.ctx.strokeStyle = '#166534';
-        this.ctx.lineWidth = 1.2;
-        this.ctx.beginPath();
-        this.ctx.moveTo(x + 55, y + 6);
-        this.ctx.lineTo(x + 64, y + 6);
-        this.ctx.lineTo(x + 64, y + 11);
-        this.ctx.quadraticCurveTo(x + 64, y + 17, x + 59.5, y + 19);
-        this.ctx.quadraticCurveTo(x + 55, y + 17, x + 55, y + 11);
-        this.ctx.closePath();
-        this.ctx.stroke();
-
-        this.ctx.font = 'bold 7px "JetBrains Mono", monospace';
-        this.ctx.fillStyle = '#166534';
-        this.ctx.textAlign = 'right';
-        this.ctx.fillText('+30%', x + 53, y + 14);
         break;
       }
       case 'MOUNTAIN': {
@@ -2680,15 +2643,6 @@ class SketchRenderer {
         this.ctx.lineTo(x + 39, y + 23);
         this.ctx.closePath();
         this.ctx.fill();
-
-        // Subdued corner elevation tag
-        this.ctx.font = 'bold 7px "JetBrains Mono", monospace';
-        this.ctx.fillStyle = '#334155';
-        this.ctx.textAlign = 'right';
-        this.ctx.fillText('ELV +1', x + 65, y + 13);
-        this.ctx.font = '6px "JetBrains Mono", monospace';
-        this.ctx.fillStyle = '#64748b';
-        this.ctx.fillText('▲ 420m', x + 65, y + 21);
         break;
       }
       case 'WATER': {
@@ -2722,12 +2676,6 @@ class SketchRenderer {
         this.ctx.arc(x + 15, y + 46, 1, 0, Math.PI * 2);
         this.ctx.arc(x + 38, y + 60, 1, 0, Math.PI * 2);
         this.ctx.fill();
-
-        // Impassable corner badge
-        this.ctx.font = 'bold 7px "JetBrains Mono", monospace';
-        this.ctx.fillStyle = '#0284c7';
-        this.ctx.textAlign = 'right';
-        this.ctx.fillText('BLOCKED', x + 66, y + 13);
         break;
       }
       case 'SWAMP': {
@@ -2759,12 +2707,6 @@ class SketchRenderer {
 
         drawReeds(x + 22, y + 28);
         drawReeds(x + 48, y + 24);
-
-        // Subdued friction indicator tick
-        this.ctx.font = 'bold 7px "JetBrains Mono", monospace';
-        this.ctx.fillStyle = '#4d7c0f';
-        this.ctx.textAlign = 'right';
-        this.ctx.fillText('MUD 2x', x + 65, y + 13);
         break;
       }
       case 'CAPTURE_ZONE': {
@@ -2789,18 +2731,17 @@ class SketchRenderer {
           this.ctx.fill();
         });
 
-        // Center Supply Canister glyph
-        this.ctx.strokeRect(x + 28, y + 24, 14, 18);
-        this.ctx.fillRect(x + 31, y + 21, 8, 3); // cap
+        // Center Supply Canister glyph with clean industrial cross stencil
+        this.ctx.strokeRect(x + 28, y + 22, 14, 20);
+        this.ctx.fillRect(x + 31, y + 19, 8, 3); // cap
         this.ctx.beginPath();
-        this.ctx.moveTo(x + 31, y + 33); this.ctx.lineTo(x + 39, y + 33);
+        this.ctx.moveTo(x + 35, y + 26); this.ctx.lineTo(x + 35, y + 38);
+        this.ctx.moveTo(x + 31, y + 32); this.ctx.lineTo(x + 39, y + 32);
         this.ctx.stroke();
 
-        // Requisition banner label
-        this.ctx.font = 'bold 8px "JetBrains Mono", monospace';
-        this.ctx.fillStyle = isP1 ? '#93c5fd' : (isAI ? '#fca5a5' : '#fde047');
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText('+10 INK', x + 35, y + 54);
+        // Bottom requisition plinth
+        this.ctx.fillStyle = strokeColor;
+        this.ctx.fillRect(x + 24, y + 48, 22, 3);
         break;
       }
       case 'MAIN_BASE': {
@@ -2822,15 +2763,20 @@ class SketchRenderer {
 
         // Heavy bunker blast door
         this.ctx.fillStyle = strokeColor;
-        this.ctx.fillRect(x + 22, y + 28, 26, 16);
+        this.ctx.fillRect(x + 22, y + 26, 26, 16);
         this.ctx.fillStyle = '#0f172a';
-        this.ctx.fillRect(x + 26, y + 32, 18, 8); // vision slit
+        this.ctx.fillRect(x + 26, y + 30, 18, 8); // vision slit
 
-        // Base Title
-        this.ctx.font = 'bold 8px "JetBrains Mono", monospace';
+        // Fortified command emblem (clean vector star)
         this.ctx.fillStyle = isP1 ? '#93c5fd' : '#fca5a5';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText(isP1 ? 'P1 HQ BASE' : 'AI HQ BASE', x + 35, y + 56);
+        this.ctx.beginPath();
+        this.ctx.arc(x + 35, y + 51, 3.5, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + 26, y + 51); this.ctx.lineTo(x + 44, y + 51);
+        this.ctx.strokeStyle = isP1 ? '#93c5fd' : '#fca5a5';
+        this.ctx.lineWidth = 1.5;
+        this.ctx.stroke();
         break;
       }
     }
@@ -2842,11 +2788,13 @@ class SketchRenderer {
       });
 
       if (isSieged) {
-        this.ctx.fillStyle = 'rgba(220, 38, 38, 0.25)';
+        this.ctx.fillStyle = 'rgba(220, 38, 38, 0.2)';
         this.ctx.fillRect(x, y, 70, 70);
-        this.ctx.font = 'bold 10px Cinzel, serif';
-        this.ctx.fillStyle = '#dc2626';
-        this.ctx.fillText('SIEGE', x + 16, y + 15);
+        this.ctx.strokeStyle = '#ef4444';
+        this.ctx.lineWidth = 2;
+        this.ctx.setLineDash([5, 4]);
+        this.ctx.strokeRect(x + 2, y + 2, 66, 66);
+        this.ctx.setLineDash([]);
       }
     }
 
@@ -2988,33 +2936,24 @@ class SketchRenderer {
       this.ctx.restore();
     }
 
-    // Owner Tag Badge (P1 vs AI)
-    this.ctx.fillStyle = mainColor;
-    this.ctx.fillRect(x + 4, y + 4, 22, 13);
-    this.ctx.font = 'bold 9px "JetBrains Mono", monospace';
-    this.ctx.fillStyle = '#ffffff';
-    this.ctx.textAlign = 'center';
-    this.ctx.textBaseline = 'middle';
-    this.ctx.fillText(isP1 ? 'P1' : 'AI', x + 15, y + 10.5);
-
-    // Stance Tactical Badge (DEF, AMB, ADV)
-    let stanceBadgeSymbol = 'ADV';
-    let stanceBadgeBg = 'rgba(37,99,235,0.85)';
+    // Tactical Stance Indicators
     if (unit.stance === 'DEFEND') {
-      stanceBadgeSymbol = 'DEF';
-      stanceBadgeBg = 'rgba(245,158,11,0.85)';
-    } else if (unit.stance === 'AMBUSH') {
-      stanceBadgeSymbol = 'AMB';
-      stanceBadgeBg = 'rgba(22,163,74,0.85)';
+      // Crisp Defense Shield Icon in bottom-right corner of unit
+      this.ctx.save();
+      this.ctx.fillStyle = '#d97706';
+      this.ctx.strokeStyle = '#fef08a';
+      this.ctx.lineWidth = 1;
+      this.ctx.beginPath();
+      this.ctx.moveTo(cx + 12, cy + 6);
+      this.ctx.lineTo(cx + 21, cy + 6);
+      this.ctx.lineTo(cx + 21, cy + 11);
+      this.ctx.quadraticCurveTo(cx + 21, cy + 18, cx + 16.5, cy + 20);
+      this.ctx.quadraticCurveTo(cx + 12, cy + 18, cx + 12, cy + 11);
+      this.ctx.closePath();
+      this.ctx.fill();
+      this.ctx.stroke();
+      this.ctx.restore();
     }
-    
-    this.ctx.fillStyle = stanceBadgeBg;
-    this.ctx.fillRect(x + 44, y + 4, 22, 13);
-    this.ctx.font = 'bold 8px "JetBrains Mono", monospace';
-    this.ctx.fillStyle = '#ffffff';
-    this.ctx.textAlign = 'center';
-    this.ctx.textBaseline = 'middle';
-    this.ctx.fillText(stanceBadgeSymbol, x + 55, y + 10.5);
 
     // Health Bar with high-contrast chassis frame
     const hpBarWidth = 36;
@@ -4529,7 +4468,8 @@ class App {
     }
     
     const unit = this.engine.getAllUnits().find(u => u.x === hoveredTile.x && u.y === hoveredTile.y && u.isAlive());
-    const unitPart = unit ? ` &bull; <span style="color:${unit.owner === 1 ? '#60a5fa' : '#f87171'}; font-weight:700;">${unit.owner === 1 ? 'ALLIED' : 'HOSTILE'}: ${unit.name} (${unit.hp}/${unit.maxHp} HP)</span>` : '';
+    const stancePart = (unit && unit.stance && unit.stance !== 'ADVANCE') ? ` [${unit.stance}]` : '';
+    const unitPart = unit ? ` &bull; <span style="color:${unit.owner === 1 ? '#60a5fa' : '#f87171'}; font-weight:700;">${unit.owner === 1 ? 'ALLIED' : 'HOSTILE'}: ${unit.name} (${unit.hp}/${unit.maxHp} HP)${stancePart}</span>` : '';
 
     el.innerHTML = `SECTOR [${colLetter}${rowNum}] &bull; <strong>${tile.name}</strong> &bull; DEF +${defPct}% &bull; ${movPenalty} &bull; ${losStatus}${unitPart}`;
   }
