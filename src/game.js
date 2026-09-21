@@ -180,7 +180,7 @@ class MapGenerator {
           ['.', '.', '.', '.', '.', '.', '.', '.'],
           ['.', '.', '.', '.', '.', '.', '.', '.'],
           ['.', '.', '.', '.', '.', '.', '.', '.'],
-          ['.', 'B1', '.', '.', '.', 'Z', '.', '.'],
+          ['.', 'B1', '.', 'Z', '.', '.', '.', '.'],
           ['.', '.', '.', '.', '.', '.', '.', '.'],
           ['.', '.', '.', '.', '.', '.', '.', '.'],
           ['.', '.', '.', '.', '.', '.', '.', '.'],
@@ -790,7 +790,7 @@ class GameEngine {
     }
     this.turnNumber++;
     this.phase = GAME_PHASES.PLANNING;
-    this.planningTimeRemaining = 20;
+    this.planningTimeRemaining = this.bootcampLesson ? Infinity : 20;
 
     this.calculateTurnIncome(1);
     this.calculateTurnIncome(2);
@@ -879,6 +879,9 @@ class GameEngine {
 
   // FOG OF WAR VISION MATRIX CALCULATION
   calculateVision(playerId) {
+    if (this.bootcampLesson && this.bootcampLesson <= 4) {
+      return Array(8).fill(null).map(() => Array(8).fill(true));
+    }
     const visible = Array(8).fill(null).map(() => Array(8).fill(false));
 
     // Base & captured zones grant vision
@@ -3195,28 +3198,8 @@ class BootcampManager {
   validateCanvasClick(gridCoords, prevSelected) {
     if (!this.activeLesson) return true;
     if (this.activeLesson === 1) {
-      if (this.currentStep === 1) {
-        return gridCoords.x === 1 && gridCoords.y === 3;
-      }
-      if (this.currentStep === 2) {
-        return gridCoords.y === 3 && gridCoords.x >= 1 && gridCoords.x <= 5;
-      }
-      return true;
-    }
-    if (this.activeLesson === 2) {
-      if (this.currentStep === 1) {
-        return gridCoords.x === 2 && gridCoords.y === 3;
-      }
-      return true;
-    }
-    if (this.activeLesson === 3) {
-      if (this.currentStep === 1) {
-        return gridCoords.x === 1 && gridCoords.y === 3;
-      }
-      if (this.currentStep === 2) {
-        return gridCoords.y === 3 && gridCoords.x >= 1 && gridCoords.x <= 4;
-      }
-      return true;
+      // In lesson 1, allow clicking the squad or any tile on corridor row 3
+      return gridCoords.y === 3 && gridCoords.x >= 0 && gridCoords.x <= 7;
     }
     return true;
   }
@@ -3259,19 +3242,19 @@ class BootcampManager {
 
     if (this.activeLesson === 1) {
       const squad = engine.players[1].units.find(u => u.isAlive());
-      const isSelected = this.app.renderer.selectedTile && this.app.renderer.selectedTile.x === 1 && this.app.renderer.selectedTile.y === 3;
+      const isSelected = squad && this.app.renderer.selectedTile && this.app.renderer.selectedTile.x === squad.x && this.app.renderer.selectedTile.y === squad.y;
       const hasWaypoints = squad && squad.waypoints && squad.waypoints.length > 0;
 
       if (!isSelected && !hasWaypoints) {
         this.currentStep = 1;
         if (stepLabel) stepLabel.textContent = 'Step 1 of 3';
-        if (textEl) textEl.textContent = 'Click your Rifle Squad at the deployment point (1, 3).';
-        this.positionPointerAtTile(1, 3, '1. Click Squad');
+        if (textEl) textEl.textContent = `Click your Rifle Squad at (${squad ? squad.x : 1}, ${squad ? squad.y : 3}) to select it.`;
+        if (squad) this.positionPointerAtTile(squad.x, squad.y, '1. Click Squad');
       } else if (!hasWaypoints) {
         this.currentStep = 2;
         if (stepLabel) stepLabel.textContent = 'Step 2 of 3';
-        if (textEl) textEl.textContent = 'Click adjacent tiles to draw a path towards the Flag Extraction Point (Green Flag at 5, 3).';
-        this.positionPointerAtTile(5, 3, '2. Plot Path to Flag');
+        if (textEl) textEl.textContent = 'Click adjacent tiles to draw a path to the Green Flag at (3, 3).';
+        this.positionPointerAtTile(3, 3, '2. Plot Path to Flag');
       } else if (engine.phase === 'PLANNING') {
         this.currentStep = 3;
         if (stepLabel) stepLabel.textContent = 'Step 3 of 3';
@@ -3385,7 +3368,7 @@ class BootcampManager {
     if (!this.activeLesson) return false;
     if (this.activeLesson === 1) {
       const squad = engine.players[1].units.find(u => u.isAlive());
-      return squad && squad.x >= 4 && squad.y === 3;
+      return squad && squad.x >= 3 && squad.y === 3;
     }
     if (this.activeLesson === 2) {
       const enemies = engine.players[2].units.filter(u => u.isAlive());
@@ -3609,6 +3592,7 @@ class App {
         if (this.ui) this.ui.updateHUD(this.engine);
       });
 
+      this.engine.startTurnTimer();
       this.renderer.selectedTile = null;
 
       // Re-enable HUD action buttons
