@@ -2900,6 +2900,14 @@ class UIManager {
               this.showToast('Deployment Error', res.reason);
             }
             return;
+          } else {
+            const isOwnedSpawn = availableSpawns.some(sp => sp.x === selTile.x && sp.y === selTile.y);
+            if (isOwnedSpawn) {
+              const occ = engine.getAllUnits().find(u => u.x === selTile.x && u.y === selTile.y && u.isAlive());
+              if (occ) {
+                this.showToast('Tile Occupied', `Cannot deploy at (${selTile.x}, ${selTile.y})! Depots & Bases must be completely EMPTY to spawn new units.`);
+              }
+            }
           }
         }
 
@@ -2924,18 +2932,51 @@ class UIManager {
       return;
     }
 
-    spawnPoints.forEach(sp => {
+    // Explainer Callout: Teaches all players that depots must be empty
+    const infoNotice = document.createElement('div');
+    infoNotice.style.cssText = 'font-size:0.78rem; color:#cbd5e1; margin-bottom:10px; padding:6px 10px; background:rgba(30,41,59,0.85); border-radius:4px; border-left:3px solid #f59e0b; line-height:1.35;';
+    infoNotice.innerHTML = `💡 <b>Deployment Rule:</b> Bases and captured Depots can spawn units, but <b>the tile must be completely EMPTY</b> (unoccupied).`;
+    listEl.appendChild(infoNotice);
+
+    spawnPoints.forEach((sp, idx) => {
       const btn = document.createElement('button');
       btn.className = 'spawn-picker-btn';
+      btn.id = `deploy-picker-sp-${idx}`;
+      const occupyingUnit = engine.getAllUnits().find(u => u.x === sp.x && u.y === sp.y && u.isAlive());
+
       if (sp.isContested) {
-        btn.innerHTML = `<span>${sp.name} (UNDER SIEGE)</span>`;
+        btn.innerHTML = `
+          <div style="display:flex; flex-direction:column; text-align:left;">
+            <span style="font-weight:700;">${sp.name} (${sp.x}, ${sp.y})</span>
+            <span style="font-size:0.72rem; color:#f87171; font-weight:600;">⚠️ UNDER SIEGE &mdash; Enemy adjacent!</span>
+          </div>
+          <span style="font-size:0.75rem; color:#ef4444; border:1px solid rgba(239,68,68,0.5); padding:2px 6px; border-radius:3px; background:rgba(239,68,68,0.1);">BLOCKED</span>
+        `;
         btn.style.opacity = '0.5';
         btn.style.cursor = 'not-allowed';
         btn.addEventListener('click', () => {
           this.showToast('Under Siege', `Cannot deploy at (${sp.x}, ${sp.y}) while enemy is adjacent!`);
         });
+      } else if (occupyingUnit) {
+        btn.innerHTML = `
+          <div style="display:flex; flex-direction:column; text-align:left;">
+            <span style="font-weight:700; color:#e2e8f0;">${sp.name} (${sp.x}, ${sp.y})</span>
+            <span style="font-size:0.72rem; color:#f59e0b; font-weight:600;">⚠️ OCCUPIED by ${occupyingUnit.name} &mdash; Tile must be empty!</span>
+          </div>
+          <span style="font-size:0.75rem; color:#ef4444; border:1px solid rgba(239,68,68,0.5); padding:2px 6px; border-radius:3px; background:rgba(239,68,68,0.1);">BLOCKED</span>
+        `;
+        btn.style.opacity = '0.7';
+        btn.addEventListener('click', () => {
+          this.showToast('Tile Occupied', `Cannot deploy at (${sp.x}, ${sp.y})! Depots and Bases must be EMPTY to spawn new units. Move occupying troops off first.`);
+        });
       } else {
-        btn.innerHTML = `<span>${sp.name}</span> <span style="color:var(--blue-400);">(${sp.x}, ${sp.y})</span>`;
+        btn.innerHTML = `
+          <div style="display:flex; flex-direction:column; text-align:left;">
+            <span style="font-weight:700; color:#ffffff;">${sp.name} (${sp.x}, ${sp.y})</span>
+            <span style="font-size:0.72rem; color:#4ade80; font-weight:600;">✅ EMPTY &mdash; Ready for deployment</span>
+          </div>
+          <span style="font-size:0.75rem; color:#60a5fa; border:1px solid rgba(96,165,250,0.5); padding:2px 8px; border-radius:3px; background:rgba(59,130,246,0.15); font-weight:700;">DEPLOY HERE</span>
+        `;
         btn.addEventListener('click', () => {
           try { this.app.audio.playPencilScratch(); } catch(err){}
           if (this.deployPickerModal) this.deployPickerModal.style.display = 'none';
@@ -2974,7 +3015,15 @@ class UIManager {
     if (!isTileVisible && !isTerrainView) {
       html += `<div><h3 style="font-size:1.15rem; color:var(--text-secondary);">Sector (${sel.x}, ${sel.y}) &mdash; Fog of War</h3><p style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">Sector shrouded in Fog of War. Deploy Recon units or Flares to reveal area.</p></div>`;
     } else {
-      html += `<div><h3 style="font-size:1.15rem;">Terrain: ${tile.name} (${sel.x}, ${sel.y})</h3><p style="font-size:0.85rem;">Defense: +${Math.round((tile.defenseBonus || 0) * 100)}%</p></div>`;
+      html += `<div><h3 style="font-size:1.15rem;">Terrain: ${tile.name} (${sel.x}, ${sel.y})</h3><p style="font-size:0.85rem;">Defense: +${Math.round((tile.defenseBonus || 0) * 100)}%</p>`;
+      if ((tile.id === 'CAPTURE_ZONE' || tile.id === 'MAIN_BASE') && tile.owner === 1) {
+        if (unitOnTile) {
+          html += `<div style="margin-top:5px; font-size:0.75rem; color:#fbbf24; background:rgba(245,158,11,0.15); padding:4px 8px; border-radius:4px; border:1px solid rgba(245,158,11,0.35); font-weight:600;">⚠️ Spawn Point: OCCUPIED (Tile must be empty to deploy)</div>`;
+        } else {
+          html += `<div style="margin-top:5px; font-size:0.75rem; color:#4ade80; background:rgba(34,197,94,0.15); padding:4px 8px; border-radius:4px; border:1px solid rgba(34,197,94,0.35); font-weight:600;">✅ Spawn Point: READY (Empty forward deployment point)</div>`;
+        }
+      }
+      html += `</div>`;
     }
     
     if (unitOnTile) {
@@ -3290,23 +3339,27 @@ class BootcampManager {
         if (!hasWaypoints) {
           this.currentStep = 1;
           if (stepLabel) stepLabel.textContent = 'Step 1 of 4';
-          if (textEl) textEl.textContent = 'Select your fast Scout (⚡) and draw a path to the Gold Supply Depot (+10 Ink).';
+          if (textEl) textEl.innerHTML = 'Select your fast Scout (⚡) and click the Gold Supply Depot at (4, 3) to draw a movement path.';
           this.positionPointerAtTile(4, 3, '1. Move to Gold Depot');
         } else {
           this.currentStep = 2;
           if (stepLabel) stepLabel.textContent = 'Step 2 of 4';
-          if (textEl) textEl.textContent = 'Click "End Phase" to move forward and secure the Depot.';
+          if (textEl) textEl.innerHTML = 'Orders locked! Click "End Phase" to advance and capture the Supply Depot.';
           this.positionPointerAtElement('btn-end-turn', '2. Capture Depot');
         }
       } else if (!recruitedUnit) {
         this.currentStep = 3;
-        if (stepLabel) stepLabel.textContent = 'Step 3 of 4';
-        if (textEl) textEl.textContent = 'Depot secured! Now click "Rifle Squad" in the Recruit Store to deploy reinforcements at your Base.';
-        this.positionPointerAtElement('store-card-RIFLEMAN', '3. Recruit Squad');
+        if (stepLabel) stepLabel.textContent = 'Step 3 of 4 • Empty Tile Rule';
+        if (textEl) {
+          textEl.innerHTML = `<b>Depot Secured (+10 Ink)!</b><br><span style="color:#f59e0b; font-weight:700;">⚠️ TACTICAL RULE:</span> Captured Depots can spawn units, <u>BUT THE TILE MUST BE EMPTY</u>. Because your Scout is occupying the Depot at (4, 3), deploy your Rifle Squad at your empty Base at (1, 3).`;
+        }
+        this.positionPointerAtElement('store-card-RIFLEMAN', '3. Recruit at Base');
       } else if (engine.phase === 'PLANNING') {
         this.currentStep = 4;
         if (stepLabel) stepLabel.textContent = 'Step 4 of 4';
-        if (textEl) textEl.textContent = 'Reinforcements placed! Click "End Phase" to finalize deployment.';
+        if (textEl) {
+          textEl.innerHTML = `<b>Reinforcements Placed!</b> Notice your Rifle Squad deployed at your Base while your Scout holds the forward Depot. Click "End Phase" to finish certification!`;
+        }
         this.positionPointerAtElement('btn-end-turn', '4. End Phase');
       } else {
         this.positionPointerAtTile(null, null);
