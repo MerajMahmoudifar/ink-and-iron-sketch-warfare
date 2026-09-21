@@ -2827,29 +2827,68 @@ select.diesel-hidden-select {
   color: #000;
 }
 
-/* General Crow Instructor Briefing Card */
+/* General Crow Instructor Briefing Card (Docked at bottom to preserve top SITREP bar) */
 .bootcamp-instructor-card {
   position: absolute;
-  top: 12px;
+  bottom: 14px;
   left: 50%;
   transform: translateX(-50%);
   width: 90%;
-  max-width: 620px;
-  background: rgba(10, 15, 28, 0.95);
+  max-width: 580px;
+  background: rgba(10, 15, 28, 0.94);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1.5px solid var(--gold-400);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.8), 0 0 15px rgba(245, 158, 11, 0.25);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.85), 0 0 16px rgba(245, 158, 11, 0.22);
   border-radius: var(--r-md);
-  padding: 10px 14px;
+  padding: 8px 12px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   z-index: 100;
-  animation: instructorSlideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: instructorSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: auto;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
-@keyframes instructorSlideDown {
-  from { opacity: 0; transform: translate(-50%, -20px); }
+@keyframes instructorSlideUp {
+  from { opacity: 0; transform: translate(-50%, 20px); }
   to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.bootcamp-instructor-toggle {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: var(--gold-400);
+  border-radius: 4px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.62rem;
+  padding: 0;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+.bootcamp-instructor-toggle:hover {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: var(--gold-400);
+}
+.bootcamp-instructor-card.minimized {
+  padding: 4px 10px;
+  max-width: 320px;
+}
+.bootcamp-instructor-card.minimized .bootcamp-instructor-text {
+  display: none;
+}
+.bootcamp-instructor-card.minimized .bootcamp-instructor-avatar {
+  width: 26px;
+  height: 26px;
+  font-size: 0.65rem;
+}
+.bootcamp-instructor-card.minimized .bootcamp-instructor-toggle {
+  transform: rotate(180deg);
 }
 
 .bootcamp-instructor-avatar {

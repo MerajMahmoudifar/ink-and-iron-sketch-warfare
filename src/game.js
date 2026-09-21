@@ -4459,7 +4459,11 @@ class App {
     const el = document.getElementById('canvas-sitrep-text');
     if (!el) return;
     if (!hoveredTile || !this.engine || !this.engine.grid[hoveredTile.y] || !this.engine.grid[hoveredTile.y][hoveredTile.x]) {
-      el.innerHTML = 'SECTOR 8x8 &bull; MAP: THE IRON BASIN &bull; ALLIED COMMAND';
+      if (this.bootcampManager && this.bootcampManager.activeLesson) {
+        el.innerHTML = 'TACTICAL TELEMETRY &bull; HOVER SECTORS TO INSPECT TERRAIN &bull; LIVE SITREP FEED';
+      } else {
+        el.innerHTML = 'SECTOR 8x8 &bull; MAP: THE IRON BASIN &bull; ALLIED COMMAND';
+      }
       return;
     }
     const tile = this.engine.grid[hoveredTile.y][hoveredTile.x];
