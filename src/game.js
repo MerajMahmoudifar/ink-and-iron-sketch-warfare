@@ -2920,22 +2920,18 @@ class UIManager {
       const btn = document.createElement('button');
       const roleLabel = u.category || 'COMBAT';
       const roleClass = (u.category === 'VEHICLE' || u.category === 'ARMOR') ? 'role-vehicle' : (u.category === 'INFANTRY' ? 'role-infantry' : 'role-support');
-      const statsSummary = `HP ${u.maxHp} &bull; ATK ${u.attack} &bull; MOV ${u.moveRange} &bull; RNG ${u.attackRange}`;
+      btn.id = 'store-card-' + key;
+      btn.className = 'unit-card-btn';
       btn.innerHTML = `
-        <div class="unit-card-badge-row">
-          <span class="unit-card-symbol">${u.symbol}</span>
-          <div class="unit-card-info">
-            <div class="unit-card-header-row">
-              <span class="unit-card-title">${u.name}</span>
-              <span class="unit-role-tag ${roleClass}">${roleLabel}</span>
-            </div>
-            <div class="unit-stats-strip">${statsSummary}</div>
+        <div class="unit-card-info">
+          <div class="unit-card-header">
+            <span class="unit-card-title">${u.symbol} ${u.name}</span>
+            <span class="unit-role-tag ${roleClass}">${roleLabel}</span>
           </div>
+          <div class="unit-card-desc">${u.description}</div>
+          <div class="unit-card-meta">HP ${u.maxHp} &bull; ATK ${u.attack} &bull; MOV ${u.moveRange} &bull; RNG ${u.attackRange}</div>
         </div>
-        <div class="unit-card-cost-wrap">
-          <span class="unit-card-cost">${u.cost}</span>
-          <span class="unit-card-cost-unit">INK</span>
-        </div>`;
+        <span class="unit-card-cost">${u.cost} Ink</span>`;
       
       btn.addEventListener('click', () => {
         this.app.audio.playPencilScratch();

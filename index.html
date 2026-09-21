@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ink &amp; Iron: Sketch Warfare | Turn-Based Grid Strategy</title>
   <meta name="description" content="Ink &amp; Iron: Sketch Warfare is a turn-based grid strategy game with hand-drawn paper aesthetics, unique factions, command abilities, and simultaneous combat playback.">
-  <link rel="stylesheet" href="styles/main.css?v=2.7.0">
+  <link rel="stylesheet" href="styles/main.css?v=2.7.1">
 </head>
 <body>
 
@@ -619,13 +619,18 @@
         <!-- Right Sidebar: Controls, Inspector, Abilities, Recruitment -->
         <aside class="panel-card sidebar-panel sidebar-panel-right">
           <div class="turn-control-bar">
-            <button id="btn-halt-all" class="btn-sketch btn-halt" title="Cancel movement paths for all friendly units">
-              HALT ALL
-            </button>
-            <span id="turn-counter" class="turn-counter-badge">Turn 1</span>
-            <button id="btn-end-turn" class="btn-sketch btn-end-phase">
-              END PHASE &#9654;&#9654;
-            </button>
+            <div class="turn-status-header">
+              <span class="turn-status-title">Command Phase</span>
+              <span id="turn-counter" class="turn-counter-badge">Turn 1</span>
+            </div>
+            <div class="turn-action-buttons">
+              <button id="btn-halt-all" class="btn-sketch btn-halt" title="Cancel movement paths for all friendly units">
+                HALT ALL
+              </button>
+              <button id="btn-end-turn" class="btn-sketch btn-end-phase">
+                END PHASE &#9654;&#9654;
+              </button>
+            </div>
           </div>
 
           <!-- Unit / Terrain Inspector -->
@@ -1078,6 +1083,6 @@
   </div>
 
   <script src="src/firebase-config.js"></script>
-  <script src="src/game.js?v=2.7.0"></script>
+  <script src="src/game.js?v=2.7.1"></script>
 </body>
 </html>

@@ -279,7 +279,7 @@ header.hud-header {
    ============================================ */
 .main-game-layout {
   display: grid;
-  grid-template-columns: 270px 1fr 285px;
+  grid-template-columns: 270px 1fr 305px;
   gap: 8px;
   align-items: stretch;
   flex: 1;
@@ -502,32 +502,55 @@ header.hud-header {
    ============================================ */
 .turn-control-bar {
   display: flex;
+  flex-direction: column;
   gap: 8px;
+  flex-shrink: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: var(--r-sm);
+  background: #090e18;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 3px 10px rgba(0, 0, 0, 0.4);
+}
+
+.turn-status-header {
+  display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-shrink: 0;
-  padding: 6px 8px;
-  border: 1px solid rgba(245, 158, 11, 0.25);
-  border-radius: var(--r-sm);
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.8) 0%, rgba(8, 12, 21, 0.95) 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  padding-bottom: 5px;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.12);
+}
+
+.turn-status-title {
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #94a3b8;
+  text-transform: uppercase;
 }
 
 .turn-counter-badge {
   font-family: var(--font-mono);
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
   color: var(--gold-400);
   text-transform: uppercase;
-  background: #090e1a;
-  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: #0e1726;
+  border: 1px solid rgba(245, 158, 11, 0.45);
   border-radius: 4px;
-  padding: 4px 10px;
+  padding: 2px 8px;
   box-shadow: inset 0 2px 4px rgba(0,0,0,0.6);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.turn-action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  width: 100%;
 }
 
 /* ============================================
@@ -936,41 +959,57 @@ select.diesel-hidden-select {
 }
 
 .btn-halt {
-  background: rgba(220, 38, 38, 0.12);
-  color: #f87171;
-  border: 1px solid rgba(220, 38, 38, 0.45);
+  flex: 1;
+  min-height: 40px;
+  background: rgba(220, 38, 38, 0.14);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.45);
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   letter-spacing: 0.06em;
-  padding: 5px 10px;
+  padding: 8px 12px;
   border-radius: var(--r-sm);
   cursor: pointer;
   transition: all var(--t-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  white-space: nowrap;
+  box-sizing: border-box;
 }
 
 .btn-halt:hover {
-  background: rgba(220, 38, 38, 0.28);
-  color: #fecaca;
+  background: rgba(220, 38, 38, 0.3);
+  color: #ffffff;
   border-color: #ef4444;
   box-shadow: 0 0 12px rgba(239, 68, 68, 0.35);
   transform: translateY(-1px);
 }
 
 .btn-end-phase {
+  flex: 1.5;
+  min-height: 40px;
   background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #2563eb 100%);
   color: #ffffff;
-  border: 1px solid rgba(147, 197, 253, 0.5);
+  border: 1px solid rgba(147, 197, 253, 0.6);
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 0.74rem;
+  font-size: 0.8rem;
   letter-spacing: 0.08em;
-  padding: 5px 12px;
+  padding: 8px 14px;
   border-radius: var(--r-sm);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25);
   transition: all var(--t-fast);
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  white-space: nowrap;
+  box-sizing: border-box;
 }
 
 .btn-end-phase:hover {
@@ -997,12 +1036,12 @@ select.diesel-hidden-select {
 }
 
 /* ============================================
-   UNIT STORE
+   UNIT RECRUITMENT STORE
    ============================================ */
 .store-grid {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -1011,76 +1050,55 @@ select.diesel-hidden-select {
 
 .store-grid::-webkit-scrollbar { width: 4px; }
 .store-grid::-webkit-scrollbar-track { background: transparent; }
-.store-grid::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 2px; }
+.store-grid::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 2px; }
 
 .unit-card-btn {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-left: 3px solid var(--blue-500);
+  padding: 8px 10px;
+  border: 1px solid #1e293b;
+  border-left: 3px solid #3b82f6;
   border-radius: var(--r-sm);
-  background: linear-gradient(180deg, rgba(30, 41, 59, 0.5) 0%, rgba(15, 23, 42, 0.75) 100%);
+  background: #090e18;
   cursor: pointer;
   transition: all var(--t-fast);
   flex-shrink: 0;
   text-align: left;
-  gap: 6px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  gap: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .unit-card-btn:hover {
-  background: linear-gradient(180deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.95) 100%);
-  border-color: rgba(59, 130, 246, 0.5);
-  border-left-color: var(--blue-400);
+  background: #111a2d;
+  border-color: #3b82f6;
+  border-left-color: #60a5fa;
   transform: translateX(2px);
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
-}
-
-.unit-card-badge-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  flex: 1;
-}
-
-.unit-card-symbol {
-  font-size: 1rem;
-  line-height: 1;
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 3px;
-  flex-shrink: 0;
-  color: var(--blue-300);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
 }
 
 .unit-card-info {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 1px;
+  gap: 3px;
   min-width: 0;
   flex: 1;
 }
 
-.unit-card-header-row {
+.unit-card-header {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   max-width: 100%;
 }
 
 .unit-card-title {
   font-weight: 700;
-  font-size: 0.74rem;
-  color: var(--text-primary);
+  font-size: 0.8rem;
+  color: #f8fafc;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1088,67 +1106,57 @@ select.diesel-hidden-select {
 
 .unit-role-tag {
   font-family: var(--font-mono);
-  font-size: 0.52rem;
+  font-size: 0.58rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  padding: 1px 3px;
+  letter-spacing: 0.05em;
+  padding: 1px 4px;
   border-radius: 2px;
   text-transform: uppercase;
 }
 
 .role-infantry {
-  background: rgba(59, 130, 246, 0.15);
+  background: rgba(59, 130, 246, 0.2);
   color: #93c5fd;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  border: 1px solid rgba(59, 130, 246, 0.4);
 }
 
 .role-vehicle {
-  background: rgba(245, 158, 11, 0.15);
+  background: rgba(245, 158, 11, 0.2);
   color: #fcd34d;
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  border: 1px solid rgba(245, 158, 11, 0.4);
 }
 
 .role-support {
-  background: rgba(168, 85, 247, 0.15);
+  background: rgba(168, 85, 247, 0.2);
   color: #d8b4fe;
-  border: 1px solid rgba(168, 85, 247, 0.3);
+  border: 1px solid rgba(168, 85, 247, 0.4);
 }
 
-.unit-stats-strip {
+.unit-card-desc {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
+.unit-card-meta {
   font-family: var(--font-mono);
-  font-size: 0.58rem;
-  color: var(--text-muted);
+  font-size: 0.62rem;
+  color: #64748b;
   letter-spacing: 0.02em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
-.unit-card-cost-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  flex-shrink: 0;
-  background: rgba(15, 23, 42, 0.7);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  padding: 2px 5px;
-  border-radius: 3px;
 }
 
 .unit-card-cost {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 0.76rem;
-  color: var(--gold-400);
-  line-height: 1;
-}
-
-.unit-card-cost-unit {
   font-family: var(--font-mono);
-  font-size: 0.5rem;
-  color: rgba(245, 158, 11, 0.8);
-  letter-spacing: 0.06em;
+  font-weight: 800;
+  font-size: 0.78rem;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: 0.03em;
 }
 
 /* ============================================
