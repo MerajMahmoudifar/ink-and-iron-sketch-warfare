@@ -1978,58 +1978,6 @@ class SketchRenderer {
       this.ctx.strokeRect(pos.x + 1, pos.y + 1, 68, 68);
     }
 
-    // ON-GRID DEPLOYMENT MODE SPAWN TILE HIGHLIGHTS
-    if (window.gApp && window.gApp.ui && window.gApp.ui.pendingDeployUnitKey && engine.phase === 'PLANNING') {
-      const ownedSpawns = engine.getOwnedSpawnPoints(1);
-      const timeMs = Date.now();
-      const pulseOpacity = 0.35 + 0.25 * Math.sin(timeMs / 180);
-
-      ownedSpawns.forEach(sp => {
-        const pos = this.getScreenCoords(sp.x, sp.y);
-        const isOccupied = engine.getAllUnits().some(u => u.x === sp.x && u.y === sp.y && u.isAlive());
-        const tx = pos.x + 2, ty = pos.y + 2;
-
-        if (sp.isContested || isOccupied) {
-          // FORBIDDEN — Red fill + border + diagonal X lines
-          this.ctx.fillStyle = 'rgba(239, 68, 68, 0.3)';
-          this.ctx.fillRect(tx, ty, 66, 66);
-          this.ctx.strokeStyle = '#ef4444';
-          this.ctx.lineWidth = 3;
-          this.ctx.strokeRect(tx, ty, 66, 66);
-          // Large X drawn with two diagonal lines across the tile
-          this.ctx.strokeStyle = 'rgba(239, 68, 68, 0.9)';
-          this.ctx.lineWidth = 4;
-          this.ctx.beginPath();
-          this.ctx.moveTo(tx + 8, ty + 8);
-          this.ctx.lineTo(tx + 58, ty + 58);
-          this.ctx.moveTo(tx + 58, ty + 8);
-          this.ctx.lineTo(tx + 8, ty + 58);
-          this.ctx.stroke();
-        } else {
-          // VALID — Pulsing blue fill + corner bracket reticles
-          this.ctx.fillStyle = `rgba(59, 130, 246, ${pulseOpacity})`;
-          this.ctx.fillRect(tx, ty, 66, 66);
-          this.ctx.strokeStyle = '#2563eb';
-          this.ctx.lineWidth = 3;
-          this.ctx.strokeRect(tx, ty, 66, 66);
-          // Corner bracket reticles (no text)
-          this.ctx.strokeStyle = '#bfdbfe';
-          this.ctx.lineWidth = 3;
-          this.ctx.beginPath(); this.ctx.moveTo(tx + 3, ty + 13); this.ctx.lineTo(tx + 3, ty + 3); this.ctx.lineTo(tx + 13, ty + 3); this.ctx.stroke();
-          this.ctx.beginPath(); this.ctx.moveTo(tx + 53, ty + 3); this.ctx.lineTo(tx + 63, ty + 3); this.ctx.lineTo(tx + 63, ty + 13); this.ctx.stroke();
-          this.ctx.beginPath(); this.ctx.moveTo(tx + 3, ty + 53); this.ctx.lineTo(tx + 3, ty + 63); this.ctx.lineTo(tx + 13, ty + 63); this.ctx.stroke();
-          this.ctx.beginPath(); this.ctx.moveTo(tx + 53, ty + 63); this.ctx.lineTo(tx + 63, ty + 63); this.ctx.lineTo(tx + 63, ty + 53); this.ctx.stroke();
-          // Small crosshair in center
-          this.ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-          this.ctx.lineWidth = 1.5;
-          this.ctx.beginPath();
-          this.ctx.moveTo(tx + 33, ty + 26); this.ctx.lineTo(tx + 33, ty + 40);
-          this.ctx.moveTo(tx + 26, ty + 33); this.ctx.lineTo(tx + 40, ty + 33);
-          this.ctx.stroke();
-        }
-      });
-    }
-
     // FOG OF WAR PENCIL HATCH OVERLAY (skip in terrain-view / GAME_OVER)
     if (!isTerrainView) {
       for (let r = 0; r < 8; r++) {
@@ -2498,10 +2446,6 @@ class UIManager {
       e.preventDefault();
       if (this.app.engine) {
         this.app.engine.players[1].units.forEach(u => u.setWaypoints([]));
-        if (this.app.renderer) {
-          this.app.renderer.selectedTile = null;
-          this.app.renderer.selectedUnit = null;
-        }
         this.showToast('Troops Halted', 'All unit movement plans canceled!');
         this.updateHUD(this.app.engine);
       }
@@ -2752,52 +2696,69 @@ class UIManager {
           return;
         }
 
+        const selTile = this.app.renderer.selectedTile;
+        if (selTile) {
+          const isSelectedValid = unContestedSpawns.some(sp => sp.x === selTile.x && sp.y === selTile.y);
+          if (isSelectedValid) {
+            const res = engine.buyUnit(1, key, selTile.x, selTile.y);
+            if (res.success) {
+              this.app.audio.playSpawnSound();
+            } else {
+              this.showToast('Deployment Error', res.reason);
+            }
+            return;
+          }
+        }
+
         try { this.app.audio.playPencilScratch(); } catch(err){}
-        this.startDeploymentMode(key, u);
+        this.openDeploymentPicker(engine, key, u);
       });
       this.storeContainer.appendChild(btn);
     });
   }
 
-  startDeploymentMode(unitTypeKey, unitObj) {
-    if (!this.app.engine || this.app.engine.phase !== 'PLANNING') return;
-    const p1 = this.app.engine.players[1];
-    const unitDef = UNIT_TYPES[unitTypeKey];
-    if (!unitDef) return;
+  openDeploymentPicker(engine, unitTypeKey, unitObj) {
+    const titleEl = document.getElementById('deploy-picker-title');
+    if (titleEl && unitObj) titleEl.textContent = `Deploy ${unitObj.symbol} ${unitObj.name}`;
+    const spawnPoints = engine.getOwnedSpawnPoints(1);
+    const listEl = document.getElementById('deploy-picker-list');
+    if (!listEl) return;
+    listEl.innerHTML = '';
 
-    if (p1.ink < unitDef.cost) {
-      this.showToast('Low Ink Resources', `Need ${unitDef.cost} Ink to deploy ${unitDef.symbol} ${unitDef.name}!`);
+    if (spawnPoints.length === 0) {
+      listEl.innerHTML = `<p style="color:#f87171; font-size:0.85rem;">No active spawn points owned!</p>`;
+      if (this.deployPickerModal) this.deployPickerModal.style.display = 'flex';
       return;
     }
 
-    const availableSpawns = this.app.engine.getOwnedSpawnPoints(1);
-    if (availableSpawns.length === 0) {
-      this.showToast('Deployment Failed', 'No owned spawn points available on the map!');
-      return;
-    }
+    spawnPoints.forEach(sp => {
+      const btn = document.createElement('button');
+      btn.className = 'spawn-picker-btn';
+      if (sp.isContested) {
+        btn.innerHTML = `<span>${sp.name} (UNDER SIEGE)</span>`;
+        btn.style.opacity = '0.5';
+        btn.style.cursor = 'not-allowed';
+        btn.addEventListener('click', () => {
+          this.showToast('Under Siege', `Cannot deploy at (${sp.x}, ${sp.y}) while enemy is adjacent!`);
+        });
+      } else {
+        btn.innerHTML = `<span>${sp.name}</span> <span style="color:var(--blue-400);">(${sp.x}, ${sp.y})</span>`;
+        btn.addEventListener('click', () => {
+          try { this.app.audio.playPencilScratch(); } catch(err){}
+          if (this.deployPickerModal) this.deployPickerModal.style.display = 'none';
+          const res = engine.buyUnit(1, unitTypeKey, sp.x, sp.y);
+          if (res.success) {
+            try { this.app.audio.playSpawnSound(); } catch(err){}
+          } else {
+            this.showToast('Deployment Error', res.reason);
+          }
+        });
+      }
 
-    this.pendingDeployUnitKey = unitTypeKey;
-    this.pendingDeployUnitObj = unitObj || unitDef;
+      listEl.appendChild(btn);
+    });
 
-    const banner = document.getElementById('deploy-prompt-banner');
-    const promptText = document.getElementById('deploy-prompt-text');
-    if (promptText) {
-      promptText.textContent = `Deploying ${unitDef.symbol} ${unitDef.name} (${unitDef.cost} Ink) &mdash; Click highlighted spawn tile on grid`;
-    }
-    if (banner) banner.style.display = 'flex';
-
-    if (this.app.renderer) {
-      this.app.renderer.selectedTile = null;
-      this.app.renderer.selectedUnit = null;
-    }
-    this.showToast('Deployment Mode', `Click any highlighted spawn square on the grid to deploy ${unitDef.name}. Press ESC to cancel.`);
-  }
-
-  cancelDeploymentMode() {
-    this.pendingDeployUnitKey = null;
-    this.pendingDeployUnitObj = null;
-    const banner = document.getElementById('deploy-prompt-banner');
-    if (banner) banner.style.display = 'none';
+    this.deployPickerModal.style.display = 'flex';
   }
 
   renderInspector(engine) {
@@ -2872,10 +2833,6 @@ class UIManager {
         btnCancelUnit.addEventListener('click', () => {
           this.app.audio.playPencilScratch();
           engine.setUnitWaypoints(unitOnTile.id, []);
-          if (this.app.renderer) {
-            this.app.renderer.selectedTile = null;
-            this.app.renderer.selectedUnit = null;
-          }
           this.updateHUD(engine);
         });
       }
@@ -3124,40 +3081,6 @@ class App {
         return;
       }
 
-      if (this.engine.phase === 'PLANNING' && this.ui.pendingDeployUnitKey) {
-        const unitKey = this.ui.pendingDeployUnitKey;
-        const unitDef = UNIT_TYPES[unitKey];
-        const ownedSpawns = this.engine.getOwnedSpawnPoints(1);
-        const spawnTile = ownedSpawns.find(sp => sp.x === gridCoords.x && sp.y === gridCoords.y);
-
-        if (spawnTile) {
-          if (spawnTile.isContested) {
-            try { this.audio.playExplosion(false); } catch(e){}
-            this.ui.showToast('Tile Under Siege', `Cannot deploy at (${spawnTile.x}, ${spawnTile.y}) while enemy forces are adjacent!`);
-            return;
-          }
-          const isOccupied = this.engine.getAllUnits().some(u => u.x === spawnTile.x && u.y === spawnTile.y && u.isAlive());
-          if (isOccupied) {
-            this.ui.showToast('Tile Occupied', `Position (${spawnTile.x}, ${spawnTile.y}) is already occupied by a unit!`);
-            return;
-          }
-
-          const res = this.engine.buyUnit(1, unitKey, spawnTile.x, spawnTile.y);
-          if (res.success) {
-            try { this.audio.playSpawnSound(); } catch(e){}
-            this.ui.showToast('Unit Deployed', `${unitDef.symbol} ${unitDef.name} deployed at (${spawnTile.x}, ${spawnTile.y})!`);
-            this.ui.cancelDeploymentMode();
-          } else {
-            this.ui.showToast('Deployment Error', res.reason);
-          }
-        } else {
-          this.ui.showToast('Invalid Placement', 'Click a highlighted Base or Supply Zone square to deploy.');
-        }
-        this.renderer.selectedTile = gridCoords;
-        this.ui.updateHUD(this.engine);
-        return;
-      }
-
       if (this.engine.phase === 'PLANNING' && this.ui.pendingAbilityKey) {
         const abilityKey = this.ui.pendingAbilityKey;
         const ability = ABILITIES[abilityKey];
@@ -3184,26 +3107,21 @@ class App {
 
       if (this.engine.phase === 'PLANNING' && prevSelected) {
         const unit = this.engine.getAllUnits().find(u => u.x === prevSelected.x && u.y === prevSelected.y && u.owner === 1);
-        const targetFriendlyUnit = this.engine.getAllUnits().find(u => u.x === gridCoords.x && u.y === gridCoords.y && u.owner === 1);
-
-        // Only extend path if previously selected tile had a Player 1 unit AND the clicked target tile is NOT another friendly unit
-        if (unit && (!targetFriendlyUnit || targetFriendlyUnit.id === unit.id)) {
-          if (!targetFriendlyUnit || targetFriendlyUnit.id !== unit.id) {
-            // Pathfind FROM the unit's last queued waypoint position,
-            // so long multi-click chains extend naturally.
-            let fromX = unit.x, fromY = unit.y;
-            if (unit.waypoints && unit.waypoints.length > 0) {
-              const last = unit.waypoints[unit.waypoints.length - 1];
-              fromX = last.x;
-              fromY = last.y;
-            }
-            if (fromX !== gridCoords.x || fromY !== gridCoords.y) {
-              const extension = this.engine.findValidPath(unit, gridCoords.x, gridCoords.y, fromX, fromY);
-              if (extension.length > 0) {
-                // Append to existing waypoints (multi-leg journey)
-                const combined = [...(unit.waypoints || []), ...extension];
-                this.engine.setUnitWaypoints(unit.id, combined);
-              }
+        if (unit) {
+          // Pathfind FROM the unit's last queued waypoint position,
+          // so long multi-click chains extend naturally.
+          let fromX = unit.x, fromY = unit.y;
+          if (unit.waypoints && unit.waypoints.length > 0) {
+            const last = unit.waypoints[unit.waypoints.length - 1];
+            fromX = last.x;
+            fromY = last.y;
+          }
+          if (fromX !== gridCoords.x || fromY !== gridCoords.y) {
+            const extension = this.engine.findValidPath(unit, gridCoords.x, gridCoords.y, fromX, fromY);
+            if (extension.length > 0) {
+              // Append to existing waypoints (multi-leg journey)
+              const combined = [...(unit.waypoints || []), ...extension];
+              this.engine.setUnitWaypoints(unit.id, combined);
             }
           }
         }
@@ -3214,15 +3132,6 @@ class App {
     this.canvas.addEventListener('mousemove', (e) => {
       const rect = this.canvas.getBoundingClientRect();
       this.renderer.hoveredTile = this.renderer.getGridCoords(e.clientX - rect.left, e.clientY - rect.top);
-    });
-
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' || e.code === 'Escape') {
-        if (this.ui && this.ui.pendingDeployUnitKey) {
-          this.ui.cancelDeploymentMode();
-          this.ui.showToast('Deployment Canceled', 'Deployment mode exited.');
-        }
-      }
     });
   }
 
@@ -3698,37 +3607,6 @@ window.openAdminPanel = function() {
 window.closeAdminPanel = function() {
   const overlay = document.getElementById('admin-panel-overlay');
   if (overlay) overlay.style.display = 'none';
-};
-
-window.switchAdminTab = function(tabName) {
-  const btnCommanders = document.getElementById('admin-tab-btn-commanders');
-  const btnApiDocs = document.getElementById('admin-tab-btn-apidocs');
-  const viewCommanders = document.getElementById('admin-view-commanders');
-  const viewApiDocs = document.getElementById('admin-view-apidocs');
-
-  if (tabName === 'apidocs') {
-    if (btnCommanders) btnCommanders.classList.remove('active');
-    if (btnApiDocs) btnApiDocs.classList.add('active');
-    if (viewCommanders) viewCommanders.style.display = 'none';
-    if (viewApiDocs) viewApiDocs.style.display = 'flex';
-
-    if (!window.gSwaggerUiInitialized && window.SwaggerUIBundle) {
-      window.gSwaggerUiInitialized = true;
-      window.SwaggerUIBundle({
-        url: '/v1/api/openapi.json',
-        dom_id: '#swagger-ui-container',
-        deepLinking: true,
-        presets: [
-          window.SwaggerUIBundle.presets.apis
-        ]
-      });
-    }
-  } else {
-    if (btnApiDocs) btnApiDocs.classList.remove('active');
-    if (btnCommanders) btnCommanders.classList.add('active');
-    if (viewApiDocs) viewApiDocs.style.display = 'none';
-    if (viewCommanders) viewCommanders.style.display = 'flex';
-  }
 };
 
 window.fetchAdminDashboardStats = async function() {

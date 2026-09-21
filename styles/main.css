@@ -1764,13 +1764,11 @@ select.btn-sketch {
 }
 
 .sketch-admin-panel-card {
-  max-width: 1000px;
-  width: 96%;
-  max-height: 90vh;
-  height: 90vh;
+  max-width: 960px;
+  width: 95%;
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   border-left: 4px solid var(--blue-500);
 }
 
@@ -1803,14 +1801,12 @@ select.btn-sketch {
   align-items: flex-start;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border-subtle);
-  flex-shrink: 0;
 }
 
 .admin-toolbar {
   display: flex;
   gap: 10px;
-  margin: 10px 0 6px 0;
-  flex-shrink: 0;
+  margin: 14px 0;
 }
 
 .admin-search-input {
@@ -1820,8 +1816,7 @@ select.btn-sketch {
 .admin-table-container {
   overflow-x: auto;
   overflow-y: auto;
-  flex: 1;
-  min-height: 0;
+  max-height: 55vh;
   border: 1px solid var(--border-subtle);
   border-radius: var(--r-sm);
   background: rgba(15, 23, 42, 0.4);
@@ -1944,7 +1939,6 @@ select.btn-sketch {
   grid-template-columns: repeat(4, 1fr);
   gap: 10px;
   margin-top: 12px;
-  flex-shrink: 0;
 }
 
 .admin-stat-card {
@@ -1976,49 +1970,10 @@ select.btn-sketch {
   display: flex;
   gap: 8px;
   margin-top: 12px;
-  flex-shrink: 0;
 }
 
 .admin-broadcast-input {
   flex: 1;
   width: auto !important;
-}
-
-/* ==========================================================================
-   ON-GRID DEPLOYMENT PROMPT BANNER
-   ========================================================================== */
-.deploy-banner-ticker {
-  position: relative;
-  z-index: 10000;
-  width: 100%;
-  background: linear-gradient(90deg, #1e3a8a, #0f172a);
-  border-bottom: 2px solid var(--blue-400);
-  color: var(--blue-300);
-  padding: 8px 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-  animation: bannerSlideDown 0.25s ease-out;
-}
-
-.deploy-badge {
-  background: var(--blue-400);
-  color: #0f172a;
-  padding: 3px 10px;
-  border-radius: 4px;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  font-family: var(--font-display);
-}
-
-.deploy-prompt-text {
-  flex: 1;
-  color: #f8fafc;
-  font-family: var(--font-handwriting);
-  font-size: 1.05rem;
 }
 

@@ -2,24 +2,20 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Ink & Iron: Sketch Warfare API Specification",
-    "description": "Public and Administrative API endpoints for Ink & Iron: Sketch Warfare. Includes player profile synchronization, real-time system announcement broadcasts, dashboard metrics, and commander account moderation.",
-    "version": "1.0.0",
-    "contact": {
-      "name": "Ink & Iron Operations Team",
-      "url": "https://ink-and-iron-sketch-warfare.pages.dev"
-    }
+    "description": "API endpoints for the turn-based tactical strategy game, including public commander sync, real-time system announcements, and administrator commands for player moderation and dashboard analytics.",
+    "version": "1.0.0"
   },
   "servers": [
     {
       "url": "https://ink-and-iron-sketch-warfare.pages.dev",
-      "description": "Production Edge Deployment Server"
+      "description": "Production Cloudflare Pages Edge Server"
     }
   ],
   "paths": {
     "/api/user/sync": {
       "post": {
         "summary": "Synchronize Commander Profile & Settings",
-        "description": "Registers a new player profile or updates volume controls, planning timers, animation speeds, match W/L counters, and real-time last_online timestamps in Cloudflare D1.",
+        "description": "Registers a new player profile or synchronizes existing settings (volume, turn timer, animation speed, wins/losses, and last_online timestamp) to Cloudflare D1.",
         "requestBody": {
           "required": true,
           "content": {
@@ -32,7 +28,7 @@
         },
         "responses": {
           "200": {
-            "description": "Synchronization successful, returns full user profile.",
+            "description": "Synchronization successful, returns full updated user profile.",
             "content": {
               "application/json": {
                 "schema": {
@@ -41,38 +37,18 @@
               }
             }
           },
-          "400": {
-            "description": "Bad Request. Missing required fields or malformed JSON payload.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
           "403": {
-            "description": "Forbidden. User account has been suspended by an Administrator.",
+            "description": "Forbidden. User account has been suspended / banned.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Endpoint Not Found (with 'Did you mean?' typo suggestion).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TypoErrorResponse"
                 }
               }
             }
           },
           "500": {
-            "description": "Internal server or database connection error.",
+            "description": "Internal server or database error.",
             "content": {
               "application/json": {
                 "schema": {
@@ -98,9 +74,6 @@
                 }
               }
             }
-          },
-          "405": {
-            "description": "Method Not Allowed. Only GET is supported."
           }
         }
       }
@@ -108,7 +81,7 @@
     "/api/admin/login": {
       "post": {
         "summary": "Admin Portal Authentication",
-        "description": "Validates the admin passcode against expected key ('meraj7782') and generates a session token.",
+        "description": "Validates the admin passcode against expected key ('meraj7782') and generates a session authorization token.",
         "requestBody": {
           "required": true,
           "content": {
@@ -162,7 +135,7 @@
     },
     "/api/admin/stats": {
       "get": {
-        "summary": "Fetch Dashboard Analytics Metrics",
+        "summary": "Fetch Dashboard Metrics",
         "description": "Calculates real-time statistics including total registered commanders, active users today, online now, and global matches.",
         "security": [
           {
@@ -188,7 +161,7 @@
     },
     "/api/admin/announcement": {
       "post": {
-        "summary": "Broadcast or Clear System Announcement Banner",
+        "summary": "Broadcast or Clear Announcement Banner",
         "description": "Creates a new system announcement banner message to broadcast to all players, or clears the currently active banner.",
         "security": [
           {
@@ -204,7 +177,7 @@
                 "properties": {
                   "message": {
                     "type": "string",
-                    "example": "Double EXP Weekend Active!"
+                    "example": "Server maintenance at 00:00 UTC."
                   },
                   "active": {
                     "type": "boolean",
@@ -278,7 +251,7 @@
     },
     "/api/admin/users/{id}": {
       "put": {
-        "summary": "Modify User Record & Ban Status",
+        "summary": "Modify User Record",
         "description": "Updates a specific player's profile stats, settings, email, rank, or account ban status.",
         "security": [
           {
@@ -618,54 +591,13 @@
       "ErrorResponse": {
         "type": "object",
         "properties": {
-          "status": {
-            "type": "integer",
-            "example": 400
-          },
           "error": {
             "type": "string",
-            "example": "Missing Required Field"
+            "example": "Invalid passcode or Database binding missing"
           },
-          "message": {
-            "type": "string",
-            "example": "Field 'id' is required and must be a non-empty string."
-          },
-          "remediation": {
-            "type": "string",
-            "example": "Pass a valid user ID in the JSON body."
-          }
-        }
-      },
-      "TypoErrorResponse": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "integer",
-            "example": 404
-          },
-          "error": {
-            "type": "string",
-            "example": "Endpoint Not Found"
-          },
-          "requested_path": {
-            "type": "string",
-            "example": "/api/user/sunc"
-          },
-          "method": {
-            "type": "string",
-            "example": "POST"
-          },
-          "suggested_endpoint": {
-            "type": "string",
-            "example": "/api/user/sync"
-          },
-          "message": {
-            "type": "string",
-            "example": "The endpoint '/api/user/sunc' does not exist. Did you mean '/api/user/sync'?"
-          },
-          "remediation": {
-            "type": "string",
-            "example": "Update your HTTP POST request URL to target '/api/user/sync'."
+          "is_banned": {
+            "type": "boolean",
+            "example": true
           }
         }
       }
