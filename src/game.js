@@ -3922,27 +3922,27 @@ class BootcampManager {
       "Look at you, Captain Price infiltrating enemy headquarters before learning how to walk. Impressive initiative, completely unauthorized. Stick to the plan, Cadet!"
     ];
 
-    // Read last used index from localStorage to persist across replays/page reloads
-    let lastIdx = -1;
+    // Sequential round-robin cycle: guarantees 1 -> 2 -> 3 -> 1 -> 2 -> 3...
+    // Defaults to 2 so the very first trigger immediately serves Message 1 (index 0)
+    let lastIdx = 2;
     try {
-      const stored = localStorage.getItem('ink_bootcamp_last_easteregg_idx');
-      if (stored !== null) lastIdx = parseInt(stored, 10);
+      const stored = localStorage.getItem('ink_bootcamp_easteregg_rr_idx');
+      if (stored !== null && stored !== '') {
+        const parsed = parseInt(stored, 10);
+        if (!isNaN(parsed) && parsed >= 0 && parsed < quips.length) {
+          lastIdx = parsed;
+        }
+      }
     } catch(e) {}
 
-    // Strictly guarantee a different quip every single time (100% non-repeating)
-    let nextIdx;
-    if (isNaN(lastIdx) || lastIdx < 0 || lastIdx >= quips.length) {
-      nextIdx = Math.floor(Math.random() * quips.length);
-    } else {
-      const remainingIndices = [0, 1, 2].filter(i => i !== lastIdx);
-      nextIdx = remainingIndices[Math.floor(Math.random() * remainingIndices.length)];
-    }
+    const nextIdx = (lastIdx + 1) % quips.length;
 
     try {
-      localStorage.setItem('ink_bootcamp_last_easteregg_idx', String(nextIdx));
+      localStorage.setItem('ink_bootcamp_easteregg_rr_idx', String(nextIdx));
     } catch(e) {}
 
     const chosenQuip = quips[nextIdx];
+    console.log(`[General Crow Easter Egg] Quip #${nextIdx + 1} of ${quips.length}: "${chosenQuip}"`);
 
     const modal = document.getElementById('modal-bootcamp-easteregg');
     const quoteEl = document.getElementById('bootcamp-easteregg-quote');
