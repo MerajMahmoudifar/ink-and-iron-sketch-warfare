@@ -1208,6 +1208,21 @@ class GameEngine {
           unit.hasMovedThisTurn = true;
           this.evaluateAutoStances();
           if (this.audio && unit.owner === 1) this.audio.playMarching(unit.category === 'VEHICLE');
+
+          // Check if allied unit stepped onto enemy HQ during tutorial lessons 1-4 (Easter Egg)
+          const p2BasePos = this.players[2]?.basePos;
+          if (unit.owner === 1 && this.bootcampLesson && this.bootcampLesson < 5 && p2BasePos && unit.x === p2BasePos.x && unit.y === p2BasePos.y) {
+            unit.waypoints = [];
+            unit.x = (unit.prevX !== undefined && unit.prevX !== p2BasePos.x) ? unit.prevX : 6;
+            unit.y = (unit.prevY !== undefined && unit.prevY !== p2BasePos.y) ? unit.prevY : 7;
+            unit.targetX = unit.x;
+            unit.targetY = unit.y;
+            unit.renderX = unit.x;
+            unit.renderY = unit.y;
+            if (this.bootcampManager) {
+              this.bootcampManager.triggerEasterEgg(unit);
+            }
+          }
         } else {
           unit.waypoints = [];
         }
@@ -1297,6 +1312,12 @@ class GameEngine {
         });
       }
       else if (tile.id === 'MAIN_BASE' && tile.owner !== unit.owner) {
+        if (this.bootcampLesson && this.bootcampLesson < 5 && unit.owner === 1) {
+          if (this.bootcampManager) {
+            this.bootcampManager.triggerEasterEgg(unit);
+          }
+          return;
+        }
         this.winner = unit.owner;
         this.winReason = 'BASE_CAPTURE';
         this.phase = GAME_PHASES.GAME_OVER;
@@ -1319,6 +1340,7 @@ class GameEngine {
       return;
     }
     if (p2Base.owner === 1) {
+      if (this.bootcampLesson && this.bootcampLesson < 5) return;
       this.winner = 1;
       this.winReason = 'BASE_CAPTURE';
       this.phase = GAME_PHASES.GAME_OVER;
@@ -3795,6 +3817,7 @@ class BootcampManager {
     this.activeLesson = null;
     this.currentStep = 1;
     this.savedProgress = this.loadProgress();
+    this.easterEggActive = false;
   }
 
   loadProgress() {
@@ -3825,6 +3848,7 @@ class BootcampManager {
   startLesson(lessonId) {
     this.activeLesson = lessonId;
     this.currentStep = 1;
+    this.easterEggActive = false;
 
     const menu = document.getElementById('main-menu-overlay');
     if (menu) menu.style.display = 'none';
@@ -3875,12 +3899,45 @@ class BootcampManager {
   }
 
   validateCanvasClick(gridCoords, prevSelected) {
-    if (!this.activeLesson) return true;
-    if (this.activeLesson === 1) {
-      // In lesson 1, allow clicking the squad or any tile on corridor row 3
-      return gridCoords.y === 3 && gridCoords.x >= 0 && gridCoords.x <= 7;
-    }
+    // Allow free tactical exploration across the battlefield
     return true;
+  }
+
+  triggerEasterEgg(unit) {
+    if (this.easterEggActive) return;
+    this.easterEggActive = true;
+
+    try {
+      if (this.app.audio) {
+        this.app.audio.playAlarmSound();
+        setTimeout(() => {
+          try { this.app.audio.playPencilScratch(); } catch(e){}
+        }, 250);
+      }
+    } catch(e) {}
+
+    const quips = [
+      "Nice try, Rookie! How about sticking to the plan this time?",
+      "Whoa there, Alexander the Great! Did you really think you could skip straight to the medal ceremony? Nice try, Rookie. Now back to the objective!",
+      "Look at you, Captain Price infiltrating enemy headquarters before learning how to walk. Impressive initiative, completely unauthorized. Stick to the plan, Cadet!"
+    ];
+    const chosenQuip = quips[Math.floor(Math.random() * quips.length)];
+
+    const modal = document.getElementById('modal-bootcamp-easteregg');
+    const quoteEl = document.getElementById('bootcamp-easteregg-quote');
+    if (modal) {
+      if (quoteEl) quoteEl.textContent = `"${chosenQuip}"`;
+      modal.style.display = 'flex';
+    }
+
+    const instructorText = document.getElementById('bootcamp-instructor-text');
+    if (instructorText) {
+      instructorText.innerHTML = `<span style="color:#f59e0b; font-weight:700;">[UNAUTHORIZED HEROICS]</span> ${chosenQuip}`;
+    }
+
+    if (this.app.ui) {
+      this.app.ui.showToast('🥚 Rogue Cadet Detected', 'General Crow caught you trying to cheese the exam!');
+    }
   }
 
   nudgePointer() {
@@ -4219,6 +4276,14 @@ window.returnToBootcampMenu = function() {
   if (window.gApp && window.gApp.bootcampManager) {
     window.gApp.bootcampManager.activeLesson = null;
     window.gApp.bootcampManager.updateMenuUI();
+  }
+};
+
+window.dismissBootcampEasterEgg = function() {
+  const modal = document.getElementById('modal-bootcamp-easteregg');
+  if (modal) modal.style.display = 'none';
+  if (window.gApp && window.gApp.bootcampManager) {
+    window.gApp.bootcampManager.easterEggActive = false;
   }
 };
 
