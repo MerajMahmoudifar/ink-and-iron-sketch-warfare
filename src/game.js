@@ -3921,7 +3921,28 @@ class BootcampManager {
       "Whoa there, Alexander the Great! Did you really think you could skip straight to the medal ceremony? Nice try, Rookie. Now back to the objective!",
       "Look at you, Captain Price infiltrating enemy headquarters before learning how to walk. Impressive initiative, completely unauthorized. Stick to the plan, Cadet!"
     ];
-    const chosenQuip = quips[Math.floor(Math.random() * quips.length)];
+
+    // Read last used index from localStorage to persist across replays/page reloads
+    let lastIdx = -1;
+    try {
+      const stored = localStorage.getItem('ink_bootcamp_last_easteregg_idx');
+      if (stored !== null) lastIdx = parseInt(stored, 10);
+    } catch(e) {}
+
+    // Strictly guarantee a different quip every single time (100% non-repeating)
+    let nextIdx;
+    if (isNaN(lastIdx) || lastIdx < 0 || lastIdx >= quips.length) {
+      nextIdx = Math.floor(Math.random() * quips.length);
+    } else {
+      const remainingIndices = [0, 1, 2].filter(i => i !== lastIdx);
+      nextIdx = remainingIndices[Math.floor(Math.random() * remainingIndices.length)];
+    }
+
+    try {
+      localStorage.setItem('ink_bootcamp_last_easteregg_idx', String(nextIdx));
+    } catch(e) {}
+
+    const chosenQuip = quips[nextIdx];
 
     const modal = document.getElementById('modal-bootcamp-easteregg');
     const quoteEl = document.getElementById('bootcamp-easteregg-quote');
