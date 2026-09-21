@@ -4859,7 +4859,10 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-window.addEventListener('DOMContentLoaded', () => {
+function bootGame() {
+  if (window._gameBooted) return;
+  window._gameBooted = true;
+
   new App();
 
   // Initialize stylized dieselpunk select dropdowns
@@ -4933,5 +4936,11 @@ window.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('keydown', triggerAdmin, true);
   document.addEventListener('keydown', triggerAdmin, true);
-});
+}
+
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', bootGame);
+} else {
+  bootGame();
+}
 

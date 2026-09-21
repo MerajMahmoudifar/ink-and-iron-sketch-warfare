@@ -1415,31 +1415,39 @@ select.diesel-hidden-select {
 
 .menu-logo-badge {
   font-family: var(--font-display);
-  font-size: 0.65rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--gold-400);
-  background: rgba(245,158,11,0.08);
-  padding: 3px 12px;
+  color: var(--gold-300);
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.15), rgba(37, 99, 235, 0.15));
+  padding: 4px 14px;
   border-radius: var(--r-sm);
-  border: 1px solid rgba(245,158,11,0.25);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
 }
 
 .main-menu-title {
   font-family: var(--font-display);
-  font-size: 2.6rem;
+  font-size: 2.8rem;
   font-weight: 900;
-  letter-spacing: 0.06em;
-  color: var(--text-primary);
+  letter-spacing: 0.08em;
+  background: linear-gradient(180deg, #ffffff 15%, #fde68a 50%, #d97706 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 4px 14px rgba(245, 158, 11, 0.45));
   line-height: 1;
+  text-transform: uppercase;
 }
 
 .menu-subtitle {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  letter-spacing: 0.08em;
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--blue-300);
+  letter-spacing: 0.22em;
   text-transform: uppercase;
+  text-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
 }
 
 /* Navigation Tabs */
@@ -1454,29 +1462,31 @@ select.diesel-hidden-select {
 
 .menu-tab-btn {
   font-family: var(--font-display);
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 7px 6px;
-  border: 1px solid transparent;
+  padding: 8px 6px;
+  border: 1px solid var(--border-subtle);
   border-radius: var(--r-sm);
-  background: transparent;
+  background: rgba(15, 23, 42, 0.6);
   color: var(--text-muted);
   cursor: pointer;
   transition: all var(--t-fast);
 }
 
 .menu-tab-btn:hover {
-  background: var(--bg-card);
-  color: var(--text-secondary);
-  border-color: var(--border-subtle);
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
 }
 
 .menu-tab-btn.active {
-  background: rgba(37,99,235,0.15);
-  color: var(--blue-300);
-  border-color: rgba(59,130,246,0.4);
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.25), rgba(15, 23, 42, 0.8));
+  color: #93c5fd;
+  border-color: #3b82f6;
+  border-bottom: 2px solid var(--gold-400);
+  box-shadow: 0 2px 12px rgba(37, 99, 235, 0.35);
 }
 
 /* Setup Tab */
@@ -1539,8 +1549,18 @@ select.diesel-hidden-select {
 .tab-grid-item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   min-width: 0;
+  background: rgba(15, 23, 42, 0.45);
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  transition: all var(--t-fast);
+}
+
+.tab-grid-item:hover {
+  border-color: rgba(59, 130, 246, 0.5);
+  background: rgba(15, 23, 42, 0.65);
 }
 
 /* Faction Cards */
