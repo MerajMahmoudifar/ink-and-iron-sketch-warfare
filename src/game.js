@@ -3234,12 +3234,12 @@ class BootcampManager {
         certTitle.textContent = 'Tactical Certification: CERTIFIED COMMANDER';
         certTitle.classList.add('unlocked');
         certDetails.textContent = 'You have mastered all 5 tactical training doctrines!';
-        if (certIcon) certIcon.textContent = '🎖️';
+        if (certIcon) certIcon.textContent = '★';
       } else {
         certTitle.textContent = `Tactical Certification: ${count}/5 Completed`;
         certTitle.classList.remove('unlocked');
         certDetails.textContent = `Complete all 5 Officer Bootcamp lessons to earn Certified Commander.`;
-        if (certIcon) certIcon.textContent = '🔒';
+        if (certIcon) certIcon.textContent = '';
       }
     }
   }
@@ -3319,12 +3319,12 @@ class BootcampManager {
       if (!isSelected) {
         this.currentStep = 1;
         if (stepLabel) stepLabel.textContent = 'Step 1 of 3';
-        if (textEl) textEl.textContent = 'Click your Rifle Squad concealed inside the Forest corridor (🌲).';
+        if (textEl) textEl.textContent = 'Click your Rifle Squad concealed inside the Forest corridor.';
         this.positionPointerAtTile(2, 3, '1. Select Forest Squad');
       } else if (engine.phase === 'PLANNING') {
         this.currentStep = 2;
         if (stepLabel) stepLabel.textContent = 'Step 2 of 3';
-        if (textEl) textEl.textContent = 'Notice squad is in AMBUSH stance (🛡️ 50% cover defense). Click "End Phase" to spring the trap!';
+        if (textEl) textEl.textContent = 'Notice squad is in AMBUSH stance (50% cover defense). Click "End Phase" to spring the trap!';
         this.positionPointerAtElement('btn-end-turn', '2. Spring Ambush');
       } else {
         this.positionPointerAtTile(null, null);
@@ -3339,7 +3339,7 @@ class BootcampManager {
         if (!hasWaypoints) {
           this.currentStep = 1;
           if (stepLabel) stepLabel.textContent = 'Step 1 of 4';
-          if (textEl) textEl.innerHTML = 'Select your fast Scout (⚡) and click the Gold Supply Depot at (4, 3) to draw a movement path.';
+          if (textEl) textEl.innerHTML = 'Select your fast Scout and click the Gold Supply Depot at (4, 3) to draw a movement path.';
           this.positionPointerAtTile(4, 3, '1. Move to Gold Depot');
         } else {
           this.currentStep = 2;
@@ -3351,7 +3351,7 @@ class BootcampManager {
         this.currentStep = 3;
         if (stepLabel) stepLabel.textContent = 'Step 3 of 4 • Empty Tile Rule';
         if (textEl) {
-          textEl.innerHTML = `<b>Depot Secured (+10 Ink)!</b><br><span style="color:#f59e0b; font-weight:700;">⚠️ TACTICAL RULE:</span> Captured Depots can spawn units, <u>BUT THE TILE MUST BE EMPTY</u>. Because your Scout is occupying the Depot at (4, 3), deploy your Rifle Squad at your empty Base at (1, 3).`;
+          textEl.innerHTML = `<b>Depot Secured (+10 Ink)!</b><br><span style="color:#f59e0b; font-weight:700;">TACTICAL RULE:</span> Captured Depots can spawn units, <u>BUT THE TILE MUST BE EMPTY</u>. Because your Scout is occupying the Depot at (4, 3), deploy your Rifle Squad at your empty Base at (1, 3).`;
         }
         this.positionPointerAtElement('store-card-RIFLEMAN', '3. Recruit at Base');
       } else if (engine.phase === 'PLANNING') {
@@ -3463,9 +3463,10 @@ class BootcampManager {
         if (nextBtn) {
           nextBtn.textContent = `Next: Lesson ${currentId + 1}`;
           nextBtn.style.display = 'block';
+          nextBtn.onclick = () => window.nextBootcampLesson();
         }
       } else {
-        if (title) title.textContent = `🎖️ BOOTCAMP GRADUATION!`;
+        if (title) title.textContent = `BOOTCAMP GRADUATION!`;
         if (sub) sub.textContent = `Outstanding work, Commander! You have mastered all 5 doctrines.`;
         if (badgeArea) badgeArea.style.display = 'block';
         if (nextBtn) {
@@ -3566,6 +3567,15 @@ window.nextBootcampLesson = function() {
     } else {
       window.returnToBootcampMenu();
     }
+  }
+};
+
+window.replayBootcampLesson = function() {
+  const modal = document.getElementById('modal-bootcamp-complete');
+  if (modal) modal.style.display = 'none';
+  if (window.gApp && window.gApp.bootcampManager) {
+    const currentId = window.gApp.bootcampManager.activeLesson || 1;
+    window.gApp.bootcampManager.startLesson(currentId);
   }
 };
 

@@ -130,7 +130,7 @@
             <div class="bootcamp-card" id="bootcamp-card-1">
               <div>
                 <div class="bootcamp-card-top">
-                  <div class="bootcamp-card-icon">⏱️</div>
+                  <div class="bootcamp-card-icon">01</div>
                   <div>
                     <div class="bootcamp-card-num">Lesson 1 &bull; 60s</div>
                     <div class="bootcamp-card-name">The WEGO Clock</div>
@@ -139,7 +139,7 @@
                 <p class="bootcamp-card-desc">Learn how to select your squad, plot adjacent movement waypoints, and hit "End Phase" to watch simultaneous execution.</p>
               </div>
               <div class="bootcamp-card-footer">
-                <span class="bootcamp-duration-tag">🎯 Movement Basics</span>
+                <span class="bootcamp-duration-tag">Movement Basics</span>
                 <button class="btn-bootcamp-start" onclick="window.startBootcampLesson(1)">Start Lesson 1</button>
               </div>
             </div>
@@ -148,7 +148,7 @@
             <div class="bootcamp-card" id="bootcamp-card-2">
               <div>
                 <div class="bootcamp-card-top">
-                  <div class="bootcamp-card-icon">🌲</div>
+                  <div class="bootcamp-card-icon">02</div>
                   <div>
                     <div class="bootcamp-card-num">Lesson 2 &bull; 60s</div>
                     <div class="bootcamp-card-name">Cover &amp; Ambush Stance</div>
@@ -157,7 +157,7 @@
                 <p class="bootcamp-card-desc">Conceal a squad in the dense forest with Ambush Stance to spring a surprise attack with 50% reduced return fire.</p>
               </div>
               <div class="bootcamp-card-footer">
-                <span class="bootcamp-duration-tag">🛡️ Tactical Stances</span>
+                <span class="bootcamp-duration-tag">Tactical Stances</span>
                 <button class="btn-bootcamp-start" onclick="window.startBootcampLesson(2)">Start Lesson 2</button>
               </div>
             </div>
@@ -166,7 +166,7 @@
             <div class="bootcamp-card" id="bootcamp-card-3">
               <div>
                 <div class="bootcamp-card-top">
-                  <div class="bootcamp-card-icon">🪙</div>
+                  <div class="bootcamp-card-icon">03</div>
                   <div>
                     <div class="bootcamp-card-num">Lesson 3 &bull; 90s</div>
                     <div class="bootcamp-card-name">Supply Depots &amp; Recruiting</div>
@@ -175,7 +175,7 @@
                 <p class="bootcamp-card-desc">Capture a neutral Gold Supply Depot to gain +10 Ink/Turn, master the empty-tile forward deployment rule, and reinforce your army.</p>
               </div>
               <div class="bootcamp-card-footer">
-                <span class="bootcamp-duration-tag">🏭 War Economy</span>
+                <span class="bootcamp-duration-tag">War Economy</span>
                 <button class="btn-bootcamp-start" onclick="window.startBootcampLesson(3)">Start Lesson 3</button>
               </div>
             </div>
@@ -184,7 +184,7 @@
             <div class="bootcamp-card" id="bootcamp-card-4">
               <div>
                 <div class="bootcamp-card-top">
-                  <div class="bootcamp-card-icon">⚔️</div>
+                  <div class="bootcamp-card-icon">04</div>
                   <div>
                     <div class="bootcamp-card-num">Lesson 4 &bull; 90s</div>
                     <div class="bootcamp-card-name">The Counter Triangle</div>
@@ -193,7 +193,7 @@
                 <p class="bootcamp-card-desc">Master rock-paper-scissors: Anti-Tank pierces heavy armor (2.5x), Rifle Squad flanks AT crews, and Armored Cars crush infantry.</p>
               </div>
               <div class="bootcamp-card-footer">
-                <span class="bootcamp-duration-tag">📐 Counter Matrix</span>
+                <span class="bootcamp-duration-tag">Counter Matrix</span>
                 <button class="btn-bootcamp-start" onclick="window.startBootcampLesson(4)">Start Lesson 4</button>
               </div>
             </div>
@@ -202,7 +202,7 @@
             <div class="bootcamp-card" id="bootcamp-card-5">
               <div>
                 <div class="bootcamp-card-top">
-                  <div class="bootcamp-card-icon">🎓</div>
+                  <div class="bootcamp-card-icon">05</div>
                   <div>
                     <div class="bootcamp-card-num">Lesson 5 &bull; 2 Min</div>
                     <div class="bootcamp-card-name">Graduation Skirmish</div>
@@ -211,7 +211,7 @@
                 <p class="bootcamp-card-desc">Combine all skills in a compact frontline battle. Secure the depots, recruit counters, and demolish the enemy HQ to graduate!</p>
               </div>
               <div class="bootcamp-card-footer">
-                <span class="bootcamp-duration-tag">🏅 Final Certification</span>
+                <span class="bootcamp-duration-tag">Final Certification</span>
                 <button class="btn-bootcamp-start" onclick="window.startBootcampLesson(5)">Start Graduation</button>
               </div>
             </div>
@@ -587,7 +587,7 @@
 
           <!-- Sergeant Instructor Briefing Card (Bootcamp Only) -->
           <div id="bootcamp-instructor-dialog" class="bootcamp-instructor-card" style="display: none;">
-            <div class="bootcamp-instructor-avatar">🎖️</div>
+            <div class="bootcamp-instructor-avatar">SGT</div>
             <div class="bootcamp-instructor-info">
               <div class="bootcamp-instructor-meta">
                 <span class="bootcamp-instructor-name">Sgt. Penna</span>
@@ -599,9 +599,8 @@
             </div>
           </div>
 
-          <!-- Animated Pointer / Chalk Arrow -->
+          <!-- Animated Pointer Label -->
           <div id="bootcamp-pointer-hint" class="bootcamp-pointer-hint" style="display: none;">
-            <div class="bootcamp-pointer-hand">👆</div>
             <div id="bootcamp-pointer-label" class="bootcamp-pointer-label">Click Here</div>
           </div>
         </section>
@@ -739,9 +738,10 @@
     </div>
 
     <!-- FIRST-TIME RECRUIT BOOTCAMP INVITATION MODAL -->
+    <!-- FIRST-TIME RECRUIT BOOTCAMP INVITATION MODAL -->
     <div id="modal-bootcamp-invite" class="modal-overlay" style="display: none;">
       <div class="modal-card" style="max-width: 480px; text-align: center; border-left: 4px solid var(--gold-400);">
-        <div style="font-size: 2.4rem; margin-bottom: 6px;">🎖️</div>
+        <div class="menu-logo-badge" style="display: inline-block; margin-bottom: 8px;">CADET BRIEFING</div>
         <h2 class="modal-title" style="color: var(--gold-400);">New Commander Detected!</h2>
         <p class="modal-subtitle" style="margin-top: 8px; font-size: 0.88rem; color: var(--text-primary);">
           Welcome to Ink &amp; Iron! Would you like a quick 3-minute <b>Officer Bootcamp</b> to master simultaneous turns, cover, and unit counters?
@@ -760,26 +760,28 @@
     <!-- BOOTCAMP LESSON COMPLETE / GRADUATION MODAL -->
     <div id="modal-bootcamp-complete" class="modal-overlay" style="display: none;">
       <div class="modal-card" style="max-width: 500px; text-align: center;">
-        <div id="bootcamp-complete-icon" style="font-size: 2.6rem; margin-bottom: 6px;">🏅</div>
-        <h2 id="bootcamp-complete-title" class="modal-title" style="color: var(--gold-400);">Lesson Complete!</h2>
+        <h2 id="bootcamp-complete-title" class="modal-title" style="color: var(--gold-400); margin-top: 4px;">Lesson Complete!</h2>
         <p id="bootcamp-complete-subtitle" class="modal-subtitle" style="margin-top: 6px; font-size: 0.88rem; color: var(--text-primary);">
           Tactical objective achieved with flying colors.
         </p>
         <div id="bootcamp-complete-badge-area" style="margin-top: 14px; display: none;">
           <div class="bootcamp-cert-card" style="border-color: var(--gold-400); background: rgba(245, 158, 11, 0.1);">
-            <div class="bootcamp-cert-icon">🎖️</div>
+            <div class="bootcamp-cert-icon" style="font-family: var(--font-display); font-weight: 800; color: var(--gold-400);">★</div>
             <div style="text-align: left;">
               <div class="bootcamp-cert-title unlocked">CERTIFIED COMMANDER</div>
               <div class="bootcamp-cert-sub">You have mastered all 5 tactical training doctrines!</div>
             </div>
           </div>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 20px;">
           <button id="btn-bootcamp-next" class="btn-sketch btn-sketch-lg btn-deploy-hero" onclick="window.nextBootcampLesson()">
             Next Lesson
           </button>
-          <button class="btn-sketch" onclick="window.returnToBootcampMenu()">
-            Return to Bootcamp Menu
+          <button id="btn-bootcamp-replay" class="btn-sketch" onclick="window.replayBootcampLesson()">
+            Replay Lesson
+          </button>
+          <button id="btn-bootcamp-menu" class="btn-sketch" onclick="window.returnToBootcampMenu()">
+            Return to Menu
           </button>
         </div>
       </div>
