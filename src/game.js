@@ -595,6 +595,74 @@ class Combat {
   static getDistance(p1, p2) {
     return Math.max(Math.abs(p1.x - p2.x), Math.abs(p1.y - p2.y));
   }
+
+  static getForecast(attacker, defender, grid, factions) {
+    if (!attacker || !defender || !attacker.isAlive() || !defender.isAlive()) return null;
+    const attackerFaction = (factions && factions[attacker.owner]) ? factions[attacker.owner] : FACTIONS.IRON_CORPS;
+    const defenderFaction = (factions && factions[defender.owner]) ? factions[defender.owner] : FACTIONS.VANGUARD_LEGION;
+    const defenderTerrain = (grid && grid[defender.y] && grid[defender.y][defender.x]) ? grid[defender.y][defender.x] : { id: 'PLAINS', defenseBonus: 0 };
+
+    let baseDamage = attacker.attack;
+    let counterNote = '';
+
+    if (attacker.typeKey === 'ANTI_TANK' && defender.category === 'VEHICLE') {
+      baseDamage *= (attacker.vehicleBonus || 2.5);
+      counterNote = 'AT Weapon: +150% vs Armor';
+    } else if (attacker.typeKey === 'ARTILLERY' && defender.category === 'INFANTRY') {
+      baseDamage *= (attacker.infantryBonus || 1.5);
+      counterNote = 'HE Shells: +50% vs Infantry';
+    } else if (attacker.typeKey === 'MACHINE_GUN' && defender.category === 'INFANTRY') {
+      baseDamage *= 1.4;
+      counterNote = 'Suppression: +40% vs Infantry';
+    }
+
+    const attackerStanceObj = STANCES[attacker.stance] || STANCES.ADVANCE;
+    const defenderStanceObj = STANCES[defender.stance] || STANCES.ADVANCE;
+
+    baseDamage *= attackerStanceObj.accuracy;
+    let defenderDefenseMod = 1.0 - (defenderTerrain.defenseBonus || 0);
+
+    if (defenderFaction.id === FACTIONS.IRON_CORPS.id) {
+      if (['CAPTURE_ZONE', 'FOREST', 'MAIN_BASE'].includes(defenderTerrain.id)) {
+        defenderDefenseMod *= 0.80;
+      }
+    }
+
+    defenderDefenseMod /= defenderStanceObj.defense;
+    const minDmg = Math.round(Math.max(5, baseDamage * defenderDefenseMod * 0.9));
+    const maxDmg = Math.round(Math.max(5, baseDamage * defenderDefenseMod * 1.1));
+    const avgDmg = Math.round((minDmg + maxDmg) / 2);
+    const armorMitigationPercent = Math.max(0, Math.round((1 - defenderDefenseMod) * 100));
+
+    // Retaliation calculation (if defender has range to hit attacker)
+    const dist = CombatSystem.getDistance(attacker, defender);
+    const canRetaliate = dist <= defender.attackRange;
+    let retMinDmg = 0;
+    let retMaxDmg = 0;
+    if (canRetaliate) {
+      const attackerTerrain = (grid && grid[attacker.y] && grid[attacker.y][attacker.x]) ? grid[attacker.y][attacker.x] : { id: 'PLAINS', defenseBonus: 0 };
+      let retBase = defender.attack;
+      if (defender.typeKey === 'ANTI_TANK' && attacker.category === 'VEHICLE') retBase *= (defender.vehicleBonus || 2.5);
+      if (defender.typeKey === 'ARTILLERY' && attacker.category === 'INFANTRY') retBase *= (defender.infantryBonus || 1.5);
+      retBase *= defenderStanceObj.accuracy;
+      const attDefenseMod = (1.0 - (attackerTerrain.defenseBonus || 0)) / attackerStanceObj.defense;
+      retMinDmg = Math.round(Math.max(5, retBase * attDefenseMod * 0.9));
+      retMaxDmg = Math.round(Math.max(5, retBase * attDefenseMod * 1.1));
+    }
+
+    return {
+      attacker,
+      defender,
+      minDamage: minDmg,
+      maxDamage: maxDmg,
+      avgDamage: avgDmg,
+      armorMitigationPercent,
+      canRetaliate,
+      retaliationMin: retMinDmg,
+      retaliationMax: retMaxDmg,
+      counterNote
+    };
+  }
 }
 
 // ==========================================
@@ -3036,6 +3104,76 @@ class UIManager {
           engine.setUnitWaypoints(unitOnTile.id, []);
           this.updateHUD(engine);
         });
+      }
+    }
+
+    // Update Tactical Engagement Forecast (Zero-Hidden-Math Combat Predictor)
+    const forecastCard = document.getElementById('combat-forecast-card');
+    if (forecastCard) {
+      let forecast = null;
+      const factionsMap = { 1: engine.player1Faction, 2: engine.player2Faction };
+
+      if (unitOnTile) {
+        if (unitOnTile.owner === 2) {
+          // Player is inspecting an enemy unit! Find best friendly attacker
+          const friendlyUnits = engine.players[1].units.filter(u => u.isAlive());
+          let bestAttacker = friendlyUnits.find(u => {
+            const lastWp = u.waypoints.length > 0 ? u.waypoints[u.waypoints.length - 1] : { x: u.x, y: u.y };
+            return CombatSystem.getDistance(lastWp, unitOnTile) <= u.attackRange;
+          }) || friendlyUnits.find(u => CombatSystem.getDistance(u, unitOnTile) <= u.attackRange);
+
+          if (!bestAttacker && friendlyUnits.length > 0) {
+            bestAttacker = friendlyUnits.reduce((closest, cur) => {
+              const dCur = CombatSystem.getDistance(cur, unitOnTile);
+              const dClo = CombatSystem.getDistance(closest, unitOnTile);
+              return dCur < dClo ? cur : closest;
+            }, friendlyUnits[0]);
+          }
+
+          if (bestAttacker) {
+            forecast = CombatSystem.getForecast(bestAttacker, unitOnTile, engine.grid, factionsMap);
+          }
+        } else if (unitOnTile.owner === 1) {
+          // Player is inspecting friendly unit! Find visible enemy targets in range
+          const enemyUnits = engine.players[2].units.filter(u => u.isAlive() && p1Vision[u.y][u.x]);
+          const targetEnemy = enemyUnits.find(e => CombatSystem.getDistance(unitOnTile, e) <= unitOnTile.attackRange) ||
+                              (enemyUnits.length > 0 ? enemyUnits.reduce((closest, cur) => {
+                                const dCur = CombatSystem.getDistance(unitOnTile, cur);
+                                const dClo = CombatSystem.getDistance(unitOnTile, closest);
+                                return dCur < dClo ? cur : closest;
+                              }, enemyUnits[0]) : null);
+
+          if (targetEnemy) {
+            forecast = CombatSystem.getForecast(unitOnTile, targetEnemy, engine.grid, factionsMap);
+          }
+        }
+      }
+
+      if (forecast) {
+        forecastCard.style.display = 'flex';
+        const targetNameEl = document.getElementById('forecast-target-name');
+        const dmgEl = document.getElementById('forecast-damage-val');
+        const armorEl = document.getElementById('forecast-armor-val');
+        const retEl = document.getElementById('forecast-retaliation-val');
+        const noteEl = document.getElementById('forecast-note');
+
+        if (targetNameEl) targetNameEl.textContent = `${forecast.attacker.name} vs ${forecast.defender.name}`;
+        if (dmgEl) dmgEl.textContent = `${forecast.minDamage}–${forecast.maxDamage} HP`;
+        if (armorEl) armorEl.textContent = forecast.armorMitigationPercent > 0 ? `-${forecast.armorMitigationPercent}%` : 'None';
+        if (retEl) {
+          retEl.textContent = forecast.canRetaliate ? `${forecast.retaliationMin}–${forecast.retaliationMax} HP` : 'Safe (Out of Range)';
+          retEl.style.color = forecast.canRetaliate ? '#fbbf24' : '#4ade80';
+        }
+        if (noteEl) {
+          if (forecast.counterNote) {
+            noteEl.textContent = `⚠️ ${forecast.counterNote}`;
+            noteEl.style.display = 'block';
+          } else {
+            noteEl.style.display = 'none';
+          }
+        }
+      } else {
+        forecastCard.style.display = 'none';
       }
     }
   }
