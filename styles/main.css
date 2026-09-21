@@ -3417,5 +3417,235 @@ select.diesel-hidden-select {
   font-size: 0.75rem;
 }
 
+/* ============================================
+   DIESELPUNK TACTICAL BADGES & SILHOUETTES
+   ============================================ */
 
+.tactical-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  background: radial-gradient(circle at 35% 35%, #1e293b 0%, #070c16 100%);
+  border: 1.5px solid rgba(245, 158, 11, 0.4);
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.85), 0 3px 10px rgba(0, 0, 0, 0.6);
+  user-select: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
+/* Frame geometries: Infantry circle vs Vehicle track-oval */
+.tactical-badge.frame-infantry {
+  border-radius: 50%;
+}
+.tactical-badge.frame-vehicle {
+  border-radius: 28% 28% 28% 28% / 38% 38% 38% 38%;
+}
+
+/* Inner silhouette container */
+.tactical-badge-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+}
+
+.tactical-badge-inner svg {
+  display: block;
+}
+
+/* Dual-Layer Team Coding */
+.tactical-badge.badge-allied {
+  border-color: rgba(59, 130, 246, 0.6);
+  box-shadow: inset 0 0 8px rgba(37, 99, 235, 0.3), 0 0 10px rgba(37, 99, 235, 0.35);
+  color: #93c5fd;
+}
+.tactical-badge.badge-allied:hover {
+  box-shadow: inset 0 0 10px rgba(59, 130, 246, 0.5), 0 0 16px rgba(59, 130, 246, 0.55);
+}
+
+.tactical-badge.badge-enemy {
+  border-color: rgba(239, 68, 68, 0.65);
+  box-shadow: inset 0 0 8px rgba(220, 38, 38, 0.3), 0 0 10px rgba(220, 38, 38, 0.35);
+  color: #fca5a5;
+}
+
+.tactical-badge.badge-neutral {
+  border-color: rgba(245, 158, 11, 0.55);
+  box-shadow: inset 0 0 8px rgba(217, 119, 6, 0.25), 0 0 8px rgba(245, 158, 11, 0.25);
+  color: #fde68a;
+}
+
+/* Sizing Tokens */
+.tactical-badge.badge-xs {
+  width: 22px;
+  height: 22px;
+  border-width: 1px;
+}
+.tactical-badge.badge-sm {
+  width: 30px;
+  height: 30px;
+  border-width: 1.5px;
+}
+.tactical-badge.badge-md {
+  width: 44px;
+  height: 44px;
+  border-width: 2px;
+}
+.tactical-badge.badge-lg {
+  width: 58px;
+  height: 58px;
+  border-width: 2px;
+}
+.tactical-badge.badge-xl {
+  width: 74px;
+  height: 74px;
+  border-width: 2.5px;
+}
+
+/* Brass Rivet Notches on Badge Rim */
+.tactical-badge-rim {
+  position: absolute;
+  inset: 2px;
+  border: 1px dashed rgba(245, 158, 11, 0.25);
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Role Mini-Pip */
+.tactical-badge-role-tag {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  font-family: var(--font-mono);
+  font-size: 0.52rem;
+  font-weight: 800;
+  padding: 1px 3px;
+  border-radius: 2px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  z-index: 3;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+/* Store Unit Card Layout Enhancement */
+.unit-card-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.unit-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.unit-card-titles {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+}
+
+.unit-card-btn:hover .tactical-badge {
+  transform: scale(1.06);
+  border-color: var(--gold-400);
+}
+
+/* Dossier Header with Tactical Badge */
+.dossier-unit-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dossier-unit-meta-col {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 3px;
+}
+
+.dossier-unit-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.dossier-unit-affiliation {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.text-allied {
+  color: #60a5fa;
+}
+
+.text-enemy {
+  color: #f87171;
+}
+
+/* Field Manual / Codex Illustrated Matrix Cards */
+.codex-unit-card {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--r-sm);
+  padding: 12px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  transition: all 0.2s ease;
+}
+
+.codex-unit-card:hover {
+  border-color: var(--gold-400);
+  background: rgba(20, 30, 52, 0.85);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5), 0 0 10px rgba(245, 158, 11, 0.15);
+}
+
+.codex-unit-card-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 4px;
+}
+
+.codex-unit-card-title {
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--gold-300);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.codex-unit-card-stats {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: #94a3b8;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.codex-unit-card-desc {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+  margin-top: 2px;
+}

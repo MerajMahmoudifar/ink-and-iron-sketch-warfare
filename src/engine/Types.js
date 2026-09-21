@@ -43,7 +43,7 @@ export const UNIT_TYPES = {
     attackRange: 1,
     visionRange: 4,
     description: 'Fast, high vision range, captures distant zones quickly. Mired for 1 turn upon entering mud, swamps, or ponds.',
-    icon: '🕵️'
+    icon: 'SCOUT'
   },
   RIFLEMAN: {
     id: 'RIFLEMAN',
@@ -56,7 +56,7 @@ export const UNIT_TYPES = {
     attackRange: 1,
     visionRange: 2,
     description: 'Balanced frontline troop. Strong against AT crews. Mired for 1 turn upon entering mud, swamps, or ponds.',
-    icon: '🪖'
+    icon: 'RIFLEMAN'
   },
   ANTI_TANK: {
     id: 'ANTI_TANK',
@@ -70,7 +70,7 @@ export const UNIT_TYPES = {
     attackRange: 2,
     visionRange: 2,
     description: 'Slow heavy artillery crew. Devastating vs armor. Mired for 1 turn upon entering mud, swamps, or ponds.',
-    icon: '🎯'
+    icon: 'ANTI_TANK'
   },
   LIGHT_VEHICLE: {
     id: 'LIGHT_VEHICLE',
@@ -84,7 +84,7 @@ export const UNIT_TYPES = {
     attackRange: 1,
     visionRange: 3,
     description: 'Fast armored vehicle. Obliterates basic infantry; completely impassable to mud, swamps, ponds & deep water.',
-    icon: '🏎️'
+    icon: 'LIGHT_VEHICLE'
   },
   HEAVY_SIEGE_TANK: {
     id: 'HEAVY_SIEGE_TANK',
@@ -98,7 +98,7 @@ export const UNIT_TYPES = {
     visionRange: 2,
     factionLock: 'IRON_CORPS',
     description: 'Iron Corps Exclusive. Massive armored beast with crushing firepower. Impassable to mud, swamps, ponds & water.',
-    icon: '🚜'
+    icon: 'HEAVY_SIEGE_TANK'
   },
   BLITZ_RECON: {
     id: 'BLITZ_RECON',
@@ -112,7 +112,7 @@ export const UNIT_TYPES = {
     visionRange: 4,
     factionLock: 'VANGUARD_LEGION',
     description: 'Vanguard Exclusive. Rapid hit-and-run raider with extreme mobility. Impassable to mud, swamps, ponds & water.',
-    icon: '⚡'
+    icon: 'BLITZ_RECON'
   }
 };
 

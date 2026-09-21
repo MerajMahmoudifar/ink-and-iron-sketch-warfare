@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ink &amp; Iron: Sketch Warfare | Turn-Based Grid Strategy</title>
   <meta name="description" content="Ink &amp; Iron: Sketch Warfare is a turn-based grid strategy game with hand-drawn paper aesthetics, unique factions, command abilities, and simultaneous combat playback.">
-  <link rel="stylesheet" href="styles/main.css?v=2.9.16">
+  <link rel="stylesheet" href="styles/main.css?v=2.10.0">
 </head>
 <body>
 
@@ -289,7 +289,10 @@
               </div>
               <ul class="faction-perks-list">
                 <li><b>Passive:</b> +20% defense bonus on Supply Zones, Forests &amp; Bases.</li>
-                <li><b>Exclusive Unit:</b> Heavy Siege Tank &mdash; massive HP &amp; splash firepower.</li>
+                <li style="display: flex; align-items: center; gap: 10px;">
+                  <span data-unit-badge="HEAVY_SIEGE_TANK" data-badge-size="md"></span>
+                  <div><b>Exclusive War Machine:</b> Heavy Siege Tank &mdash; massive HP &amp; crushing firepower.</div>
+                </li>
                 <li><b>Doctrine:</b> Defensive choke points and holding victory centers.</li>
               </ul>
             </div>
@@ -304,7 +307,10 @@
               </div>
               <ul class="faction-perks-list">
                 <li><b>Passive:</b> +1 movement on open terrain &amp; ambush bonus in forests.</li>
-                <li><b>Exclusive Unit:</b> Blitz Recon Vehicle &mdash; 4-tile rapid raider.</li>
+                <li style="display: flex; align-items: center; gap: 10px;">
+                  <span data-unit-badge="BLITZ_RECON" data-badge-size="md"></span>
+                  <div><b>Exclusive War Machine:</b> Blitz Recon Vehicle &mdash; 4-tile rapid raider.</div>
+                </li>
                 <li><b>Doctrine:</b> Fast flanks and surprise forest strikes.</li>
               </ul>
             </div>
@@ -426,37 +432,67 @@
                 </thead>
                 <tbody>
                   <tr>
-                    <td><b>Rifle Squad</b></td>
+                    <td>
+                      <div style="display: flex; align-items: center; gap: 8px;">
+                        <span data-unit-badge="RIFLEMAN" data-badge-size="sm"></span>
+                        <b>Rifle Squad</b>
+                      </div>
+                    </td>
                     <td>Infantry</td>
                     <td>AT Crews (1.5x Dmg) | 50% Armor Penalty</td>
                     <td>DEFEND / ADVANCE</td>
                   </tr>
                   <tr>
-                    <td><b>Scout Infantry</b></td>
+                    <td>
+                      <div style="display: flex; align-items: center; gap: 8px;">
+                        <span data-unit-badge="SCOUT" data-badge-size="sm"></span>
+                        <b>Scout Infantry</b>
+                      </div>
+                    </td>
                     <td>Infantry</td>
                     <td>Recon &amp; Forest Ambush (1.5x Dmg)</td>
                     <td>AMBUSH / ADVANCE</td>
                   </tr>
                   <tr>
-                    <td><b>Anti-Tank Squad</b></td>
+                    <td>
+                      <div style="display: flex; align-items: center; gap: 8px;">
+                        <span data-unit-badge="ANTI_TANK" data-badge-size="sm"></span>
+                        <b>Anti-Tank Squad</b>
+                      </div>
+                    </td>
                     <td>Infantry</td>
                     <td>Tanks &amp; Armored Cars (2.5x Penetration)</td>
                     <td>DEFEND</td>
                   </tr>
                   <tr>
-                    <td><b>Armored Car</b></td>
+                    <td>
+                      <div style="display: flex; align-items: center; gap: 8px;">
+                        <span data-unit-badge="LIGHT_VEHICLE" data-badge-size="sm"></span>
+                        <b>Light Armored Car</b>
+                      </div>
+                    </td>
                     <td>Vehicle</td>
                     <td>Infantry &amp; AT Crews (1.5x Crush)</td>
                     <td>ADVANCE</td>
                   </tr>
                   <tr>
-                    <td><b>Heavy Siege Tank</b></td>
+                    <td>
+                      <div style="display: flex; align-items: center; gap: 8px;">
+                        <span data-unit-badge="HEAVY_SIEGE_TANK" data-badge-size="sm"></span>
+                        <b>Heavy Siege Tank</b>
+                      </div>
+                    </td>
                     <td>Vehicle (Iron Corps)</td>
                     <td>Infantry &amp; Chokes (1.5x Crush)</td>
                     <td>DEFEND</td>
                   </tr>
                   <tr>
-                    <td><b>🗲 Blitz Recon Car</b></td>
+                    <td>
+                      <div style="display: flex; align-items: center; gap: 8px;">
+                        <span data-unit-badge="BLITZ_RECON" data-badge-size="sm"></span>
+                        <b>Blitz Recon Car</b>
+                      </div>
+                    </td>
                     <td>Vehicle (Vanguard)</td>
                     <td>Infantry Flanking (4 Move / 1.5x Crush)</td>
                     <td>ADVANCE</td>
@@ -1220,7 +1256,8 @@
 
   </div>
 
+  <script src="src/ui/UnitIcons.js?v=2.10.0"></script>
   <script src="src/firebase-config.js"></script>
-  <script src="src/game.js?v=2.9.16"></script>
+  <script src="src/game.js?v=2.10.0"></script>
 </body>
 </html>

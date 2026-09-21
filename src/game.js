@@ -2982,8 +2982,15 @@ class SketchRenderer {
   }
 
   drawUnit(unit, x, y, engine) {
+    const cx = x + 35;
+    const cy = y + 35;
+
+    if (typeof UnitIcons !== 'undefined') {
+      UnitIcons.drawCanvasToken(this.ctx, unit, cx, cy, engine);
+      return;
+    }
+
     this.ctx.save();
-    const cx = x + 35; const cy = y + 35;
     const isP1 = unit.owner === 1;
     const mainColor = isP1 ? '#2563eb' : '#dc2626';
     const bgFill = isP1 ? '#0a101f' : '#220808';
@@ -3532,16 +3539,25 @@ class UIManager {
       const btn = document.createElement('button');
       const roleLabel = u.category || 'COMBAT';
       const roleClass = (u.category === 'VEHICLE' || u.category === 'ARMOR') ? 'role-vehicle' : (u.category === 'INFANTRY' ? 'role-infantry' : 'role-support');
+      const badgeHtml = (typeof UnitIcons !== 'undefined')
+        ? UnitIcons.getBadgeHtml(key, { size: 'md', owner: 1 })
+        : `<span class="unit-card-symbol">${u.symbol || '⬚'}</span>`;
+
       btn.id = 'store-card-' + key;
       btn.className = 'unit-card-btn';
       btn.innerHTML = `
-        <div class="unit-card-top-row">
-          <span class="unit-card-title">${u.symbol} ${u.name}</span>
-          <span class="unit-card-cost">${u.cost} Ink</span>
-        </div>
-        <div class="unit-card-sub-row">
-          <span class="unit-role-tag ${roleClass}">${roleLabel}</span>
-          <span class="unit-card-meta">HP ${u.maxHp} &bull; ATK ${u.attack} &bull; MOV ${u.moveRange} &bull; RNG ${u.attackRange}</span>
+        <div class="unit-card-header">
+          ${badgeHtml}
+          <div class="unit-card-titles">
+            <div class="unit-card-top-row">
+              <span class="unit-card-title">${u.name}</span>
+              <span class="unit-card-cost">${u.cost} Ink</span>
+            </div>
+            <div class="unit-card-sub-row">
+              <span class="unit-role-tag ${roleClass}">${roleLabel}</span>
+              <span class="unit-card-meta">HP ${u.maxHp} &bull; ATK ${u.attack} &bull; MOV ${u.moveRange} &bull; RNG ${u.attackRange}</span>
+            </div>
+          </div>
         </div>
         <div class="unit-card-desc">${u.description}</div>`;
       
@@ -3768,16 +3784,22 @@ class UIManager {
       const roleLabel = unitOnTile.category || 'COMBAT';
       const roleClass = (unitOnTile.category === 'VEHICLE' || unitOnTile.category === 'ARMOR') ? 'role-vehicle' : (unitOnTile.category === 'INFANTRY' ? 'role-infantry' : 'role-support');
 
+      const badgeHtml = (typeof UnitIcons !== 'undefined')
+        ? UnitIcons.getBadgeHtml(unitOnTile.typeKey || unitOnTile.id, { size: 'lg', owner: unitOnTile.owner })
+        : `<span class="dossier-unit-symbol">${unitOnTile.symbol}</span>`;
+
       html += `
         <div class="dossier-unit-card">
           <div class="dossier-unit-header">
-            <span class="dossier-allegiance-badge ${isFriendly ? 'allegiance-friendly' : 'allegiance-enemy'}">
-              ${isFriendly ? '&bull; FRIENDLY SQUAD &bull; P1' : '&bull; ENEMY CONTACT &bull; AI'}
-            </span>
-            <div class="dossier-unit-title-row">
-              <span class="dossier-unit-symbol">${unitOnTile.symbol}</span>
-              <span class="dossier-unit-name">${unitOnTile.name}</span>
-              <span class="unit-role-tag ${roleClass}">${roleLabel}</span>
+            ${badgeHtml}
+            <div class="dossier-unit-meta-col">
+              <span class="dossier-allegiance-badge ${isFriendly ? 'allegiance-friendly' : 'allegiance-enemy'}">
+                ${isFriendly ? '&bull; FRIENDLY SQUAD &bull; ALLIED' : '&bull; ENEMY CONTACT &bull; AXIS'}
+              </span>
+              <div class="dossier-unit-title-row">
+                <span class="dossier-unit-name">${unitOnTile.name}</span>
+                <span class="unit-role-tag ${roleClass}">${roleLabel}</span>
+              </div>
             </div>
           </div>
 
@@ -4539,6 +4561,9 @@ window.switchMenuTab = function(btnId, paneId) {
   const activePane = document.getElementById(paneId);
   if (activeBtn) activeBtn.classList.add('active');
   if (activePane) activePane.style.display = 'flex';
+  if (typeof UnitIcons !== 'undefined' && activePane) {
+    UnitIcons.renderStaticBadges(activePane);
+  }
   if (btnId === 'tab-btn-bootcamp' || btnId === 'tab-btn-account') {
     if (window.gApp && window.gApp.bootcampManager) window.gApp.bootcampManager.updateMenuUI();
   }
@@ -5231,6 +5256,10 @@ window.switchCodexSubtab = function(subtabKey, btnEl) {
   const btns = document.querySelectorAll('.codex-subtab-bar .subtab-btn');
   btns.forEach(b => b.classList.remove('active'));
   if (btnEl) btnEl.classList.add('active');
+  const targetPane = document.getElementById(`codex-subpane-${subtabKey}`);
+  if (typeof UnitIcons !== 'undefined' && targetPane) {
+    UnitIcons.renderStaticBadges(targetPane);
+  }
   try { if (window.gApp && window.gApp.audio) window.gApp.audio.playPencilScratch(); } catch(e){}
 };
 
