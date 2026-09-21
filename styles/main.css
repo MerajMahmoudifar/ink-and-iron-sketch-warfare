@@ -279,7 +279,7 @@ header.hud-header {
    ============================================ */
 .main-game-layout {
   display: grid;
-  grid-template-columns: 280px 1fr 310px;
+  grid-template-columns: 280px 1fr 320px;
   gap: 8px;
   align-items: stretch;
   flex: 1;
@@ -1082,8 +1082,8 @@ select.diesel-hidden-select {
 
 .unit-card-btn {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   padding: 8px 10px;
   border: 1px solid #1e293b;
   border-left: 3px solid #3b82f6;
@@ -1093,7 +1093,7 @@ select.diesel-hidden-select {
   transition: all var(--t-fast);
   flex-shrink: 0;
   text-align: left;
-  gap: 8px;
+  gap: 4px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
   width: 100%;
   box-sizing: border-box;
@@ -1105,6 +1105,22 @@ select.diesel-hidden-select {
   border-left-color: #60a5fa;
   transform: translateX(2px);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+
+.unit-card-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 8px;
+}
+
+.unit-card-sub-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 1px;
 }
 
 .unit-card-info {
@@ -1125,12 +1141,14 @@ select.diesel-hidden-select {
 }
 
 .unit-card-title {
+  font-family: var(--font-display);
   font-weight: 700;
-  font-size: 0.82rem;
+  font-size: 0.88rem;
   color: #f8fafc;
   white-space: normal;
   word-break: normal;
-  line-height: 1.25;
+  line-height: 1.2;
+  flex: 1;
 }
 
 .unit-role-tag {
@@ -1177,12 +1195,12 @@ select.diesel-hidden-select {
 .unit-card-cost {
   font-family: var(--font-mono);
   font-weight: 800;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   color: #fbbf24;
-  background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.35);
-  padding: 4px 8px;
-  border-radius: 4px;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  padding: 2px 8px;
+  border-radius: 3px;
   white-space: nowrap;
   flex-shrink: 0;
   letter-spacing: 0.03em;

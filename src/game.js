@@ -3414,15 +3414,15 @@ class UIManager {
       btn.id = 'store-card-' + key;
       btn.className = 'unit-card-btn';
       btn.innerHTML = `
-        <div class="unit-card-info">
-          <div class="unit-card-header">
-            <span class="unit-card-title">${u.symbol} ${u.name}</span>
-            <span class="unit-role-tag ${roleClass}">${roleLabel}</span>
-          </div>
-          <div class="unit-card-desc">${u.description}</div>
-          <div class="unit-card-meta">HP ${u.maxHp} &bull; ATK ${u.attack} &bull; MOV ${u.moveRange} &bull; RNG ${u.attackRange}</div>
+        <div class="unit-card-top-row">
+          <span class="unit-card-title">${u.symbol} ${u.name}</span>
+          <span class="unit-card-cost">${u.cost} Ink</span>
         </div>
-        <span class="unit-card-cost">${u.cost} Ink</span>`;
+        <div class="unit-card-sub-row">
+          <span class="unit-role-tag ${roleClass}">${roleLabel}</span>
+          <span class="unit-card-meta">HP ${u.maxHp} &bull; ATK ${u.attack} &bull; MOV ${u.moveRange} &bull; RNG ${u.attackRange}</span>
+        </div>
+        <div class="unit-card-desc">${u.description}</div>`;
       
       btn.addEventListener('click', () => {
         this.app.audio.playPencilScratch();

@@ -425,12 +425,18 @@ export class UIManager {
       const uType = UNIT_TYPES[key];
       const btn = document.createElement('button');
       btn.className = 'unit-card-btn';
+      const roleLabel = uType.category || 'COMBAT';
+      const roleClass = (uType.category === 'VEHICLE' || uType.category === 'ARMOR') ? 'role-vehicle' : (uType.category === 'INFANTRY' ? 'role-infantry' : 'role-support');
       btn.innerHTML = `
-        <div class="unit-card-info">
-          <span class="unit-card-title">${uType.icon} ${uType.name}</span>
-          <span class="unit-card-desc">${uType.description}</span>
+        <div class="unit-card-top-row">
+          <span class="unit-card-title">${uType.icon || ''} ${uType.name}</span>
+          <span class="unit-card-cost">${uType.cost} Ink</span>
         </div>
-        <span class="unit-card-cost">✒️ ${uType.cost}</span>
+        <div class="unit-card-sub-row">
+          <span class="unit-role-tag ${roleClass}">${roleLabel}</span>
+          <span class="unit-card-meta">HP ${uType.maxHp} &bull; ATK ${uType.attack} &bull; MOV ${uType.moveRange} &bull; RNG ${uType.attackRange}</span>
+        </div>
+        <div class="unit-card-desc">${uType.description}</div>
       `;
 
       btn.addEventListener('click', () => {
