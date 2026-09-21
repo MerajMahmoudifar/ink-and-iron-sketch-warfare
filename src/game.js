@@ -2357,48 +2357,257 @@ class SketchRenderer {
   drawTerrainTile(tile, x, y, engine) {
     this.ctx.save();
     switch (tile.id) {
-      case 'FOREST':
-        this.ctx.fillStyle = 'rgba(34, 197, 94, 0.12)'; this.ctx.fillRect(x, y, 70, 70);
-        this.ctx.strokeStyle = '#2d5a27'; this.ctx.lineWidth = 1.5;
-        this.ctx.beginPath(); this.ctx.moveTo(x + 35, y + 20); this.ctx.lineTo(x + 20, y + 45); this.ctx.lineTo(x + 50, y + 45); this.ctx.closePath(); this.ctx.stroke();
-        break;
-      case 'SWAMP':
-        this.ctx.fillStyle = 'rgba(101, 163, 13, 0.18)'; this.ctx.fillRect(x, y, 70, 70);
-        this.ctx.strokeStyle = '#4d7c0f'; this.ctx.lineWidth = 1.2;
-        this.ctx.beginPath(); this.ctx.moveTo(x + 25, y + 45); this.ctx.lineTo(x + 28, y + 25); this.ctx.stroke();
-        break;
-      case 'MOUNTAIN':
-        this.ctx.fillStyle = 'rgba(120, 113, 108, 0.2)'; this.ctx.fillRect(x, y, 70, 70);
-        this.ctx.strokeStyle = '#44403c'; this.ctx.lineWidth = 1.5;
-        this.ctx.beginPath(); this.ctx.moveTo(x + 18, y + 50); this.ctx.lineTo(x + 35, y + 20); this.ctx.lineTo(x + 52, y + 50); this.ctx.stroke();
-        break;
-      case 'WATER':
-        this.ctx.fillStyle = 'rgba(14, 165, 233, 0.25)'; this.ctx.fillRect(x, y, 70, 70);
-        break;
-      case 'CAPTURE_ZONE':
-        this.ctx.fillStyle = tile.owner === 1 ? 'rgba(37, 99, 235, 0.18)' : (tile.owner === 2 ? 'rgba(220, 38, 38, 0.18)' : 'rgba(234, 179, 8, 0.22)');
+      case 'FOREST': {
+        // Organic coniferous forest grove wash
+        this.ctx.fillStyle = 'rgba(34, 197, 94, 0.12)';
         this.ctx.fillRect(x, y, 70, 70);
-        this.ctx.strokeStyle = tile.owner === 1 ? '#3b82f6' : (tile.owner === 2 ? '#ef4444' : '#f59e0b');
-        this.ctx.lineWidth = 2;
-        this.ctx.strokeRect(x + 2, y + 2, 66, 66);
 
-        this.ctx.font = 'bold 9px Inter, sans-serif';
-        this.ctx.fillStyle = tile.owner === 1 ? '#93c5fd' : (tile.owner === 2 ? '#fca5a5' : '#fef08a');
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText('+10 INK', x + 35, y + 14);
+        // Grouped 3-canopy cluster with draftsman cross-hatching
+        const drawTree = (tx, ty, scale) => {
+          this.ctx.strokeStyle = '#1b4332';
+          this.ctx.lineWidth = 1.4;
+          this.ctx.fillStyle = 'rgba(45, 90, 39, 0.18)';
+          this.ctx.beginPath();
+          this.ctx.moveTo(tx, ty);
+          this.ctx.lineTo(tx - 11 * scale, ty + 24 * scale);
+          this.ctx.lineTo(tx + 11 * scale, ty + 24 * scale);
+          this.ctx.closePath();
+          this.ctx.fill();
+          this.ctx.stroke();
+
+          // Tree trunk
+          this.ctx.strokeStyle = '#2e1005';
+          this.ctx.lineWidth = 1.6;
+          this.ctx.beginPath();
+          this.ctx.moveTo(tx, ty + 24 * scale);
+          this.ctx.lineTo(tx, ty + 28 * scale);
+          this.ctx.stroke();
+
+          // 45° internal draftsman hatching
+          this.ctx.strokeStyle = 'rgba(21, 128, 61, 0.6)';
+          this.ctx.lineWidth = 0.9;
+          this.ctx.beginPath();
+          this.ctx.moveTo(tx - 6 * scale, ty + 12 * scale);
+          this.ctx.lineTo(tx + 4 * scale, ty + 22 * scale);
+          this.ctx.moveTo(tx - 4 * scale, ty + 6 * scale);
+          this.ctx.lineTo(tx + 7 * scale, ty + 18 * scale);
+          this.ctx.stroke();
+        };
+
+        drawTree(x + 24, y + 18, 0.85);
+        drawTree(x + 46, y + 20, 0.85);
+        drawTree(x + 35, y + 13, 1.05); // Central tallest canopy
+
+        // Subdued corner micro-badge: ballistic cover shield
+        this.ctx.strokeStyle = '#166534';
+        this.ctx.lineWidth = 1.2;
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + 55, y + 6);
+        this.ctx.lineTo(x + 64, y + 6);
+        this.ctx.lineTo(x + 64, y + 11);
+        this.ctx.quadraticCurveTo(x + 64, y + 17, x + 59.5, y + 19);
+        this.ctx.quadraticCurveTo(x + 55, y + 17, x + 55, y + 11);
+        this.ctx.closePath();
+        this.ctx.stroke();
+
+        this.ctx.font = 'bold 7px "JetBrains Mono", monospace';
+        this.ctx.fillStyle = '#166534';
+        this.ctx.textAlign = 'right';
+        this.ctx.fillText('+30%', x + 53, y + 14);
         break;
-      case 'MAIN_BASE':
-        this.ctx.fillStyle = tile.owner === 1 ? 'rgba(37, 99, 235, 0.25)' : 'rgba(220, 38, 38, 0.25)';
+      }
+      case 'MOUNTAIN': {
+        // Slate rock wash
+        this.ctx.fillStyle = 'rgba(100, 116, 139, 0.16)';
         this.ctx.fillRect(x, y, 70, 70);
-        this.ctx.strokeStyle = tile.owner === 1 ? '#2563eb' : '#dc2626';
-        this.ctx.lineWidth = 3;
-        this.ctx.strokeRect(x + 2, y + 2, 66, 66);
 
-        this.ctx.font = 'bold 9px Inter, sans-serif';
-        this.ctx.fillStyle = tile.owner === 1 ? '#60a5fa' : '#f87171';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText(tile.owner === 1 ? 'P1 HQ BASE' : 'AI HQ BASE', x + 35, y + 14);
+        // 3 concentric topographic elevation contour rings
+        this.ctx.strokeStyle = '#334155';
+        this.ctx.lineWidth = 1.4;
+
+        // Outer contour ring
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + 14, y + 54);
+        this.ctx.quadraticCurveTo(x + 22, y + 26, x + 35, y + 16);
+        this.ctx.quadraticCurveTo(x + 48, y + 26, x + 56, y + 54);
+        this.ctx.closePath();
+        this.ctx.stroke();
+
+        // Middle contour ring
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + 22, y + 48);
+        this.ctx.quadraticCurveTo(x + 27, y + 30, x + 35, y + 24);
+        this.ctx.quadraticCurveTo(x + 43, y + 30, x + 48, y + 48);
+        this.ctx.stroke();
+
+        // Inner contour summit ring
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + 29, y + 42);
+        this.ctx.quadraticCurveTo(x + 32, y + 34, x + 35, y + 31);
+        this.ctx.quadraticCurveTo(x + 38, y + 34, x + 41, y + 42);
+        this.ctx.stroke();
+
+        // Southern slope elevation hachures (technical shading)
+        this.ctx.strokeStyle = 'rgba(51, 65, 85, 0.6)';
+        this.ctx.lineWidth = 1.0;
+        this.ctx.beginPath();
+        for (let i = -14; i <= 14; i += 7) {
+          this.ctx.moveTo(x + 35 + i, y + 45);
+          this.ctx.lineTo(x + 35 + i + 2, y + 52);
+        }
+        this.ctx.stroke();
+
+        // Summit survey benchmark cross (+)
+        this.ctx.strokeStyle = '#0f172a';
+        this.ctx.lineWidth = 1.2;
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + 35, y + 19); this.ctx.lineTo(x + 35, y + 23);
+        this.ctx.moveTo(x + 33, y + 21); this.ctx.lineTo(x + 37, y + 21);
+        this.ctx.stroke();
+
+        // Subdued corner elevation tag
+        this.ctx.font = 'bold 7px "JetBrains Mono", monospace';
+        this.ctx.fillStyle = '#475569';
+        this.ctx.textAlign = 'right';
+        this.ctx.fillText('ELV +1', x + 65, y + 13);
         break;
+      }
+      case 'WATER': {
+        // Deep cartographic water wash
+        this.ctx.fillStyle = 'rgba(14, 165, 233, 0.18)';
+        this.ctx.fillRect(x, y, 70, 70);
+
+        // Cartographic horizontal wave crests
+        this.ctx.strokeStyle = '#0284c7';
+        this.ctx.lineWidth = 1.3;
+        
+        const drawWave = (wx, wy) => {
+          this.ctx.beginPath();
+          this.ctx.moveTo(wx, wy);
+          this.ctx.quadraticCurveTo(wx + 4, wy - 3, wx + 8, wy);
+          this.ctx.quadraticCurveTo(wx + 12, wy + 3, wx + 16, wy);
+          this.ctx.stroke();
+        };
+
+        drawWave(x + 10, y + 20);
+        drawWave(x + 42, y + 24);
+        drawWave(x + 22, y + 38);
+        drawWave(x + 48, y + 46);
+        drawWave(x + 12, y + 56);
+
+        // Shoreline stipple depth dots
+        this.ctx.fillStyle = 'rgba(2, 132, 199, 0.5)';
+        this.ctx.beginPath();
+        this.ctx.arc(x + 34, y + 12, 1, 0, Math.PI * 2);
+        this.ctx.arc(x + 60, y + 14, 1, 0, Math.PI * 2);
+        this.ctx.arc(x + 15, y + 46, 1, 0, Math.PI * 2);
+        this.ctx.arc(x + 38, y + 60, 1, 0, Math.PI * 2);
+        this.ctx.fill();
+        break;
+      }
+      case 'SWAMP': {
+        // Murky mire wash
+        this.ctx.fillStyle = 'rgba(101, 163, 13, 0.16)';
+        this.ctx.fillRect(x, y, 70, 70);
+
+        // Wavy mire mud contours
+        this.ctx.strokeStyle = '#4d7c0f';
+        this.ctx.lineWidth = 1.2;
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + 8, y + 46);
+        this.ctx.bezierCurveTo(x + 22, y + 42, x + 36, y + 50, x + 62, y + 45);
+        this.ctx.stroke();
+
+        // 2 marshland reed/cattail clumps
+        const drawReeds = (rx, ry) => {
+          this.ctx.strokeStyle = '#365314';
+          this.ctx.lineWidth = 1.3;
+          this.ctx.beginPath();
+          this.ctx.moveTo(rx - 4, ry + 12); this.ctx.lineTo(rx - 7, ry - 6);
+          this.ctx.moveTo(rx, ry + 12); this.ctx.lineTo(rx, ry - 10);
+          this.ctx.moveTo(rx + 4, ry + 12); this.ctx.lineTo(rx + 7, ry - 6);
+          this.ctx.stroke();
+          // Cattail heads
+          this.ctx.fillStyle = '#3f2c1d';
+          this.ctx.fillRect(rx - 1, ry - 10, 2.5, 6);
+        };
+
+        drawReeds(x + 22, y + 28);
+        drawReeds(x + 48, y + 24);
+
+        // Subdued friction indicator tick
+        this.ctx.font = 'bold 7px "JetBrains Mono", monospace';
+        this.ctx.fillStyle = '#4d7c0f';
+        this.ctx.textAlign = 'right';
+        this.ctx.fillText('MUD 2x', x + 65, y + 13);
+        break;
+      }
+      case 'CAPTURE_ZONE': {
+        const isP1 = tile.owner === 1;
+        const isAI = tile.owner === 2;
+        const tint = isP1 ? 'rgba(37, 99, 235, 0.18)' : (isAI ? 'rgba(220, 38, 38, 0.18)' : 'rgba(245, 158, 11, 0.15)');
+        const strokeColor = isP1 ? '#3b82f6' : (isAI ? '#ef4444' : '#f59e0b');
+
+        this.ctx.fillStyle = tint;
+        this.ctx.fillRect(x, y, 70, 70);
+
+        // Industrial depot frame with riveted corner plates
+        this.ctx.strokeStyle = strokeColor;
+        this.ctx.lineWidth = 1.8;
+        this.ctx.strokeRect(x + 4, y + 4, 62, 62);
+
+        // Corner rivets
+        this.ctx.fillStyle = strokeColor;
+        [ [8,8], [62,8], [8,62], [62,62] ].forEach(([rx, ry]) => {
+          this.ctx.beginPath();
+          this.ctx.arc(x + rx, y + ry, 1.8, 0, Math.PI * 2);
+          this.ctx.fill();
+        });
+
+        // Center Supply Canister glyph
+        this.ctx.strokeRect(x + 28, y + 24, 14, 18);
+        this.ctx.fillRect(x + 31, y + 21, 8, 3); // cap
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + 31, y + 33); this.ctx.lineTo(x + 39, y + 33);
+        this.ctx.stroke();
+
+        // Requisition banner label
+        this.ctx.font = 'bold 8px "JetBrains Mono", monospace';
+        this.ctx.fillStyle = isP1 ? '#93c5fd' : (isAI ? '#fca5a5' : '#fde047');
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('+10 INK', x + 35, y + 54);
+        break;
+      }
+      case 'MAIN_BASE': {
+        const isP1 = tile.owner === 1;
+        const strokeColor = isP1 ? '#2563eb' : '#dc2626';
+        this.ctx.fillStyle = isP1 ? 'rgba(37, 99, 235, 0.22)' : 'rgba(220, 38, 38, 0.22)';
+        this.ctx.fillRect(x, y, 70, 70);
+
+        // Fortified command bunker outline
+        this.ctx.strokeStyle = strokeColor;
+        this.ctx.lineWidth = 2.4;
+        this.ctx.strokeRect(x + 4, y + 4, 62, 62);
+
+        // Bunker blast embrasures & antenna
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + 35, y + 18); this.ctx.lineTo(x + 35, y + 8); // antenna mast
+        this.ctx.moveTo(x + 32, y + 11); this.ctx.lineTo(x + 38, y + 11); // crossbar
+        this.ctx.stroke();
+
+        // Heavy bunker blast door
+        this.ctx.fillStyle = strokeColor;
+        this.ctx.fillRect(x + 22, y + 28, 26, 16);
+        this.ctx.fillStyle = '#0f172a';
+        this.ctx.fillRect(x + 26, y + 32, 18, 8); // vision slit
+
+        // Base Title
+        this.ctx.font = 'bold 8px "JetBrains Mono", monospace';
+        this.ctx.fillStyle = isP1 ? '#93c5fd' : '#fca5a5';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(isP1 ? 'P1 HQ BASE' : 'AI HQ BASE', x + 35, y + 56);
+        break;
+      }
     }
 
     if ((tile.id === 'MAIN_BASE' || tile.id === 'CAPTURE_ZONE') && tile.owner) {
@@ -2424,26 +2633,42 @@ class SketchRenderer {
     const cx = x + 35; const cy = y + 35;
     const isP1 = unit.owner === 1;
     const mainColor = isP1 ? '#2563eb' : '#dc2626';
-    const bgFill = isP1 ? '#0f172a' : '#280d0d';
+    const bgFill = isP1 ? '#0a101f' : '#220808';
     const symbolColor = isP1 ? '#93c5fd' : '#fca5a5';
 
     // Outer Tactical Unit Frame (NATO style round-rect / circle)
     this.ctx.strokeStyle = mainColor;
-    this.ctx.lineWidth = 3;
+    this.ctx.lineWidth = 2.5;
     this.ctx.fillStyle = bgFill;
 
     if (unit.category === 'VEHICLE') {
-      // NATO Vehicle Oval Track Frame
+      // NATO Vehicle Oval Track Frame with subtle tread flanges
       this.ctx.beginPath();
       this.ctx.ellipse(cx, cy, 23, 17, 0, 0, Math.PI * 2);
       this.ctx.fill();
       this.ctx.stroke();
+
+      // Flank tread notches
+      this.ctx.strokeStyle = mainColor;
+      this.ctx.lineWidth = 1.2;
+      this.ctx.beginPath();
+      this.ctx.moveTo(cx - 24, cy - 6); this.ctx.lineTo(cx - 24, cy + 6);
+      this.ctx.moveTo(cx + 24, cy - 6); this.ctx.lineTo(cx + 24, cy + 6);
+      this.ctx.stroke();
     } else {
-      // NATO Infantry Circle Frame
+      // NATO Infantry Circle Frame with steel cardinal pips
       this.ctx.beginPath();
       this.ctx.arc(cx, cy, 21, 0, Math.PI * 2);
       this.ctx.fill();
       this.ctx.stroke();
+
+      // Cardinal rivet dots
+      this.ctx.fillStyle = mainColor;
+      [ [0, -21], [0, 21], [-21, 0], [21, 0] ].forEach(([px, py]) => {
+        this.ctx.beginPath();
+        this.ctx.arc(cx + px, cy + py, 1.5, 0, Math.PI * 2);
+        this.ctx.fill();
+      });
     }
 
     // NATO Symbol Vector Drawing inside frame
@@ -2454,42 +2679,62 @@ class SketchRenderer {
     const uType = unit.typeKey || unit.id || '';
 
     if (uType === 'RIFLEMAN') {
-      // NATO Infantry Crossed Rifles ✕
+      // NATO Infantry Crossed Rifles ✕ with barrel muzzles
       this.ctx.beginPath();
-      this.ctx.moveTo(cx - 9, cy - 7); this.ctx.lineTo(cx + 9, cy + 7);
-      this.ctx.moveTo(cx + 9, cy - 7); this.ctx.lineTo(cx - 9, cy + 7);
+      this.ctx.moveTo(cx - 9, cy - 8); this.ctx.lineTo(cx + 9, cy + 8);
+      this.ctx.moveTo(cx + 9, cy - 8); this.ctx.lineTo(cx - 9, cy + 8);
       this.ctx.stroke();
+
+      // Rifle barrel muzzle caps
+      this.ctx.fillStyle = symbolColor;
+      this.ctx.beginPath();
+      this.ctx.arc(cx - 9, cy - 8, 1.8, 0, Math.PI * 2);
+      this.ctx.arc(cx + 9, cy - 8, 1.8, 0, Math.PI * 2);
+      this.ctx.fill();
     } else if (uType === 'SCOUT') {
-      // NATO Scout Slash & Dots ⧟
+      // NATO Scout Reconnaissance Diagonal Slash & Dual Optics
       this.ctx.beginPath();
-      this.ctx.moveTo(cx - 9, cy + 7); this.ctx.lineTo(cx + 9, cy - 7);
+      this.ctx.moveTo(cx - 10, cy + 8); this.ctx.lineTo(cx + 10, cy - 8);
       this.ctx.stroke();
+      // Dual optical prism circles
       this.ctx.beginPath();
       this.ctx.arc(cx - 4, cy - 3, 2.5, 0, Math.PI * 2);
       this.ctx.arc(cx + 4, cy + 3, 2.5, 0, Math.PI * 2);
       this.ctx.fill();
     } else if (uType === 'ANTI_TANK') {
-      // NATO Anti-Tank Arrow Reticle ⌖
+      // NATO Anti-Tank Sabot Penetrator Arrowhead (⌖)
       this.ctx.beginPath();
-      this.ctx.arc(cx, cy, 7, 0, Math.PI * 2);
+      this.ctx.arc(cx, cy, 6.5, 0, Math.PI * 2);
       this.ctx.stroke();
       this.ctx.beginPath();
-      this.ctx.moveTo(cx - 11, cy); this.ctx.lineTo(cx + 11, cy);
-      this.ctx.moveTo(cx, cy - 11); this.ctx.lineTo(cx, cy + 11);
+      this.ctx.moveTo(cx - 10, cy); this.ctx.lineTo(cx + 10, cy);
+      this.ctx.moveTo(cx, cy - 10); this.ctx.lineTo(cx, cy + 10);
       this.ctx.stroke();
+      // Penetrator dart core
+      this.ctx.beginPath();
+      this.ctx.moveTo(cx, cy - 4); this.ctx.lineTo(cx + 3, cy + 3); this.ctx.lineTo(cx - 3, cy + 3);
+      this.ctx.closePath();
+      this.ctx.fill();
     } else if (uType === 'LIGHT_VEHICLE') {
-      // NATO Armored Car Body & Wheels
-      this.ctx.strokeRect(cx - 10, cy - 6, 20, 12);
+      // NATO Armored Scout Car: chassis + wheels + MG turret
+      this.ctx.strokeRect(cx - 10, cy - 5, 20, 10);
       this.ctx.beginPath();
       this.ctx.arc(cx, cy, 3, 0, Math.PI * 2);
       this.ctx.fill();
+      // 4 wheel lugs
+      this.ctx.fillRect(cx - 12, cy - 7, 4, 3);
+      this.ctx.fillRect(cx + 8, cy - 7, 4, 3);
+      this.ctx.fillRect(cx - 12, cy + 4, 4, 3);
+      this.ctx.fillRect(cx + 8, cy + 4, 4, 3);
     } else if (uType === 'HEAVY_SIEGE_TANK') {
-      // NATO Tank Track & Gun Barrel
-      this.ctx.strokeRect(cx - 11, cy - 7, 22, 14);
+      // NATO Heavy Tank: armor hull + dual treads + howitzer barrel
+      this.ctx.strokeRect(cx - 11, cy - 6, 22, 12);
       this.ctx.fillRect(cx - 4, cy - 3, 8, 6);
-      this.ctx.fillRect(cx + 4, cy - 2, 8, 4); // Gun barrel
+      this.ctx.fillRect(cx + 4, cy - 2, 9, 4); // Elongated cannon barrel
+      this.ctx.fillStyle = symbolColor;
+      this.ctx.fillRect(cx + 12, cy - 3, 2, 6); // Muzzle brake
     } else if (uType === 'BLITZ_RECON') {
-      // NATO Recon Lightning Bolt
+      // NATO Recon Lightning Bolt & Chevrons
       this.ctx.beginPath();
       this.ctx.moveTo(cx + 2, cy - 9);
       this.ctx.lineTo(cx - 5, cy + 1);
@@ -2506,10 +2751,22 @@ class SketchRenderer {
       this.ctx.fillText(unit.symbol || 'U', cx, cy);
     }
 
+    // Stealth / Ambush camouflage indicator
+    if (unit.stance === 'AMBUSH' && unit.isAmbusherHidden && isP1) {
+      this.ctx.save();
+      this.ctx.strokeStyle = 'rgba(74, 222, 128, 0.7)';
+      this.ctx.lineWidth = 1.5;
+      this.ctx.setLineDash([3, 3]);
+      this.ctx.beginPath();
+      this.ctx.arc(cx, cy, 24, 0, Math.PI * 2);
+      this.ctx.stroke();
+      this.ctx.restore();
+    }
+
     // Owner Tag Badge (P1 vs AI)
     this.ctx.fillStyle = mainColor;
     this.ctx.fillRect(x + 4, y + 4, 22, 13);
-    this.ctx.font = 'bold 9px Inter, sans-serif';
+    this.ctx.font = 'bold 9px "JetBrains Mono", monospace';
     this.ctx.fillStyle = '#ffffff';
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'middle';
@@ -2528,19 +2785,23 @@ class SketchRenderer {
     
     this.ctx.fillStyle = stanceBadgeBg;
     this.ctx.fillRect(x + 44, y + 4, 22, 13);
-    this.ctx.font = 'bold 8px Inter, sans-serif';
+    this.ctx.font = 'bold 8px "JetBrains Mono", monospace';
     this.ctx.fillStyle = '#ffffff';
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'middle';
     this.ctx.fillText(stanceBadgeSymbol, x + 55, y + 10.5);
 
-    // Health Bar
+    // Health Bar with high-contrast chassis frame
     const hpBarWidth = 36;
     const hpPercent = unit.getHpPercent() / 100;
-    this.ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    this.ctx.fillStyle = '#090e17';
     this.ctx.fillRect(cx - 18, cy + 20, hpBarWidth, 4);
-    this.ctx.fillStyle = isP1 ? (hpPercent > 0.5 ? '#16a34a' : '#eab308') : '#dc2626';
-    this.ctx.fillRect(cx - 18, cy + 20, hpBarWidth * hpPercent, 4);
+    this.ctx.fillStyle = isP1 ? (hpPercent > 0.5 ? '#22c55e' : '#eab308') : '#ef4444';
+    this.ctx.fillRect(cx - 18, cy + 20, Math.max(0, hpBarWidth * hpPercent), 4);
+    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    this.ctx.lineWidth = 0.8;
+    this.ctx.strokeRect(cx - 18, cy + 20, hpBarWidth, 4);
+
     this.ctx.restore();
   }
 
@@ -3054,7 +3315,11 @@ class UIManager {
     if (!this.inspectorContent) return;
     const sel = this.app.renderer.selectedTile;
     if (!sel) {
-      this.inspectorContent.innerHTML = `<p class="handwriting" style="font-size:1.05rem; color:#6b7280;">Click any grid square to inspect terrain or give unit orders.</p>`;
+      this.inspectorContent.innerHTML = `
+        <div class="dossier-placeholder">
+          <span class="dossier-placeholder-icon">&#x2316;</span>
+          <p class="dossier-placeholder-text">Click any grid sector to inspect terrain attributes or issue unit command orders.</p>
+        </div>`;
       return;
     }
     const tile = engine.grid[sel.y][sel.x];
@@ -3066,48 +3331,113 @@ class UIManager {
     const rawUnit = engine.getAllUnits().find(u => u.x === sel.x && u.y === sel.y && u.isAlive());
     const unitOnTile = (rawUnit && (rawUnit.owner === 1 || isTileVisible)) ? rawUnit : null;
 
+    const colLetter = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][sel.x] || String(sel.x);
+    const rowNum = sel.y + 1;
+    const sectorCoord = `SECTOR [${colLetter}${rowNum}]`;
+
     let html = '';
     if (!isTileVisible && !isTerrainView) {
-      html += `<div><h3 style="font-size:1.15rem; color:var(--text-secondary);">Sector (${sel.x}, ${sel.y}) &mdash; Fog of War</h3><p style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">Sector shrouded in Fog of War. Deploy Recon units or Flares to reveal area.</p></div>`;
+      html += `
+        <div class="dossier-card">
+          <div class="dossier-sector-header">
+            <span class="dossier-coord-stamp">${sectorCoord}</span>
+            <span class="dossier-status-fog">TERRA INCOGNITA</span>
+          </div>
+          <div class="dossier-fog-body">
+            <span class="dossier-fog-icon">&#x25A6;</span>
+            <p class="dossier-fog-desc">Sector shrouded in tactical Fog of War. Deploy Recon scout or launch a Flare to survey area.</p>
+          </div>
+        </div>
+      `;
     } else {
-      html += `<div><h3 style="font-size:1.15rem;">Terrain: ${tile.name} (${sel.x}, ${sel.y})</h3><p style="font-size:0.85rem;">Defense: +${Math.round((tile.defenseBonus || 0) * 100)}%</p>`;
+      const defPct = Math.round((tile.defenseBonus || 0) * 100);
+      const moveCost = tile.id === 'SWAMP' ? '2.0x' : (tile.id === 'FOREST' ? '1.5x' : '1.0x');
+      const isLOSBlocked = tile.id === 'FOREST' || tile.id === 'MOUNTAIN';
+
+      let spawnStatusHtml = '';
       if ((tile.id === 'CAPTURE_ZONE' || tile.id === 'MAIN_BASE') && tile.owner === 1) {
         if (unitOnTile) {
-          html += `<div style="margin-top:5px; font-size:0.75rem; color:#fbbf24; background:rgba(245,158,11,0.15); padding:4px 8px; border-radius:4px; border:1px solid rgba(245,158,11,0.35); font-weight:600;">⚠️ Spawn Point: OCCUPIED (Tile must be empty to deploy)</div>`;
+          spawnStatusHtml = `<div class="dossier-spawn-status occupied">&#x26A0;&#xFE0F; DEPLOY POINT OCCUPIED</div>`;
         } else {
-          html += `<div style="margin-top:5px; font-size:0.75rem; color:#4ade80; background:rgba(34,197,94,0.15); padding:4px 8px; border-radius:4px; border:1px solid rgba(34,197,94,0.35); font-weight:600;">✅ Spawn Point: READY (Empty forward deployment point)</div>`;
+          spawnStatusHtml = `<div class="dossier-spawn-status ready">&#x2713; DEPLOY POINT READY</div>`;
         }
       }
-      html += `</div>`;
+
+      html += `
+        <div class="dossier-card">
+          <div class="dossier-sector-header">
+            <span class="dossier-coord-stamp">${sectorCoord}</span>
+            <span class="dossier-terrain-title">${tile.name}</span>
+          </div>
+          <div class="dossier-badge-row">
+            <span class="dossier-pill dossier-pill-def" title="Ballistic Cover Defense Bonus">
+              DEF +${defPct}%
+            </span>
+            <span class="dossier-pill dossier-pill-mov" title="Movement Friction Factor">
+              MOV ${moveCost}
+            </span>
+            <span class="dossier-pill ${isLOSBlocked ? 'dossier-pill-block' : 'dossier-pill-los'}" title="Line of Sight Visibility">
+              ${isLOSBlocked ? 'LOS BLOCKED' : 'LOS OPEN'}
+            </span>
+            ${(tile.id === 'CAPTURE_ZONE' || tile.id === 'MAIN_BASE') ? `<span class="dossier-pill dossier-pill-ink">+10 INK</span>` : ''}
+          </div>
+          ${spawnStatusHtml}
+        </div>
+      `;
     }
-    
+
     if (unitOnTile) {
       const isFriendly = unitOnTile.owner === 1;
       const waypointsCount = unitOnTile.waypoints.length;
-      const allegianceBadge = isFriendly
-        ? `<div style="background:rgba(37,99,235,0.15); color:var(--blue-300); border:1px solid rgba(59,130,246,0.4); padding:3px 8px; border-radius:4px; font-weight:bold; font-size:0.75rem; display:inline-block; margin-bottom:4px; font-family:var(--font-display);">FRIENDLY TROOP (Player 1)</div>`
-        : `<div style="background:rgba(220,38,38,0.15); color:var(--red-300); border:1px solid rgba(239,68,68,0.4); padding:3px 8px; border-radius:4px; font-weight:bold; font-size:0.75rem; display:inline-block; margin-bottom:4px; font-family:var(--font-display);">ENEMY TROOP (AI Commander)</div>`;
+      const hpPct = Math.max(0, Math.min(100, Math.round((unitOnTile.hp / unitOnTile.maxHp) * 100)));
+      const roleLabel = unitOnTile.category || 'COMBAT';
+      const roleClass = (unitOnTile.category === 'VEHICLE' || unitOnTile.category === 'ARMOR') ? 'role-vehicle' : (unitOnTile.category === 'INFANTRY' ? 'role-infantry' : 'role-support');
 
       html += `
-        <div style="margin-top:6px; border-top:1px dashed var(--border-subtle); padding-top:6px;">
-          ${allegianceBadge}
-          <h3 style="font-size:1.05rem; font-family:var(--font-display);">${unitOnTile.symbol} ${unitOnTile.name}</h3>
-          <p style="font-size:0.8rem; color:var(--text-secondary);">HP: ${unitOnTile.hp}/${unitOnTile.maxHp} | Move: ${unitOnTile.moveRange}</p>
-          ${(isFriendly && waypointsCount > 0) ? `<p style="font-size:0.78rem; color:var(--blue-300); font-weight:bold;">Planned Path: ${waypointsCount} tiles queued</p>` : ''}
+        <div class="dossier-unit-card">
+          <div class="dossier-unit-header">
+            <span class="dossier-allegiance-badge ${isFriendly ? 'allegiance-friendly' : 'allegiance-enemy'}">
+              ${isFriendly ? '&bull; FRIENDLY SQUAD &bull; P1' : '&bull; ENEMY CONTACT &bull; AI'}
+            </span>
+            <div class="dossier-unit-title-row">
+              <span class="dossier-unit-symbol">${unitOnTile.symbol}</span>
+              <span class="dossier-unit-name">${unitOnTile.name}</span>
+              <span class="unit-role-tag ${roleClass}">${roleLabel}</span>
+            </div>
+          </div>
+
+          <div class="dossier-hp-section">
+            <div class="dossier-hp-meta">
+              <span class="dossier-hp-lbl">INTEGRITY</span>
+              <span class="dossier-hp-val">${unitOnTile.hp} / ${unitOnTile.maxHp} HP (${hpPct}%)</span>
+            </div>
+            <div class="dossier-hp-track">
+              <div class="dossier-hp-fill ${isFriendly ? (hpPct > 50 ? 'hp-good' : 'hp-warn') : 'hp-enemy'}" style="width: ${hpPct}%;"></div>
+            </div>
+          </div>
+
+          <div class="dossier-stats-strip">
+            <span>ATK <strong>${unitOnTile.attack}</strong></span>
+            <span>RNG <strong>${unitOnTile.attackRange}</strong></span>
+            <span>MOV <strong>${unitOnTile.moveRange}</strong></span>
+            <span>VIS <strong>${unitOnTile.visionRange || 2}</strong></span>
+          </div>
+
+          ${(isFriendly && waypointsCount > 0) ? `<div class="dossier-orders-tag">ORDERS: ${waypointsCount} WAYPOINTS QUEUED</div>` : ''}
       `;
 
       if (unitOnTile.owner === 1 && engine.phase === 'PLANNING') {
         const canAmbush = unitOnTile.category === 'INFANTRY' && tile.id === 'FOREST';
         html += `
-          <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px;">
-            <label style="font-size:0.75rem; font-weight:bold; font-family:var(--font-display);">Stance:</label>
-            <div style="display: flex; gap: 4px;">
-              <button id="stance-adv" class="btn-sketch ${unitOnTile.stance === 'ADVANCE' ? 'active' : ''}" style="font-size:0.75rem; padding:3px 6px;">Advance</button>
-              <button id="stance-def" class="btn-sketch ${unitOnTile.stance === 'DEFEND' ? 'active' : ''}" style="font-size:0.75rem; padding:3px 6px;">Defend</button>
-              <button id="stance-amb" class="btn-sketch ${unitOnTile.stance === 'AMBUSH' ? 'active' : ''}" style="font-size:0.75rem; padding:3px 6px; ${!canAmbush ? 'opacity:0.4; cursor:not-allowed;' : ''}" ${!canAmbush ? 'disabled title="Ambush: Infantry in Forest only"' : ''}>Ambush</button>
+          <div class="dossier-stance-block">
+            <label class="dossier-stance-label">TACTICAL STANCE</label>
+            <div class="dossier-stance-btns">
+              <button id="stance-adv" class="btn-sketch dossier-stance-btn ${unitOnTile.stance === 'ADVANCE' ? 'active' : ''}">Advance</button>
+              <button id="stance-def" class="btn-sketch dossier-stance-btn ${unitOnTile.stance === 'DEFEND' ? 'active' : ''}">Defend</button>
+              <button id="stance-amb" class="btn-sketch dossier-stance-btn ${unitOnTile.stance === 'AMBUSH' ? 'active' : ''}" ${!canAmbush ? 'disabled title="Ambush: Infantry in Forest only"' : ''}>Ambush</button>
             </div>
-            <button id="btn-cancel-unit-plan" class="btn-sketch btn-danger" style="margin-top:4px; font-size:0.75rem; padding:4px;">
-              Cancel Unit Plan
+            <button id="btn-cancel-unit-plan" class="btn-sketch btn-danger dossier-cancel-btn">
+              Cancel Unit Orders
             </button>
           </div>
         `;

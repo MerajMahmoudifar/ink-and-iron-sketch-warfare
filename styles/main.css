@@ -2946,4 +2946,344 @@ select.diesel-hidden-select {
   margin-top: 2px;
 }
 
+/* ==========================================================================
+   MILITARY FIELD DOSSIER & SITREP (INSPECTOR PANEL)
+   ========================================================================== */
+.dossier-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px 12px;
+  color: var(--text-muted);
+}
+.dossier-placeholder-icon {
+  font-size: 1.8rem;
+  color: var(--text-muted);
+  opacity: 0.6;
+  margin-bottom: 8px;
+}
+.dossier-placeholder-text {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #94a3b8;
+  max-width: 240px;
+}
+
+.dossier-card {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  backdrop-filter: blur(4px);
+}
+.dossier-sector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.dossier-coord-stamp {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--gold-400);
+  background: rgba(217, 119, 6, 0.12);
+  border: 1px solid rgba(217, 119, 6, 0.35);
+  padding: 2px 7px;
+  border-radius: 3px;
+}
+.dossier-terrain-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #f8fafc;
+  letter-spacing: 0.02em;
+}
+.dossier-status-fog {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: #94a3b8;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.dossier-fog-body {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0 2px;
+}
+.dossier-fog-icon {
+  font-size: 1.3rem;
+  color: #64748b;
+  line-height: 1;
+}
+.dossier-fog-desc {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.dossier-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+.dossier-pill {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+.dossier-pill-def {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+.dossier-pill-mov {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+.dossier-pill-los {
+  background: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+.dossier-pill-block {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+.dossier-pill-ink {
+  background: rgba(168, 85, 247, 0.12);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+}
+
+.dossier-spawn-status {
+  margin-top: 6px;
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 3px;
+  text-align: center;
+}
+.dossier-spawn-status.occupied {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.dossier-spawn-status.ready {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.dossier-unit-card {
+  margin-top: 10px;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+}
+.dossier-unit-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dossier-allegiance-badge {
+  font-size: 0.65rem;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.allegiance-friendly {
+  color: #60a5fa;
+}
+.allegiance-enemy {
+  color: #f87171;
+}
+.dossier-unit-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+.dossier-unit-symbol {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+.dossier-unit-name {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f8fafc;
+  flex-grow: 1;
+}
+.unit-role-tag {
+  font-size: 0.65rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.05em;
+}
+.role-vehicle {
+  background: rgba(14, 165, 233, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(14, 165, 233, 0.35);
+}
+.role-infantry {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+}
+.role-support {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.dossier-hp-section {
+  margin-top: 8px;
+}
+.dossier-hp-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  margin-bottom: 3px;
+}
+.dossier-hp-lbl {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.dossier-hp-val {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+.dossier-hp-track {
+  height: 6px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.dossier-hp-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+.dossier-hp-fill.hp-good {
+  background: linear-gradient(90deg, #10b981, #34d399);
+  box-shadow: 0 0 6px rgba(52, 211, 153, 0.4);
+}
+.dossier-hp-fill.hp-warn {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.4);
+}
+.dossier-hp-fill.hp-enemy {
+  background: linear-gradient(90deg, #dc2626, #f87171);
+  box-shadow: 0 0 6px rgba(248, 113, 113, 0.4);
+}
+
+.dossier-stats-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 6px 8px;
+  border-radius: 4px;
+  margin-top: 8px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+.dossier-stats-strip strong {
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  display: block;
+  margin-top: 1px;
+}
+.dossier-orders-tag {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 3px 6px;
+  border-radius: 3px;
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+
+.dossier-stance-block {
+  margin-top: 10px;
+  border-top: 1px dashed var(--border-subtle);
+  padding-top: 8px;
+}
+.dossier-stance-label {
+  display: block;
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+.dossier-stance-btns {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+}
+.dossier-stance-btn {
+  padding: 5px 2px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid var(--border-medium);
+  color: var(--text-secondary);
+}
+.dossier-stance-btn:hover:not(:disabled) {
+  background: rgba(51, 65, 85, 0.9);
+  color: var(--text-primary);
+}
+.dossier-stance-btn.active {
+  background: var(--gold-500) !important;
+  color: #0b1120 !important;
+  font-weight: 700 !important;
+  border-color: var(--gold-400) !important;
+  box-shadow: 0 0 8px rgba(217, 119, 6, 0.4);
+}
+.dossier-stance-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.dossier-cancel-btn {
+  width: 100%;
+  margin-top: 6px;
+  padding: 5px 8px;
+  font-size: 0.75rem;
+}
+
+
 
