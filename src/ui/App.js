@@ -78,8 +78,8 @@ export class App {
           // Calculate valid path to newly clicked tile
           const path = this.engine.findValidPath(unitOnPrevTile, gridCoords.x, gridCoords.y);
           if (path.length > 0) {
-            this.engine.setUnitWaypoints(unitOnPrevTile.id, path);
-            this.ui.log(`Added waypoint path for ${unitOnPrevTile.name} to (${gridCoords.x}, ${gridCoords.y})`);
+            const colLetter = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][gridCoords.x] || gridCoords.x;
+            this.ui.log(`Added waypoint path for ${unitOnPrevTile.name} to (${colLetter}, ${gridCoords.y + 1})`);
           }
         }
       }

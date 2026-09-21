@@ -442,7 +442,8 @@ export class UIManager {
         const res = engine.buyUnit(1, key, targetX, targetY);
         if (res.success) {
           this.app.audio.playSpawnSound();
-          this.log(`Recruited ${uType.name} at (${targetX}, ${targetY})`);
+          const colLetter = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][targetX] || targetX;
+          this.log(`Recruited ${uType.name} at (${colLetter}, ${targetY + 1})`);
         } else {
           alert(`Cannot recruit: ${res.reason}`);
         }
@@ -470,10 +471,11 @@ export class UIManager {
     const { r, c } = selectedTile;
     const tile = engine.grid[r][c];
     const unitOnTile = engine.getUnitAt ? engine.getUnitAt(r, c) : null;
+    const colLetter = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][c] || c;
 
     let html = `
       <div style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 6px; margin-bottom: 8px;">
-        <h4 style="color:var(--text-primary); font-size:1rem;">HEX TILE (${r}, ${c})</h4>
+        <h4 style="color:var(--text-primary); font-size:1rem;">SECTOR (${colLetter}, ${r + 1})</h4>
         <p style="font-size:0.85rem; color:var(--text-muted);">Terrain: <b>${tile ? tile.name : 'Clear'}</b></p>
       </div>
     `;

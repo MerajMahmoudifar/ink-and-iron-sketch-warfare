@@ -37,6 +37,17 @@ const TERRAIN = {
   MAIN_BASE: { id: 'MAIN_BASE', name: 'Main Base', symbol: 'B', isVehiclePassable: true, isInfantryPassable: true, moveCostInfantry: 1.0, moveCostVehicle: 1.0, defenseBonus: 0.25, inkPerTurn: 50, sketchPattern: 'fortress' }
 };
 
+// Military Grid Coordinate Formatter: maps column index 0..7 to A..H, and row index 0..7 to 1..8
+function formatCoord(x, y) {
+  if (x === undefined || y === undefined || x === null || y === null) return '';
+  const col = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][x] !== undefined ? ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][x] : String(x);
+  const row = (typeof y === 'number') ? (y + 1) : y;
+  return `(${col}, ${row})`;
+}
+if (typeof window !== 'undefined') {
+  window.formatCoord = formatCoord;
+}
+
 const UNIT_TYPES = {
   SCOUT: {
     id: 'SCOUT',
@@ -1009,7 +1020,7 @@ class GameEngine {
           points.push({
             x: c,
             y: r,
-            name: `Supply Zone (${c}, ${r})`,
+            name: 'Supply Zone',
             isContested: isUnderSiege(c, r)
           });
         }
@@ -1034,11 +1045,11 @@ class GameEngine {
     });
 
     if (enemyNearby) {
-      return { success: false, reason: `Spawn Point (${spawnX}, ${spawnY}) is UNDER SIEGE! Enemy troops are blocking deployment.` };
+      return { success: false, reason: `Spawn Point ${formatCoord(spawnX, spawnY)} is UNDER SIEGE! Enemy troops are blocking deployment.` };
     }
 
     const occupied = this.getAllUnits().some(u => u.x === spawnX && u.y === spawnY && u.isAlive());
-    if (occupied) return { success: false, reason: `Deployment Tile (${spawnX}, ${spawnY}) is occupied by another unit!` };
+    if (occupied) return { success: false, reason: `Deployment Tile ${formatCoord(spawnX, spawnY)} is occupied by another unit!` };
 
     player.ink -= template.cost;
     const newUnit = new Unit(typeKey, playerId, spawnX, spawnY);
@@ -3188,7 +3199,7 @@ class UIManager {
           else if (abilityKey === 'ARTILLERY_STRIKE') this.app.audio.playExplosion(true);
           else this.app.audio.playSpawnSound();
         } catch(err){}
-        this.showToast('Ability Deployed', `${ability.name} targeted at (${selTile.x}, ${selTile.y})!`);
+        this.showToast('Ability Deployed', `${ability.name} targeted at ${formatCoord(selTile.x, selTile.y)}!`);
         this.pendingAbilityKey = null;
       } else {
         this.showToast('Ability Error', res.reason);
@@ -3385,7 +3396,7 @@ class UIManager {
             if (isOwnedSpawn) {
               const occ = engine.getAllUnits().find(u => u.x === selTile.x && u.y === selTile.y && u.isAlive());
               if (occ) {
-                this.showToast('Tile Occupied', `Cannot deploy at (${selTile.x}, ${selTile.y})! Depots & Bases must be completely EMPTY to spawn new units.`);
+                this.showToast('Tile Occupied', `Cannot deploy at ${formatCoord(selTile.x, selTile.y)}! Depots & Bases must be completely EMPTY to spawn new units.`);
               }
             }
           }
@@ -3427,7 +3438,7 @@ class UIManager {
       if (sp.isContested) {
         btn.innerHTML = `
           <div style="display:flex; flex-direction:column; text-align:left;">
-            <span style="font-weight:700;">${sp.name} (${sp.x}, ${sp.y})</span>
+            <span style="font-weight:700;">${sp.name} ${formatCoord(sp.x, sp.y)}</span>
             <span style="font-size:0.72rem; color:#f87171; font-weight:600;">⚠️ UNDER SIEGE &mdash; Enemy adjacent!</span>
           </div>
           <span style="font-size:0.75rem; color:#ef4444; border:1px solid rgba(239,68,68,0.5); padding:2px 6px; border-radius:3px; background:rgba(239,68,68,0.1);">BLOCKED</span>
@@ -3435,24 +3446,24 @@ class UIManager {
         btn.style.opacity = '0.5';
         btn.style.cursor = 'not-allowed';
         btn.addEventListener('click', () => {
-          this.showToast('Under Siege', `Cannot deploy at (${sp.x}, ${sp.y}) while enemy is adjacent!`);
+          this.showToast('Under Siege', `Cannot deploy at ${formatCoord(sp.x, sp.y)} while enemy is adjacent!`);
         });
       } else if (occupyingUnit) {
         btn.innerHTML = `
           <div style="display:flex; flex-direction:column; text-align:left;">
-            <span style="font-weight:700; color:#e2e8f0;">${sp.name} (${sp.x}, ${sp.y})</span>
+            <span style="font-weight:700; color:#e2e8f0;">${sp.name} ${formatCoord(sp.x, sp.y)}</span>
             <span style="font-size:0.72rem; color:#f59e0b; font-weight:600;">⚠️ OCCUPIED by ${occupyingUnit.name} &mdash; Tile must be empty!</span>
           </div>
           <span style="font-size:0.75rem; color:#ef4444; border:1px solid rgba(239,68,68,0.5); padding:2px 6px; border-radius:3px; background:rgba(239,68,68,0.1);">BLOCKED</span>
         `;
         btn.style.opacity = '0.7';
         btn.addEventListener('click', () => {
-          this.showToast('Tile Occupied', `Cannot deploy at (${sp.x}, ${sp.y})! Depots and Bases must be EMPTY to spawn new units. Move occupying troops off first.`);
+          this.showToast('Tile Occupied', `Cannot deploy at ${formatCoord(sp.x, sp.y)}! Depots and Bases must be EMPTY to spawn new units. Move occupying troops off first.`);
         });
       } else {
         btn.innerHTML = `
           <div style="display:flex; flex-direction:column; text-align:left;">
-            <span style="font-weight:700; color:#ffffff;">${sp.name} (${sp.x}, ${sp.y})</span>
+            <span style="font-weight:700; color:#ffffff;">${sp.name} ${formatCoord(sp.x, sp.y)}</span>
             <span style="font-size:0.72rem; color:#4ade80; font-weight:600;">✅ EMPTY &mdash; Ready for deployment</span>
           </div>
           <span style="font-size:0.75rem; color:#60a5fa; border:1px solid rgba(96,165,250,0.5); padding:2px 8px; border-radius:3px; background:rgba(59,130,246,0.15); font-weight:700;">DEPLOY HERE</span>
@@ -3744,12 +3755,12 @@ class UIManager {
       if (log.type === 'DEPLOY') {
         const ownerTag = log.playerOwner === 1 ? 'P1' : 'AI';
         const color = log.playerOwner === 1 ? '#3b82f6' : '#f87171';
-        div.innerHTML = `<b style="color:${color};">${ownerTag} ${log.playerName}</b> recruited <b>[${log.unitIcon}] ${log.unitName}</b> at <span style="color:#4ade80; font-weight:bold;">(${log.x}, ${log.y})</span>`;
+        div.innerHTML = `<b style="color:${color};">${ownerTag} ${log.playerName}</b> recruited <b>[${log.unitIcon}] ${log.unitName}</b> at <span style="color:#4ade80; font-weight:bold;">${formatCoord(log.x, log.y)}</span>`;
       } else if (log.type === 'ABILITY') {
         const ownerTag = log.playerOwner === 1 ? 'P1' : 'AI';
-        div.innerHTML = `<b>${ownerTag} ${log.playerName}</b> deployed <b>${log.abilityName}</b> at (${log.x}, ${log.y})`;
+        div.innerHTML = `<b>${ownerTag} ${log.playerName}</b> deployed <b>${log.abilityName}</b> at ${formatCoord(log.x, log.y)}`;
       } else if (log.type === 'ARTILLERY_IMPACT') {
-        div.innerHTML = `<b>${log.playerName} Heavy Artillery</b> barrage hit target zone (${log.x}, ${log.y})`;
+        div.innerHTML = `<b>${log.playerName} Heavy Artillery</b> barrage hit target zone ${formatCoord(log.x, log.y)}`;
       } else if (log.type === 'ARTILLERY_HIT') {
         div.innerHTML = `<b>${log.ownerTag} [${log.unitIcon}] ${log.unitName}</b> caught in artillery blast for <span style="color:#f87171; font-weight:bold;">${log.damage} splash damage</span> ${log.died ? '<b style="color:#f87171;">(ELIMINATED)</b>' : ''}`;
       } else if (log.type === 'COMBAT') {
@@ -3768,7 +3779,7 @@ class UIManager {
           `;
         }
       } else if (log.type === 'CAPTURE') {
-        div.innerHTML = `<b>${log.playerName} [${log.unitIcon}] ${log.unitName}</b> <span style="color:#4ade80; font-weight:bold;">CAPTURED</span> Supply Zone at (${log.x}, ${log.y})`;
+        div.innerHTML = `<b>${log.playerName} [${log.unitIcon}] ${log.unitName}</b> <span style="color:#4ade80; font-weight:bold;">CAPTURED</span> Supply Zone at ${formatCoord(log.x, log.y)}`;
       }
 
       this.actionLogBox.appendChild(div);
@@ -3913,12 +3924,12 @@ class BootcampManager {
       if (!isSelected && !hasWaypoints) {
         this.currentStep = 1;
         if (stepLabel) stepLabel.textContent = 'Step 1 of 3';
-        if (textEl) textEl.textContent = `Click your Rifle Squad at (${squad ? squad.x : 1}, ${squad ? squad.y : 3}) to select it.`;
+        if (textEl) textEl.textContent = `Click your Rifle Squad at ${formatCoord(squad ? squad.x : 1, squad ? squad.y : 3)} to select it.`;
         if (squad) this.positionPointerAtTile(squad.x, squad.y, '1. Click Squad');
       } else if (!hasWaypoints) {
         this.currentStep = 2;
         if (stepLabel) stepLabel.textContent = 'Step 2 of 3';
-        if (textEl) textEl.textContent = 'Click adjacent tiles to draw a path to the Green Flag at (3, 3).';
+        if (textEl) textEl.textContent = `Click adjacent tiles to draw a path to the Green Flag at ${formatCoord(3, 3)}.`;
         this.positionPointerAtTile(3, 3, '2. Plot Path to Flag');
       } else if (engine.phase === 'PLANNING') {
         this.currentStep = 3;
@@ -3955,7 +3966,7 @@ class BootcampManager {
         if (!hasWaypoints) {
           this.currentStep = 1;
           if (stepLabel) stepLabel.textContent = 'Step 1 of 4';
-          if (textEl) textEl.innerHTML = 'Select your fast Scout and click the Gold Supply Depot at (4, 3) to draw a movement path.';
+          if (textEl) textEl.innerHTML = `Select your fast Scout and click the Gold Supply Depot at ${formatCoord(4, 3)} to draw a movement path.`;
           this.positionPointerAtTile(4, 3, '1. Move to Gold Depot');
         } else {
           this.currentStep = 2;
@@ -3967,7 +3978,7 @@ class BootcampManager {
         this.currentStep = 3;
         if (stepLabel) stepLabel.textContent = 'Step 3 of 4 • Empty Tile Rule';
         if (textEl) {
-          textEl.innerHTML = `<b>Depot Secured (+10 Ink)!</b><br><span style="color:#f59e0b; font-weight:700;">TACTICAL RULE:</span> Captured Depots can spawn units, <u>BUT THE TILE MUST BE EMPTY</u>. Because your Scout is occupying the Depot at (4, 3), deploy your Rifle Squad at your empty Base at (1, 3).`;
+          textEl.innerHTML = `<b>Depot Secured (+10 Ink)!</b><br><span style="color:#f59e0b; font-weight:700;">TACTICAL RULE:</span> Captured Depots can spawn units, <u>BUT THE TILE MUST BE EMPTY</u>. Because your Scout is occupying the Depot at ${formatCoord(4, 3)}, deploy your Rifle Squad at your empty Base at ${formatCoord(1, 3)}.`;
         }
         this.positionPointerAtElement('store-card-RIFLEMAN', '3. Recruit at Base');
       } else if (engine.phase === 'PLANNING') {
@@ -4394,7 +4405,7 @@ class App {
             else if (abilityKey === 'ARTILLERY_STRIKE') this.audio.playExplosion(true);
             else this.audio.playSpawnSound();
           } catch(err){}
-          this.ui.showToast('Ability Deployed', `${ability.name} targeted at (${gridCoords.x}, ${gridCoords.y})!`);
+          this.ui.showToast('Ability Deployed', `${ability.name} targeted at ${formatCoord(gridCoords.x, gridCoords.y)}!`);
           this.ui.pendingAbilityKey = null;
         } else {
           this.ui.showToast('Ability Error', res.reason);
