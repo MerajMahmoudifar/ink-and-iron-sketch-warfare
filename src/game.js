@@ -6386,7 +6386,9 @@ function initCustomSelects() {
     }
 
     function selectOption(val) {
-      if (selectEl.value !== val) {
+      const valueChanged = selectEl.value !== val;
+      // Always re-trigger for 'CUSTOM' so the modal opens even if already selected
+      if (valueChanged || val === 'CUSTOM') {
         selectEl.value = val;
         selectEl.dispatchEvent(new Event('change', { bubbles: true }));
         if (typeof selectEl.onchange === 'function') {

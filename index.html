@@ -902,11 +902,41 @@
             40s Planning &bull; 3s Playback
           </div>
 
-          <!-- Action buttons -->
+          <!-- Action buttons — same height, same padding -->
           <div style="display: flex; gap: 10px; margin-top: 2px;">
-            <button class="btn-sketch" style="flex: 1;" onclick="window.closeCustomSpeedModal()">Cancel</button>
-            <button class="btn-sketch btn-deploy-hero" style="flex: 2;" onclick="window.applyCustomSpeed()">
-              Apply Custom Speed
+            <button onclick="window.closeCustomSpeedModal()" style="
+              flex: 1;
+              font-family: var(--font-display); font-size: 0.78rem; font-weight: 700;
+              letter-spacing: 0.1em; text-transform: uppercase;
+              padding: 11px 16px;
+              background: rgba(15,23,42,0.7);
+              border: 1px solid var(--border-medium);
+              border-radius: var(--r-sm);
+              color: var(--text-secondary);
+              cursor: pointer;
+              transition: all var(--t-fast);
+              display: flex; align-items: center; justify-content: center;
+            " onmouseover="this.style.borderColor='var(--border-strong)';this.style.color='var(--text-primary)'"
+               onmouseout="this.style.borderColor='var(--border-medium)';this.style.color='var(--text-secondary)'">
+              Cancel
+            </button>
+            <button onclick="window.applyCustomSpeed()" style="
+              flex: 2;
+              font-family: var(--font-display); font-size: 0.78rem; font-weight: 700;
+              letter-spacing: 0.1em; text-transform: uppercase;
+              padding: 11px 16px;
+              background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #1d4ed8 100%);
+              border: 1px solid #60a5fa;
+              border-radius: var(--r-sm);
+              color: #ffffff;
+              cursor: pointer;
+              transition: all var(--t-fast);
+              display: flex; align-items: center; justify-content: center; gap: 6px;
+              box-shadow: 0 4px 16px rgba(37,99,235,0.3);
+              text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+            " onmouseover="this.style.background='linear-gradient(135deg,#2563eb 0%,#3b82f6 50%,#2563eb 100%)';this.style.boxShadow='0 6px 20px rgba(59,130,246,0.45)'"
+               onmouseout="this.style.background='linear-gradient(135deg,#1e3a8a 0%,#2563eb 50%,#1d4ed8 100%)';this.style.boxShadow='0 4px 16px rgba(37,99,235,0.3)'">
+              &#9654; Apply Custom Speed
             </button>
           </div>
 
