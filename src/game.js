@@ -3233,16 +3233,80 @@ class SketchRenderer {
       this.ctx.restore();
     }
 
-    // Health Bar with high-contrast chassis frame
-    const hpBarWidth = 36;
-    const hpPercent = unit.getHpPercent() / 100;
-    this.ctx.fillStyle = '#090e17';
-    this.ctx.fillRect(cx - 18, cy + 20, hpBarWidth, 4);
-    this.ctx.fillStyle = isP1 ? (hpPercent > 0.5 ? '#22c55e' : '#eab308') : '#ef4444';
-    this.ctx.fillRect(cx - 18, cy + 20, Math.max(0, hpBarWidth * hpPercent), 4);
-    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-    this.ctx.lineWidth = 0.8;
-    this.ctx.strokeRect(cx - 18, cy + 20, hpBarWidth, 4);
+    // 6. Tactical Segmented Drafting Health Gauge (Fallback)
+    const hpPct = Math.max(0, Math.min(1, unit.hp / unit.maxHp));
+    const barW = 36;
+    const barH = 5;
+    const barX = cx - (barW / 2);
+    const barY = cy + 21;
+    const numPips = 5;
+    const filledPips = Math.ceil(hpPct * numPips);
+
+    // Backplate
+    this.ctx.fillStyle = 'rgba(9, 14, 24, 0.94)';
+    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.32)';
+    this.ctx.lineWidth = 1;
+    this.ctx.fillRect(barX - 1.5, barY - 1.5, barW + 3, barH + 3);
+    this.ctx.strokeRect(barX - 1.5, barY - 1.5, barW + 3, barH + 3);
+
+    let pipColor = '#22c55e';
+    if (hpPct <= 0.25) pipColor = '#ef4444';
+    else if (hpPct <= 0.5) pipColor = '#f59e0b';
+
+    const isCritical = hpPct <= 0.25;
+    const pulseGlow = isCritical ? (Math.sin(Date.now() / 200) * 0.35 + 0.65) : 1;
+    const gap = 1.5;
+    const pipW = (barW - ((numPips - 1) * gap)) / numPips;
+
+    for (let i = 0; i < numPips; i++) {
+      const px = barX + i * (pipW + gap);
+      if (i < filledPips) {
+        this.ctx.save();
+        if (isCritical) {
+          this.ctx.shadowColor = 'rgba(239, 68, 68, 0.8)';
+          this.ctx.shadowBlur = 5 * pulseGlow;
+          this.ctx.globalAlpha = 0.7 + (0.3 * pulseGlow);
+        }
+        this.ctx.fillStyle = pipColor;
+        this.ctx.fillRect(px, barY, pipW, barH);
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        this.ctx.fillRect(px, barY, pipW, 1);
+        this.ctx.restore();
+      } else {
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        this.ctx.lineWidth = 0.8;
+        this.ctx.strokeRect(px + 0.4, barY + 0.4, pipW - 0.8, barH - 0.8);
+      }
+    }
+
+    // Floating Numerical Tag on Selection
+    const isSelected = !!(unit.isSelected || (this.selectedTile && this.selectedTile.x === unit.x && this.selectedTile.y === unit.y));
+    if (isSelected) {
+      const tagText = `${Math.round(unit.hp)}/${unit.maxHp} HP`;
+      this.ctx.save();
+      this.ctx.font = 'bold 8.5px "Courier New", monospace';
+      const textMetrics = this.ctx.measureText(tagText);
+      const tagW = textMetrics.width + 10;
+      const tagH = 13;
+      const tagX = cx - (tagW / 2);
+      const tagY = cy - 22 - 15;
+
+      this.ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      this.ctx.shadowBlur = 6;
+      this.ctx.shadowOffsetY = 2;
+      this.ctx.fillStyle = 'rgba(8, 14, 26, 0.96)';
+      this.ctx.strokeStyle = mainColor;
+      this.ctx.lineWidth = 1.2;
+      this.ctx.strokeRect(tagX, tagY, tagW, tagH);
+      this.ctx.fillRect(tagX, tagY, tagW, tagH);
+
+      this.ctx.shadowBlur = 0;
+      this.ctx.fillStyle = isCritical ? '#fca5a5' : '#f8fafc';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(tagText, cx, tagY + (tagH / 2));
+      this.ctx.restore();
+    }
 
     this.ctx.restore();
   }

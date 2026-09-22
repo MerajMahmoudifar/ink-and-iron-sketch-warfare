@@ -287,31 +287,115 @@
         ctx.restore();
       }
 
-      // 6. Perimeter Health Arc Ring
+      // 6. Tactical Segmented Drafting Health Gauge
       const hpPct = Math.max(0, Math.min(1, unit.hp / unit.maxHp));
-      if (hpPct < 1.0) {
-        ctx.beginPath();
-        const startAngle = -Math.PI / 2;
-        const endAngle = startAngle + (Math.PI * 2 * hpPct);
-        const arcRadius = radius + 2.5;
+      const barW = isVehicle ? 38 : 34;
+      const barH = 5;
+      const barX = cx - (barW / 2);
+      const barY = cy + radius + 1;
+      const numPips = 5;
+      const filledPips = Math.ceil(hpPct * numPips);
 
-        // Background track
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(cx, cy, arcRadius, 0, Math.PI * 2);
-        ctx.stroke();
+      // A. High-Contrast Blueprint Chit Backplate
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetY = 1;
+      ctx.fillStyle = 'rgba(9, 14, 24, 0.94)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.32)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.rect(barX - 1.5, barY - 1.5, barW + 3, barH + 3);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
 
-        // Active health arc
-        ctx.beginPath();
-        ctx.arc(cx, cy, arcRadius, startAngle, endAngle);
-        ctx.strokeStyle = hpPct > 0.5 ? '#22c55e' : (hpPct > 0.25 ? '#eab308' : '#ef4444');
-        ctx.lineWidth = 2.5;
-        ctx.lineCap = 'round';
-        ctx.stroke();
+      // B. Dynamic Health Color with Subtle Critical Pulse
+      let pipColor = '#22c55e'; // Technical Emerald (>50%)
+      if (hpPct <= 0.25) {
+        pipColor = '#ef4444'; // Combat Crimson (<25%)
+      } else if (hpPct <= 0.5) {
+        pipColor = '#f59e0b'; // Warning Amber (25-50%)
       }
 
-      // 7. Stance Indicator Pip (Bottom Center)
+      const isCritical = hpPct <= 0.25;
+      const pulseGlow = isCritical ? (Math.sin(Date.now() / 200) * 0.35 + 0.65) : 1;
+
+      // C. Discrete Drafting Pips
+      const gap = 1.5;
+      const pipW = (barW - ((numPips - 1) * gap)) / numPips;
+
+      for (let i = 0; i < numPips; i++) {
+        const px = barX + i * (pipW + gap);
+        if (i < filledPips) {
+          ctx.save();
+          if (isCritical) {
+            ctx.shadowColor = 'rgba(239, 68, 68, 0.8)';
+            ctx.shadowBlur = 5 * pulseGlow;
+            ctx.globalAlpha = 0.7 + (0.3 * pulseGlow);
+          }
+          ctx.fillStyle = pipColor;
+          ctx.fillRect(px, barY, pipW, barH);
+          // Highlight sheen on top 1px of pip
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+          ctx.fillRect(px, barY, pipW, 1);
+          ctx.restore();
+        } else {
+          // Depleted wireframe notch
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+          ctx.lineWidth = 0.8;
+          ctx.strokeRect(px + 0.4, barY + 0.4, pipW - 0.8, barH - 0.8);
+        }
+      }
+
+      // 7. Floating Tactical Numeric Tag on Selection
+      const isSelected = !!(unit.isSelected || options.isSelected || (window.gApp && window.gApp.renderer && window.gApp.renderer.selectedTile && window.gApp.renderer.selectedTile.x === unit.x && window.gApp.renderer.selectedTile.y === unit.y));
+      if (isSelected) {
+        const tagText = `${Math.round(unit.hp)}/${unit.maxHp} HP`;
+        ctx.save();
+        ctx.font = 'bold 8.5px "Courier New", monospace';
+        const textMetrics = ctx.measureText(tagText);
+        const tagW = textMetrics.width + 10;
+        const tagH = 13;
+        const tagX = cx - (tagW / 2);
+        const tagY = cy - radius - 15;
+
+        // Tag Background & Border
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+        ctx.shadowBlur = 6;
+        ctx.shadowOffsetY = 2;
+        ctx.fillStyle = 'rgba(8, 14, 26, 0.96)';
+        ctx.strokeStyle = teamPrimary;
+        ctx.lineWidth = 1.2;
+
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(tagX, tagY, tagW, tagH, 3);
+        } else {
+          ctx.rect(tagX, tagY, tagW, tagH);
+        }
+        ctx.fill();
+        ctx.stroke();
+
+        // Tiny pointer notch pointing down to the unit
+        ctx.fillStyle = teamPrimary;
+        ctx.beginPath();
+        ctx.moveTo(cx - 3, tagY + tagH);
+        ctx.lineTo(cx + 3, tagY + tagH);
+        ctx.lineTo(cx, tagY + tagH + 2.5);
+        ctx.closePath();
+        ctx.fill();
+
+        // Text
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = isCritical ? '#fca5a5' : '#f8fafc';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(tagText, cx, tagY + (tagH / 2));
+        ctx.restore();
+      }
+
+      // 8. Stance Indicator Pip (Positioned on top-right flank so it never collides with HP bar)
       if (unit.stance) {
         let stanceColor = '#3b82f6';
         let stanceSymbol = '▲';
@@ -323,9 +407,12 @@
           stanceSymbol = '✦';
         }
 
-        ctx.fillStyle = 'rgba(10, 15, 26, 0.9)';
+        const stanceX = cx + radius - 5;
+        const stanceY = cy - radius + 5;
+
+        ctx.fillStyle = 'rgba(9, 14, 24, 0.95)';
         ctx.beginPath();
-        ctx.arc(cx, cy + radius - 2, 5, 0, Math.PI * 2);
+        ctx.arc(stanceX, stanceY, 5.5, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = stanceColor;
         ctx.lineWidth = 1.2;
@@ -335,10 +422,10 @@
         ctx.font = 'bold 7px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(stanceSymbol, cx, cy + radius - 2);
+        ctx.fillText(stanceSymbol, stanceX, stanceY);
       }
 
-      // 8. Stealth / Ambush camouflage dashed ring
+      // 9. Stealth / Ambush camouflage dashed ring
       if (unit.stance === 'AMBUSH' && unit.isAmbusherHidden && isP1) {
         ctx.save();
         ctx.strokeStyle = 'rgba(74, 222, 128, 0.7)';
