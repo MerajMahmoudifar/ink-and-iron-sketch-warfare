@@ -826,10 +826,11 @@ class GameEngine {
         this.players[1].units.push(at);
         this.players[1].ink = 0;
 
-        // Enemy: Armored Car at (7, 3) (HP 150: survives normal hit with ~20 HP, but dies to Forest Ambush Strike!)
+        // Enemy: Armored Car at (7, 3) (HP 150, Range 2 autocannon: punishes infantry in open terrain!)
         const ev = new Unit('LIGHT_VEHICLE', 2, 7, 3);
         ev.hp = 150;
         ev.maxHp = 150;
+        ev.attackRange = 2;
         this.players[2].units.push(ev);
         this.players[2].ink = 0;
       } else if (this.bootcampLesson === 6) {
@@ -1414,9 +1415,14 @@ class GameEngine {
         if (dist > 1 && Combat.isBlockedByMountain(u1.x, u1.y, u2.x, u2.y, this.grid)) return;
 
         if (dist <= Math.max(u1.attackRange, u2.attackRange)) {
-          if (dist <= u1.attackRange && !u1.hasAttackedThisTurn) {
+          let u1Ambushed = false;
+          const u1CanAttack = dist <= u1.attackRange && !u1.hasAttackedThisTurn;
+          const u2CanAttack = dist <= u2.attackRange && !u2.hasAttackedThisTurn;
+
+          if (u1CanAttack) {
             const res = Combat.resolveEncounter(u1, u2, this.grid[u2.y][u2.x], this.players[1].faction, this.players[2].faction);
             u1.hasAttackedThisTurn = true;
+            u1Ambushed = !!res.isAmbushStrike;
             if (this.audio) this.audio.playGunfire(u1.category === 'VEHICLE' || u2.category === 'VEHICLE');
             
             // ONLY LOG COMBAT IF DEFENDER TILE IS VISIBLE TO P1
@@ -1427,7 +1433,12 @@ class GameEngine {
             // Reward CP for dealing damage
             this.players[1].cp = Math.min(10, this.players[1].cp + Math.max(1, Math.floor(res.damageDealt / 25)));
           }
-          if (u2.isAlive() && dist <= u2.attackRange && !u2.hasAttackedThisTurn) {
+
+          // TRUE SIMULTANEOUS COMBAT RESOLUTION:
+          // In an Ambush Strike, the ambusher eliminates the target from stealth, denying retaliation if lethal.
+          // In open combat, fire is strictly simultaneous: u2 fires back even if taking lethal damage!
+          const u2CanRetaliate = u2.isAlive() || (!u1Ambushed && u2CanAttack);
+          if (u2CanAttack && u2CanRetaliate) {
             const res = Combat.resolveEncounter(u2, u1, this.grid[u1.y][u1.x], this.players[2].faction, this.players[1].faction);
             u2.hasAttackedThisTurn = true;
             
@@ -4516,8 +4527,9 @@ class BootcampManager {
       return enemies.length === 0;
     }
     if (this.activeLesson === 5) {
+      const p1Alive = engine.players[1].units.filter(u => u.isAlive()).length;
       const enemies = engine.players[2].units.filter(u => u.isAlive());
-      return enemies.length === 0 && engine.turnNumber >= 3;
+      return p1Alive > 0 && enemies.length === 0 && engine.turnNumber >= 3;
     }
     if (this.activeLesson === 6) {
       const enemies = engine.players[2].units.filter(u => u.isAlive());
