@@ -292,7 +292,7 @@ class MapGenerator {
           ['.', '.', '.', '.', '.', '.', '.', '.'],
           ['.', '.', '.', '.', '.', '.', '.', '.'],
           ['.', '.', '.', '.', '.', '.', '.', '.'],
-          ['B1', '.', '.', 'Z', '.', '.', '.', '.'],
+          ['.', '.', '.', 'Z', '.', '.', '.', '.'],
           ['.', '.', '.', '.', '.', '.', '.', '.'],
           ['.', '.', '.', '.', '.', '.', '.', '.'],
           ['.', '.', '.', '.', '.', '.', '.', '.'],
@@ -851,7 +851,7 @@ class GameEngine {
         }
         const at = new Unit('ANTI_TANK', 1, 1, 3);
         this.players[1].units.push(at);
-        this.players[1].ink = 50;
+        this.players[1].ink = 60;
 
         const raider = new Unit('LIGHT_VEHICLE', 2, 4, 3);
         raider.hp = 40;
@@ -1171,12 +1171,17 @@ class GameEngine {
       });
     };
 
-    points.push({
-      x: playerBase.x,
-      y: playerBase.y,
-      name: 'Main Base',
-      isContested: isUnderSiege(playerBase.x, playerBase.y)
-    });
+    if (playerBase) {
+      const baseTile = this.grid[playerBase.y] && this.grid[playerBase.y][playerBase.x];
+      if (baseTile && baseTile.id === 'MAIN_BASE' && baseTile.owner === playerId) {
+        points.push({
+          x: playerBase.x,
+          y: playerBase.y,
+          name: 'Main Base',
+          isContested: isUnderSiege(playerBase.x, playerBase.y)
+        });
+      }
+    }
 
     for (let r = 0; r < 8; r++) {
       for (let c = 0; c < 8; c++) {
@@ -1536,16 +1541,16 @@ class GameEngine {
   checkWinConditions() {
     if (this.winner) return;
 
-    const p1Base = this.grid[this.players[1].basePos.y][this.players[1].basePos.x];
-    const p2Base = this.grid[this.players[2].basePos.y][this.players[2].basePos.x];
+    const p1Base = this.players[1].basePos ? this.grid[this.players[1].basePos.y]?.[this.players[1].basePos.x] : null;
+    const p2Base = this.players[2].basePos ? this.grid[this.players[2].basePos.y]?.[this.players[2].basePos.x] : null;
 
-    if (p1Base.owner === 2) {
+    if (p1Base && p1Base.id === 'MAIN_BASE' && p1Base.owner === 2) {
       this.winner = 2;
       this.winReason = 'BASE_CAPTURE';
       this.phase = GAME_PHASES.GAME_OVER;
       return;
     }
-    if (p2Base.owner === 1) {
+    if (p2Base && p2Base.id === 'MAIN_BASE' && p2Base.owner === 1) {
       if (this.bootcampLesson && this.bootcampLesson < 8) return;
       this.winner = 1;
       this.winReason = 'BASE_CAPTURE';
