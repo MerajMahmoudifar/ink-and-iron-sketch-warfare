@@ -862,10 +862,7 @@ select.diesel-hidden-select {
 
 .diesel-select-menu {
   display: none;
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
+  position: fixed;
   background: #090e18;
   border: 1px solid var(--border-strong);
   border-radius: var(--r-sm);
@@ -873,15 +870,15 @@ select.diesel-hidden-select {
   max-height: 220px;
   overflow-y: auto;
   overflow-x: hidden;
-  z-index: 99999;
+  z-index: 999999;
   padding: 4px 0;
   scrollbar-width: thin;
   scrollbar-color: var(--gold-400) rgba(15, 23, 42, 0.6);
 }
 
+/* drop-up: JS sets bottom via style.top instead */
 .diesel-select-wrapper.drop-up .diesel-select-menu {
-  top: auto;
-  bottom: calc(100% + 4px);
+  /* positioning handled by JS for fixed layout */
 }
 
 .diesel-select-wrapper.open .diesel-select-menu {
