@@ -26,7 +26,7 @@ export class App {
     const mapVal = document.getElementById('select-map')?.value || 'PRESET_1';
     const p1FactionKey = document.getElementById('select-p1-faction')?.value || 'IRON_CORPS';
     const gameMode = document.getElementById('select-game-mode')?.value || 'SINGLE_PLAYER';
-    const timerDuration = parseInt(document.getElementById('select-timer-duration')?.value || '20', 10);
+    const timerDuration = parseInt(document.getElementById('select-timer-duration')?.value || '40', 10);
 
     const p2FactionKey = p1FactionKey === 'IRON_CORPS' ? 'VANGUARD_LEGION' : 'IRON_CORPS';
 

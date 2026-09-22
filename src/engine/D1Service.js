@@ -26,7 +26,7 @@ export class D1Service {
       master_volume: 80,
       sfx_volume: 100,
       audio_muted: false,
-      planning_duration: 20,
+      planning_duration: 40,
       playback_speed: 3,
       wins: 0,
       losses: 0,

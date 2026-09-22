@@ -13,7 +13,7 @@ export class GameEngine {
 
     this.turnNumber = 1;
     this.phase = GAME_PHASES.PLANNING;
-    this.planningTimeRemaining = 20; // 20s action phase
+    this.planningTimeRemaining = 40; // 40s action phase
     this.playbackTimeRemaining = 10; // 10s playback phase
     this.timerInterval = null;
 
@@ -106,7 +106,7 @@ export class GameEngine {
     // Advance to next turn
     this.turnNumber++;
     this.phase = GAME_PHASES.PLANNING;
-    this.planningTimeRemaining = 20;
+    this.planningTimeRemaining = 40;
 
     // Collect Income for both players
     this.calculateTurnIncome(1);

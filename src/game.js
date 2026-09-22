@@ -760,10 +760,11 @@ class GameEngine {
     this.aiDifficulty = config.aiDifficulty || 'VETERAN';
     this.audio = config.audio || null;
     this.playbackDurationConfig = config.playbackDuration || 3;
+    this.planningDurationConfig = config.planningDuration || 40;
 
     this.turnNumber = 1;
     this.phase = GAME_PHASES.PLANNING;
-    this.planningTimeRemaining = this.bootcampLesson ? Infinity : 20;
+    this.planningTimeRemaining = this.bootcampLesson ? Infinity : this.planningDurationConfig;
     this.playbackTimeRemaining = this.playbackDurationConfig;
     this.currentPlaybackStep = 0;
     this.timerInterval = null;
@@ -974,7 +975,7 @@ class GameEngine {
     }
     this.turnNumber++;
     this.phase = GAME_PHASES.PLANNING;
-    this.planningTimeRemaining = this.bootcampLesson ? Infinity : 20;
+    this.planningTimeRemaining = this.bootcampLesson ? Infinity : this.planningDurationConfig;
 
     this.calculateTurnIncome(1);
     this.calculateTurnIncome(2);
@@ -3511,7 +3512,8 @@ class UIManager {
     } else if (engine.phase === 'PLANNING') {
       this.phaseBadge.textContent = `Planning Phase — ${engine.planningTimeRemaining}s`;
       this.phaseBadge.style.background = '';
-      this.timerBarFill.style.width = `${(engine.planningTimeRemaining / 20) * 100}%`;
+      const maxPlanningSecs = engine.planningDurationConfig || 40;
+      this.timerBarFill.style.width = `${Math.min(100, Math.max(0, (engine.planningTimeRemaining / maxPlanningSecs) * 100))}%`;
       const dialog = document.getElementById('bootcamp-instructor-dialog');
       const pointer = document.getElementById('bootcamp-pointer-hint');
       if (dialog) dialog.style.display = 'none';
@@ -4967,7 +4969,7 @@ class App {
       const gameMode = document.getElementById('select-game-mode')?.value || 'SINGLE_PLAYER';
       const p1FactionKey = document.getElementById('select-p1-faction')?.value || 'IRON_CORPS';
       const aiDiff = document.getElementById('select-ai-difficulty')?.value || window.gAiDifficulty || 'VETERAN';
-      const timerDuration = parseInt(document.getElementById('select-timer-duration')?.value || '20', 10);
+      const timerDuration = parseInt(document.getElementById('select-timer-duration')?.value || '40', 10);
       const playbackDuration = parseInt(document.getElementById('select-playback-duration')?.value || '3', 10);
 
       const p2FactionKey = p1FactionKey === 'IRON_CORPS' ? 'VANGUARD_LEGION' : 'IRON_CORPS';
@@ -4978,6 +4980,7 @@ class App {
         p2Faction: FACTIONS[p2FactionKey],
         isSinglePlayer: true,
         aiDifficulty: aiDiff,
+        planningDuration: timerDuration,
         playbackDuration: playbackDuration,
         audio: this.audio
       });
@@ -5485,7 +5488,7 @@ const d1Service = {
       master_volume: 80,
       sfx_volume: 100,
       audio_muted: false,
-      planning_duration: 20,
+      planning_duration: 40,
       playback_speed: 3,
       wins: 0,
       losses: 0,
@@ -5613,16 +5616,74 @@ const d1Service = {
 window.d1Service = d1Service;
 window.gAllAdminUsers = [];
 
-window.updateUsername = function(val) {
-  d1Service.syncSettings({ username: val });
+window.updateGameSpeedPreset = function(preset) {
+  let plan = 40;
+  let play = 3;
+  if (preset === 'BLITZ') {
+    plan = 20;
+    play = 3;
+  } else if (preset === 'RELAXED') {
+    plan = 60;
+    play = 3;
+  } else if (preset === 'STANDARD') {
+    plan = 40;
+    play = 3;
+  } else {
+    return;
+  }
+
+  const timerSelect = document.getElementById('select-timer-duration');
+  if (timerSelect) timerSelect.value = plan;
+
+  const speedSelect = document.getElementById('select-playback-duration');
+  if (speedSelect) speedSelect.value = play;
+
+  d1Service.syncSettings({
+    planning_duration: plan,
+    playback_speed: play
+  });
+
+  if (typeof window.syncCustomSelects === 'function') {
+    window.syncCustomSelects();
+  }
 };
 
 window.updatePlanningDuration = function(val) {
-  d1Service.syncSettings({ planning_duration: Number(val) });
+  const plan = Number(val);
+  const speedSelect = document.getElementById('select-playback-duration');
+  const play = Number(speedSelect?.value || 3);
+
+  const presetSelect = document.getElementById('select-game-speed-preset');
+  if (presetSelect) {
+    if (plan === 40 && play === 3) presetSelect.value = 'STANDARD';
+    else if (plan === 20 && play === 3) presetSelect.value = 'BLITZ';
+    else if (plan === 60 && play === 3) presetSelect.value = 'RELAXED';
+    else presetSelect.value = 'CUSTOM';
+  }
+
+  d1Service.syncSettings({ planning_duration: plan });
+  if (typeof window.syncCustomSelects === 'function') {
+    window.syncCustomSelects();
+  }
 };
 
 window.updatePlaybackSpeed = function(val) {
-  d1Service.syncSettings({ playback_speed: Number(val) });
+  const play = Number(val);
+  const timerSelect = document.getElementById('select-timer-duration');
+  const plan = Number(timerSelect?.value || 40);
+
+  const presetSelect = document.getElementById('select-game-speed-preset');
+  if (presetSelect) {
+    if (plan === 40 && play === 3) presetSelect.value = 'STANDARD';
+    else if (plan === 20 && play === 3) presetSelect.value = 'BLITZ';
+    else if (plan === 60 && play === 3) presetSelect.value = 'RELAXED';
+    else presetSelect.value = 'CUSTOM';
+  }
+
+  d1Service.syncSettings({ playback_speed: play });
+  if (typeof window.syncCustomSelects === 'function') {
+    window.syncCustomSelects();
+  }
 };
 
 window.openAdminAuthModal = function() {
@@ -6200,11 +6261,22 @@ function bootGame() {
     if (sfxSlider) sfxSlider.value = user.sfx_volume;
     if (window.gApp && window.gApp.audio) window.gApp.audio.setSFXVolume(user.sfx_volume / 100);
 
+    const planVal = Number(user.planning_duration || 40);
+    const playVal = Number(user.playback_speed || 3);
+
     const timerSelect = document.getElementById('select-timer-duration');
-    if (timerSelect) timerSelect.value = user.planning_duration;
+    if (timerSelect) timerSelect.value = planVal;
 
     const speedSelect = document.getElementById('select-playback-duration');
-    if (speedSelect) speedSelect.value = user.playback_speed;
+    if (speedSelect) speedSelect.value = playVal;
+
+    const presetSelect = document.getElementById('select-game-speed-preset');
+    if (presetSelect) {
+      if (planVal === 40 && playVal === 3) presetSelect.value = 'STANDARD';
+      else if (planVal === 20 && playVal === 3) presetSelect.value = 'BLITZ';
+      else if (planVal === 60 && playVal === 3) presetSelect.value = 'RELAXED';
+      else presetSelect.value = 'CUSTOM';
+    }
 
     window.syncCustomSelects();
 

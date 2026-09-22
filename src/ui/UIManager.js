@@ -387,12 +387,14 @@ export class UIManager {
     if (engine.phase === 'PLANNING') {
       this.phaseBadge.textContent = `📝 Planning Phase (${engine.planningTimeRemaining}s)`;
       this.phaseBadge.style.background = '#fef3c7';
-      const pct = (engine.planningTimeRemaining / 20) * 100;
+      const maxPlanning = engine.planningDurationConfig || 40;
+      const pct = Math.min(100, Math.max(0, (engine.planningTimeRemaining / maxPlanning) * 100));
       this.timerBarFill.style.width = `${pct}%`;
     } else if (engine.phase === 'PLAYBACK') {
       this.phaseBadge.textContent = `⚔️ Playback Phase (${engine.playbackTimeRemaining}s)`;
       this.phaseBadge.style.background = '#fed7aa';
-      const pct = (engine.playbackTimeRemaining / 10) * 100;
+      const maxPlayback = engine.playbackDurationConfig || 3;
+      const pct = Math.min(100, Math.max(0, (engine.playbackTimeRemaining / maxPlayback) * 100));
       this.timerBarFill.style.width = `${pct}%`;
     } else {
       this.phaseBadge.textContent = `🏆 Match Finished`;

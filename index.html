@@ -340,7 +340,7 @@
                 </div>
                 <div style="background:rgba(15,23,42,0.6); padding:8px; border-radius:6px; border-left:3px solid #10b981;">
                   <b style="color:#34d399; font-size:0.78rem; display:block; margin-bottom:2px;">3. Simultaneous Turns</b>
-                  <span style="font-size:0.75rem; color:var(--text-muted);">Press End Turn. 20s Planning ends &amp; troops move!</span>
+                  <span style="font-size:0.75rem; color:var(--text-muted);">Press End Turn. Planning phase ends &amp; troops move!</span>
                 </div>
                 <div style="background:rgba(15,23,42,0.6); padding:8px; border-radius:6px; border-left:3px solid #ef4444;">
                   <b style="color:#f87171; font-size:0.78rem; display:block; margin-bottom:2px;">4. Capture &amp; Destroy</b>
@@ -368,7 +368,7 @@
                 </div>
                 <div style="font-size:0.76rem; background:rgba(15,23,42,0.4); padding:6px 10px; border-radius:6px; border:1px solid rgba(255,255,255,0.05);">
                   <b style="color:var(--gold-300); display:block;">Q: Does it have rounds?</b>
-                  <span style="color:var(--text-secondary);">Yes! 20-second Planning Phase (queue moves) followed by 3-second Playback.</span>
+                  <span style="color:var(--text-secondary);">Yes! 40-second Planning Phase (queue moves) followed by 3-second Action Playback (customizable in Settings).</span>
                 </div>
                 <div style="font-size:0.76rem; background:rgba(15,23,42,0.4); padding:6px 10px; border-radius:6px; border:1px solid rgba(255,255,255,0.05);">
                   <b style="color:var(--gold-300); display:block;">Q: Do troops move by themselves?</b>
@@ -580,17 +580,26 @@
               <button id="btn-toggle-sound" class="btn-sketch setting-btn" onclick="window.toggleAudioMute()">SFX Enabled</button>
             </div>
             <div class="setting-row">
-              <span>Planning Phase Duration</span>
-              <select id="select-timer-duration" class="btn-sketch setting-select" onchange="window.updatePlanningDuration(this.value)">
-                <option value="20" selected>20s &mdash; Standard</option>
-                <option value="15">15s &mdash; Blitz</option>
-                <option value="30">30s &mdash; Relaxed</option>
+              <span>Gaming Speed Preset</span>
+              <select id="select-game-speed-preset" class="btn-sketch setting-select" onchange="window.updateGameSpeedPreset(this.value)">
+                <option value="STANDARD" selected>Standard &mdash; 40s + 3s (Default)</option>
+                <option value="BLITZ">Blitz &mdash; 20s + 3s</option>
+                <option value="RELAXED">Relaxed &mdash; 60s + 3s</option>
+                <option value="CUSTOM">Custom</option>
               </select>
             </div>
             <div class="setting-row">
-              <span>Playback Phase Speed</span>
+              <span>Planning Phase Duration</span>
+              <select id="select-timer-duration" class="btn-sketch setting-select" onchange="window.updatePlanningDuration(this.value)">
+                <option value="40" selected>40s &mdash; Standard (Default)</option>
+                <option value="20">20s &mdash; Blitz</option>
+                <option value="60">60s &mdash; Relaxed</option>
+              </select>
+            </div>
+            <div class="setting-row">
+              <span>Action / Playback Duration</span>
               <select id="select-playback-duration" class="btn-sketch setting-select" onchange="window.updatePlaybackSpeed(this.value)">
-                <option value="3" selected>3s &mdash; Standard (Fast)</option>
+                <option value="3" selected>3s &mdash; Standard Action Time</option>
                 <option value="5">5s &mdash; Moderate</option>
                 <option value="10">10s &mdash; Extended</option>
               </select>
@@ -623,7 +632,7 @@
         </div>
 
         <div class="phase-container">
-          <div id="phase-badge" class="phase-badge">Planning Phase &mdash; 20s</div>
+          <div id="phase-badge" class="phase-badge">Planning Phase &mdash; 40s</div>
           <div class="timer-bar-wrapper">
             <div id="timer-bar-fill" class="timer-bar-fill"></div>
           </div>
@@ -1283,8 +1292,8 @@
 
   </div>
 
-  <script src="src/ui/UnitIcons.js?v=2.10.10"></script>
+  <script src="src/ui/UnitIcons.js?v=2.10.11"></script>
   <script src="src/firebase-config.js"></script>
-  <script src="src/game.js?v=2.10.10"></script>
+  <script src="src/game.js?v=2.10.11"></script>
 </body>
 </html>

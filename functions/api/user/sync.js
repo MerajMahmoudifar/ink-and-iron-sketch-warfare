@@ -76,7 +76,7 @@ export async function onRequestPost({ request, env }) {
     const masterVol = typeof master_volume === "number" ? Math.max(0, Math.min(100, master_volume)) : (existing ? existing.master_volume : 80);
     const sfxVol = typeof sfx_volume === "number" ? Math.max(0, Math.min(100, sfx_volume)) : (existing ? existing.sfx_volume : 100);
     const muted = audio_muted ? 1 : 0;
-    const planDur = typeof planning_duration === "number" ? Math.max(5, Math.min(60, planning_duration)) : (existing ? existing.planning_duration : 20);
+    const planDur = typeof planning_duration === "number" ? Math.max(5, Math.min(60, planning_duration)) : (existing ? existing.planning_duration : 40);
     const playSpd = typeof playback_speed === "number" ? Math.max(1, Math.min(10, playback_speed)) : (existing ? existing.playback_speed : 3);
     const winCount = typeof wins === "number" ? Math.max(0, wins) : (existing ? existing.wins : 0);
     const lossCount = typeof losses === "number" ? Math.max(0, losses) : (existing ? existing.losses : 0);
