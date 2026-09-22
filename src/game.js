@@ -3544,7 +3544,11 @@ class UIManager {
       const dialog = document.getElementById('bootcamp-instructor-dialog');
       if (dialog) dialog.style.display = 'none';
       if (engine.bootcampLesson && engine.bootcampManager) {
-        engine.bootcampManager.onLessonVictory(engine);
+        if (engine.winner === 1) {
+          engine.bootcampManager.onLessonVictory(engine);
+        } else {
+          engine.bootcampManager.onLessonDefeat(engine);
+        }
         return;
       }
       if (window.gAuthManager) {
@@ -4112,6 +4116,11 @@ class BootcampManager {
     const dialog = document.getElementById('bootcamp-instructor-dialog');
     if (dialog) dialog.style.display = 'none';
 
+    const completeModal = document.getElementById('modal-bootcamp-complete');
+    if (completeModal) completeModal.style.display = 'none';
+    const failedModal = document.getElementById('modal-bootcamp-failed');
+    if (failedModal) failedModal.style.display = 'none';
+
     const menu = document.getElementById('main-menu-overlay');
     if (menu) menu.style.display = 'none';
     const gameContainer = document.getElementById('game-container');
@@ -4288,6 +4297,18 @@ class BootcampManager {
       const dialog = document.getElementById('bootcamp-instructor-dialog');
       if (dialog) dialog.style.display = 'none';
       this.onLessonVictory(engine);
+      return;
+    }
+
+    if (this.checkDefeat(engine)) {
+      const pointer = document.getElementById('bootcamp-pointer-hint');
+      if (pointer) {
+        pointer.style.display = 'none';
+        pointer.classList.remove('pointer-below');
+      }
+      const dialog = document.getElementById('bootcamp-instructor-dialog');
+      if (dialog) dialog.style.display = 'none';
+      this.onLessonDefeat(engine);
       return;
     }
 
@@ -4546,6 +4567,15 @@ class BootcampManager {
     return false;
   }
 
+  checkDefeat(engine) {
+    if (!this.activeLesson) return false;
+    if (engine.winner === 2) return true;
+    const p1Units = engine.players[1]?.units || [];
+    const p1Alive = p1Units.filter(u => u.isAlive()).length;
+    if (p1Alive === 0) return true;
+    return false;
+  }
+
   onLessonVictory(engine) {
     const currentId = this.activeLesson;
     this.saveProgress(currentId);
@@ -4592,6 +4622,45 @@ class BootcampManager {
             if (menu) menu.style.display = 'flex';
           };
         }
+      }
+    }
+  }
+
+  onLessonDefeat(engine, customDebrief = null) {
+    const currentId = this.activeLesson;
+    this.positionPointerAtTile(null, null);
+    const hint = document.getElementById('bootcamp-pointer-hint');
+    if (hint) {
+      hint.style.display = 'none';
+      hint.classList.remove('pointer-below');
+    }
+    const dialog = document.getElementById('bootcamp-instructor-dialog');
+    if (dialog) dialog.style.display = 'none';
+
+    try { this.app.audio.playDefeatSound(); } catch(e){}
+
+    const modal = document.getElementById('modal-bootcamp-failed');
+    const title = document.getElementById('bootcamp-failed-title');
+    const debrief = document.getElementById('bootcamp-failed-debrief');
+    const lessonNum = document.getElementById('bootcamp-failed-lesson-num');
+
+    const debriefs = {
+      1: "Squad eliminated! Remember to plan your path carefully across clear terrain to reach the objective flag.",
+      2: "Squad wiped out! Rifle Squads excel when coordinating simultaneous attacks and holding favorable firing positions.",
+      3: "Out of reinforcements! Protect your capture unit and secure the Depot to muster vital troops.",
+      4: "Recon asset lost! Use scouts to spot ahead in fog of war before advancing vulnerable forces.",
+      5: "You were caught out in the open! Without Forest Ambush cover, your 25 HP squad has zero chance against vehicle autocannons. Take the mud shortcut, camp in the Forest Pass, and let the Ambush Strike vaporize them!",
+      6: "Battery overrun! Keep spotters forward and blast enemy formations with indirect fire from behind cover.",
+      7: "Air defense breached! Position Anti-Air batteries to counter incoming bombers and protect key sectors.",
+      8: "HQ fallen or forces eliminated! Synthesize all combined arms doctrines to overcome enemy assault lines."
+    };
+
+    if (modal) {
+      modal.style.display = 'flex';
+      if (lessonNum) lessonNum.innerHTML = `LESSON ${currentId || 1} &bull; TACTICAL DEBRIEF`;
+      if (title) title.textContent = `Squad Wiped Out!`;
+      if (debrief) {
+        debrief.textContent = customDebrief || debriefs[currentId] || "Your squad was eliminated in action. Review tactical doctrine and try again, Commander.";
       }
     }
   }
@@ -4663,6 +4732,8 @@ window.returnToMainMenu = function() {
   if (modal) modal.style.display = 'none';
   const bModal = document.getElementById('modal-bootcamp-complete');
   if (bModal) bModal.style.display = 'none';
+  const fModal = document.getElementById('modal-bootcamp-failed');
+  if (fModal) fModal.style.display = 'none';
   const pointer = document.getElementById('bootcamp-pointer-hint');
   if (pointer) {
     pointer.style.display = 'none';
@@ -4692,6 +4763,8 @@ window.startBootcampLesson = function(lessonId) {
 window.nextBootcampLesson = function() {
   const modal = document.getElementById('modal-bootcamp-complete');
   if (modal) modal.style.display = 'none';
+  const fModal = document.getElementById('modal-bootcamp-failed');
+  if (fModal) fModal.style.display = 'none';
   const pointer = document.getElementById('bootcamp-pointer-hint');
   if (pointer) {
     pointer.style.display = 'none';
@@ -4713,6 +4786,8 @@ window.nextBootcampLesson = function() {
 window.replayBootcampLesson = function() {
   const modal = document.getElementById('modal-bootcamp-complete');
   if (modal) modal.style.display = 'none';
+  const fModal = document.getElementById('modal-bootcamp-failed');
+  if (fModal) fModal.style.display = 'none';
   const pointer = document.getElementById('bootcamp-pointer-hint');
   if (pointer) {
     pointer.style.display = 'none';
@@ -4730,6 +4805,8 @@ window.replayBootcampLesson = function() {
 window.returnToBootcampMenu = function() {
   const modal = document.getElementById('modal-bootcamp-complete');
   if (modal) modal.style.display = 'none';
+  const fModal = document.getElementById('modal-bootcamp-failed');
+  if (fModal) fModal.style.display = 'none';
   const pointer = document.getElementById('bootcamp-pointer-hint');
   if (pointer) {
     pointer.style.display = 'none';
@@ -4836,6 +4913,8 @@ class App {
       if (victoryModal) victoryModal.style.display = 'none';
       const bModal = document.getElementById('modal-bootcamp-complete');
       if (bModal) bModal.style.display = 'none';
+      const fModal = document.getElementById('modal-bootcamp-failed');
+      if (fModal) fModal.style.display = 'none';
 
       if (this.ui) this.ui.updateHUD(this.engine);
     } catch(err) {
