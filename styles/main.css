@@ -576,9 +576,15 @@ header.hud-header {
 
 .turn-action-buttons {
   display: flex;
-  gap: 8px;
+  gap: 5px;
   align-items: stretch;
   width: 100%;
+}
+
+.turn-action-buttons .btn-sketch {
+  padding: 8px 6px;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
 }
 
 /* ============================================

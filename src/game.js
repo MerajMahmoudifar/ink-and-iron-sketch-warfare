@@ -1036,7 +1036,7 @@ class GameEngine {
         y: targetY
       });
     } else if (abilityKey === 'SMOKE_SCREEN') {
-      this.activeSmokes.push({ x: targetX, y: targetY, owner: playerId, turnsLeft: 2 });
+      this.activeSmokes.push({ x: targetX, y: targetY, owner: playerId, turnsLeft: 2, turnPlaced: this.turnNumber });
       this.actionLogs.push({
         type: 'ABILITY',
         turn: this.turnNumber,
@@ -1068,6 +1068,50 @@ class GameEngine {
 
     this.notifyStateChange();
     return { success: true };
+  }
+
+  hasRefundableAbilities(playerId = 1) {
+    if (this.phase !== 'PLANNING') return false;
+    const artCount = this.activeArtilleryStrikes.some(a => a.owner === playerId && a.targetTurn === this.turnNumber);
+    const smokeCount = this.activeSmokes.some(s => s.owner === playerId && s.turnPlaced === this.turnNumber);
+    return artCount || smokeCount;
+  }
+
+  cancelPlayerAbilities(playerId = 1) {
+    if (this.phase !== 'PLANNING') {
+      return { success: false, reason: 'Can only cancel abilities during the Planning phase.' };
+    }
+    const artStrikes = this.activeArtilleryStrikes.filter(a => a.owner === playerId && a.targetTurn === this.turnNumber);
+    const smokes = this.activeSmokes.filter(s => s.owner === playerId && s.turnPlaced === this.turnNumber);
+
+    const artCount = artStrikes.length;
+    const smokeCount = smokes.length;
+
+    if (artCount === 0 && smokeCount === 0) {
+      return { success: false, reason: 'No pending abilities to cancel this turn.' };
+    }
+
+    const artCost = (typeof ABILITIES !== 'undefined' && ABILITIES.ARTILLERY_STRIKE) ? ABILITIES.ARTILLERY_STRIKE.cpCost : 4;
+    const smokeCost = (typeof ABILITIES !== 'undefined' && ABILITIES.SMOKE_SCREEN) ? ABILITIES.SMOKE_SCREEN.cpCost : 2;
+    const refundedCP = (artCount * artCost) + (smokeCount * smokeCost);
+
+    this.activeArtilleryStrikes = this.activeArtilleryStrikes.filter(a => !(a.owner === playerId && a.targetTurn === this.turnNumber));
+    this.activeSmokes = this.activeSmokes.filter(s => !(s.owner === playerId && s.turnPlaced === this.turnNumber));
+
+    if (this.players[playerId]) {
+      this.players[playerId].cp = Math.min(10, this.players[playerId].cp + refundedCP);
+    }
+
+    this.actionLogs.push({
+      type: 'ABILITY',
+      turn: this.turnNumber,
+      playerOwner: playerId,
+      playerName: this.players[playerId] ? this.players[playerId].name : `Player ${playerId}`,
+      abilityName: `Abilities Cancelled (+${refundedCP} CP Refunded)`
+    });
+
+    this.notifyStateChange();
+    return { success: true, refundedCP, artCount, smokeCount };
   }
 
   calculateVision(playerId) {
@@ -3346,6 +3390,20 @@ class UIManager {
       try { this.app.audio.playPencilScratch(); } catch(err){}
     });
 
+    document.getElementById('btn-cancel-abilities')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (this.app.engine) {
+        const res = this.app.engine.cancelPlayerAbilities(1);
+        if (res.success) {
+          this.showToast('Abilities Cancelled', `Cancelled ${res.artCount + res.smokeCount} ability(s). Refunded ${res.refundedCP} CP!`);
+          try { this.app.audio.playEraserSmudge(); } catch(err){}
+          this.updateHUD(this.app.engine);
+        } else {
+          this.showToast('Cannot Cancel', res.reason || 'No abilities to cancel.');
+        }
+      }
+    });
+
     document.getElementById('btn-cancel-deploy')?.addEventListener('click', (e) => {
       e.preventDefault();
       if (this.deployPickerModal) this.deployPickerModal.style.display = 'none';
@@ -3412,25 +3470,11 @@ class UIManager {
       return;
     }
 
-    const selTile = this.app.renderer.selectedTile;
-    if (selTile) {
-      const res = this.app.engine.useAbility(1, abilityKey, selTile.x, selTile.y);
-      if (res.success) {
-        try {
-          if (abilityKey === 'RECON_FLARE') this.app.audio.playFlareSound();
-          else if (abilityKey === 'SMOKE_SCREEN') this.app.audio.playSmokeSound();
-          else if (abilityKey === 'ARTILLERY_STRIKE') this.app.audio.playExplosion(true);
-          else this.app.audio.playSpawnSound();
-        } catch(err){}
-        this.showToast('Ability Deployed', `${ability.name} targeted at ${formatCoord(selTile.x, selTile.y)}!`);
-        this.pendingAbilityKey = null;
-      } else {
-        this.showToast('Ability Error', res.reason);
-      }
-    } else {
-      this.pendingAbilityKey = abilityKey;
-      this.showToast('Select Target Tile', `${ability.name} active! Click any grid square to target.`);
-    }
+    // Always deselect current unit/tile first, then prompt to choose target
+    this.app.renderer.selectedTile = null;
+    this.pendingAbilityKey = abilityKey;
+    this.showToast('Select Target Tile', `${ability.name} active (${ability.cpCost} CP)! Click any grid square to target, or Right-Click / Esc to cancel.`);
+    this.updateHUD(this.app.engine);
   }
 
   setupMenuTabs() {
@@ -3520,7 +3564,7 @@ class UIManager {
     this.updateActionLogs(engine);
 
     // In GAME_OVER: lock all action controls. Otherwise always make sure they're unlocked.
-    const actionBtnIds = ['btn-end-turn', 'btn-halt-all', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery'];
+    const actionBtnIds = ['btn-end-turn', 'btn-halt-all', 'btn-cancel-abilities', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery'];
     if (engine.phase === 'GAME_OVER') {
       actionBtnIds.forEach(id => {
         const el = document.getElementById(id);
@@ -3532,6 +3576,17 @@ class UIManager {
         const el = document.getElementById(id);
         if (el) { el.disabled = false; el.style.opacity = ''; el.style.pointerEvents = ''; }
       });
+    }
+
+    const cancelAbilitiesBtn = document.getElementById('btn-cancel-abilities');
+    if (cancelAbilitiesBtn) {
+      const hasRefundable = engine.phase === 'PLANNING' && engine.hasRefundableAbilities && engine.hasRefundableAbilities(1);
+      cancelAbilitiesBtn.disabled = !hasRefundable || engine.phase === 'GAME_OVER';
+      cancelAbilitiesBtn.style.opacity = hasRefundable ? '1' : '0.45';
+      cancelAbilitiesBtn.style.pointerEvents = hasRefundable ? 'auto' : 'none';
+      cancelAbilitiesBtn.title = hasRefundable
+        ? 'Cancel queued artillery strikes and smoke screens deployed this turn & refund Command Points'
+        : 'No pending abilities deployed this turn to cancel';
     }
 
     if (engine.winner && !engine.victoryShown) {
@@ -4719,7 +4774,7 @@ window.enterTerrainView = function() {
   if (window.gApp && window.gApp.engine) {
     window.gApp.engine.phase = 'GAME_OVER';
   }
-  ['btn-end-turn', 'btn-halt-all', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery', 'btn-open-menu'].forEach(id => {
+  ['btn-end-turn', 'btn-halt-all', 'btn-cancel-abilities', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery', 'btn-open-menu'].forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.disabled = true; el.style.opacity = '0.4'; }
   });
@@ -4745,7 +4800,7 @@ window.returnToMainMenu = function() {
     window.gApp.bootcampManager.activeLesson = null;
     window.gApp.bootcampManager.positionPointerAtTile(null, null);
   }
-  ['btn-end-turn', 'btn-halt-all', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery', 'btn-open-menu'].forEach(id => {
+  ['btn-end-turn', 'btn-halt-all', 'btn-cancel-abilities', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery', 'btn-open-menu'].forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.disabled = false; el.style.opacity = ''; }
   });
@@ -4902,7 +4957,7 @@ class App {
       this.renderer.selectedTile = null;
 
       // Re-enable HUD action buttons
-      ['btn-end-turn', 'btn-halt-all', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery', 'btn-open-menu'].forEach(id => {
+      ['btn-end-turn', 'btn-halt-all', 'btn-cancel-abilities', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery', 'btn-open-menu'].forEach(id => {
         const el = document.getElementById(id);
         if (el) { el.disabled = false; el.style.opacity = ''; el.style.pointerEvents = ''; }
       });
@@ -4974,7 +5029,7 @@ class App {
         gameContainer.style.pointerEvents = '';
         gameContainer.style.filter = '';
       }
-      ['btn-end-turn', 'btn-halt-all', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery', 'btn-open-menu'].forEach(id => {
+      ['btn-end-turn', 'btn-halt-all', 'btn-cancel-abilities', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery', 'btn-open-menu'].forEach(id => {
         const el = document.getElementById(id);
         if (el) { el.disabled = false; el.style.opacity = ''; el.style.pointerEvents = ''; }
       });
@@ -5030,6 +5085,15 @@ class App {
       }
 
       const prevSelected = this.renderer.selectedTile;
+
+      // TOGGLE DESELECTION: Re-clicking the currently selected tile toggles selection off
+      if (prevSelected && prevSelected.x === gridCoords.x && prevSelected.y === gridCoords.y) {
+        this.renderer.selectedTile = null;
+        try { this.audio.playEraserSmudge(); } catch(err){}
+        this.ui.updateHUD(this.engine);
+        return;
+      }
+
       this.renderer.selectedTile = gridCoords;
 
       if (this.engine.phase === 'PLANNING' && prevSelected) {
@@ -5062,6 +5126,25 @@ class App {
         }
       }
       this.ui.updateHUD(this.engine);
+    });
+
+    this.canvas.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      let handled = false;
+      if (this.ui && this.ui.pendingAbilityKey) {
+        const ab = (typeof ABILITIES !== 'undefined') ? ABILITIES[this.ui.pendingAbilityKey] : null;
+        this.ui.pendingAbilityKey = null;
+        this.ui.showToast('Ability Cancelled', `${ab ? ab.name : 'Targeting'} cancelled.`);
+        handled = true;
+      }
+      if (this.renderer.selectedTile) {
+        this.renderer.selectedTile = null;
+        handled = true;
+      }
+      if (handled) {
+        try { this.audio.playEraserSmudge(); } catch(err){}
+        if (this.engine) this.ui.updateHUD(this.engine);
+      }
     });
 
     this.canvas.addEventListener('mousemove', (e) => {
@@ -6075,13 +6158,33 @@ document.addEventListener('click', (e) => {
   }
 });
 
-// Escape key to dismiss
+// Escape key to dismiss custom selects, deselect active tile/unit, or cancel pending abilities
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     document.querySelectorAll('.diesel-select-wrapper.open').forEach(w => {
       w.classList.remove('open');
       w.querySelector('.diesel-select-trigger')?.setAttribute('aria-expanded', 'false');
     });
+
+    if (window.gApp) {
+      let handled = false;
+      if (window.gApp.ui && window.gApp.ui.pendingAbilityKey) {
+        const ab = (typeof ABILITIES !== 'undefined') ? ABILITIES[window.gApp.ui.pendingAbilityKey] : null;
+        window.gApp.ui.pendingAbilityKey = null;
+        window.gApp.ui.showToast('Ability Cancelled', `${ab ? ab.name : 'Targeting'} cancelled.`);
+        handled = true;
+      }
+      if (window.gApp.renderer && window.gApp.renderer.selectedTile) {
+        window.gApp.renderer.selectedTile = null;
+        handled = true;
+      }
+      if (handled) {
+        try { window.gApp.audio.playEraserSmudge(); } catch(err){}
+        if (window.gApp.ui && window.gApp.engine) {
+          window.gApp.ui.updateHUD(window.gApp.engine);
+        }
+      }
+    }
   }
 });
 
