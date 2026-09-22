@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ink &amp; Iron: Sketch Warfare | Turn-Based Grid Strategy</title>
   <meta name="description" content="Ink &amp; Iron: Sketch Warfare is a turn-based grid strategy game with hand-drawn paper aesthetics, unique factions, command abilities, and simultaneous combat playback.">
-  <link rel="stylesheet" href="styles/main.css?v=2.10.4">
+  <link rel="stylesheet" href="styles/main.css?v=2.10.6">
 </head>
 <body>
 
@@ -718,12 +718,14 @@
               <span id="turn-counter" class="turn-counter-badge">Turn 1</span>
             </div>
             <div class="turn-action-buttons">
-              <button id="btn-halt-all" class="btn-sketch btn-halt" title="Cancel movement paths for all friendly units">
-                HALT ALL
-              </button>
-              <button id="btn-cancel-abilities" class="btn-sketch btn-halt" title="Cancel queued strikes &amp; refund CP" disabled style="opacity: 0.45; pointer-events: none;">
-                HALT ABILITY
-              </button>
+              <div class="turn-halt-row">
+                <button id="btn-halt-all" class="btn-sketch btn-halt" title="Cancel movement paths for all friendly units">
+                  HALT ALL
+                </button>
+                <button id="btn-cancel-abilities" class="btn-sketch btn-halt" title="Cancel queued strikes &amp; refund CP" disabled style="opacity: 0.45; pointer-events: none;">
+                  HALT ABILITY
+                </button>
+              </div>
               <button id="btn-end-turn" class="btn-sketch btn-end-phase">
                 END PHASE &#9654;&#9654;
               </button>
