@@ -588,22 +588,7 @@
                 <option value="CUSTOM">Custom</option>
               </select>
             </div>
-            <div class="setting-row">
-              <span>Planning Phase Duration</span>
-              <select id="select-timer-duration" class="btn-sketch setting-select" onchange="window.updatePlanningDuration(this.value)">
-                <option value="40" selected>40s &mdash; Standard (Default)</option>
-                <option value="20">20s &mdash; Blitz</option>
-                <option value="60">60s &mdash; Relaxed</option>
-              </select>
-            </div>
-            <div class="setting-row">
-              <span>Action / Playback Duration</span>
-              <select id="select-playback-duration" class="btn-sketch setting-select" onchange="window.updatePlaybackSpeed(this.value)">
-                <option value="3" selected>3s &mdash; Standard Action Time</option>
-                <option value="5">5s &mdash; Moderate</option>
-                <option value="10">10s &mdash; Extended</option>
-              </select>
-            </div>
+
             <div class="setting-row d1-status-row">
               <span>Cloudflare D1 Database</span>
               <span id="d1-sync-badge" class="d1-badge">Synced</span>
@@ -851,6 +836,80 @@
           <button class="auth-link-btn" onclick="window.closeAuthModal()">
             Close &amp; Return to Game
           </button>
+        </div>
+      </div>
+    </div>
+    <!-- CUSTOM GAME SPEED MODAL -->
+    <div id="custom-speed-modal" class="modal-overlay" style="display: none;" onclick="if(event.target===this)window.closeCustomSpeedModal()">
+      <div class="modal-card" style="max-width: 400px; text-align: left; border-left: 3px solid var(--gold-400);">
+        <button class="modal-close-btn" onclick="window.closeCustomSpeedModal()" title="Close">&times;</button>
+
+        <div class="menu-logo-badge" style="display: inline-block; margin-bottom: 10px;">COMMAND TEMPO &bull; CUSTOM CONFIG</div>
+        <h2 class="modal-title" style="font-size: 1.25rem; color: var(--gold-400);">Custom Speed Settings</h2>
+        <p class="modal-subtitle" style="margin-bottom: 18px; margin-top: 4px;">Set your own planning and playback durations for this session.</p>
+
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+
+          <!-- Planning Phase -->
+          <div class="auth-input-group">
+            <label class="setup-label" for="custom-plan-input">
+              Planning Phase Duration
+              <span style="color: var(--text-muted); font-weight: 400; margin-left: 4px;">(seconds &bull; 10&ndash;300)</span>
+            </label>
+            <div style="position: relative;">
+              <input type="number" id="custom-plan-input" class="auth-input" min="10" max="300" value="40"
+                style="padding-right: 54px; width: 100%; box-sizing: border-box;"
+                oninput="window.clampCustomSpeedInput(this, 10, 300)">
+              <span style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+                font-family: var(--font-display); font-size: 0.72rem; color: var(--text-muted); pointer-events: none; letter-spacing: 0.08em;">SEC</span>
+            </div>
+            <!-- Quick-pick chips -->
+            <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+              <button class="custom-speed-chip" onclick="window.setCustomChip('plan', 20)">20s Blitz</button>
+              <button class="custom-speed-chip" onclick="window.setCustomChip('plan', 40)">40s Standard</button>
+              <button class="custom-speed-chip" onclick="window.setCustomChip('plan', 60)">60s Relaxed</button>
+              <button class="custom-speed-chip" onclick="window.setCustomChip('plan', 90)">90s Extended</button>
+            </div>
+          </div>
+
+          <!-- Playback Duration -->
+          <div class="auth-input-group">
+            <label class="setup-label" for="custom-play-input">
+              Action Playback Duration
+              <span style="color: var(--text-muted); font-weight: 400; margin-left: 4px;">(seconds &bull; 1&ndash;30)</span>
+            </label>
+            <div style="position: relative;">
+              <input type="number" id="custom-play-input" class="auth-input" min="1" max="30" value="3"
+                style="padding-right: 54px; width: 100%; box-sizing: border-box;"
+                oninput="window.clampCustomSpeedInput(this, 1, 30)">
+              <span style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+                font-family: var(--font-display); font-size: 0.72rem; color: var(--text-muted); pointer-events: none; letter-spacing: 0.08em;">SEC</span>
+            </div>
+            <!-- Quick-pick chips -->
+            <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+              <button class="custom-speed-chip" onclick="window.setCustomChip('play', 3)">3s Fast</button>
+              <button class="custom-speed-chip" onclick="window.setCustomChip('play', 5)">5s Normal</button>
+              <button class="custom-speed-chip" onclick="window.setCustomChip('play', 10)">10s Slow</button>
+            </div>
+          </div>
+
+          <!-- Summary line -->
+          <div id="custom-speed-summary" style="
+            font-family: var(--font-display); font-size: 0.72rem; letter-spacing: 0.1em;
+            color: var(--gold-300); background: rgba(245,158,11,0.08);
+            border: 1px solid rgba(245,158,11,0.25); border-radius: var(--r-sm);
+            padding: 8px 12px; text-align: center; text-transform: uppercase;">
+            40s Planning &bull; 3s Playback
+          </div>
+
+          <!-- Action buttons -->
+          <div style="display: flex; gap: 10px; margin-top: 2px;">
+            <button class="btn-sketch" style="flex: 1;" onclick="window.closeCustomSpeedModal()">Cancel</button>
+            <button class="btn-sketch btn-deploy-hero" style="flex: 2;" onclick="window.applyCustomSpeed()">
+              Apply Custom Speed
+            </button>
+          </div>
+
         </div>
       </div>
     </div>

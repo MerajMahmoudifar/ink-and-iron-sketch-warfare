@@ -1516,6 +1516,36 @@ select.diesel-hidden-select {
   letter-spacing: 0.02em;
 }
 
+/* Custom Speed Modal — Quick-Pick Chips */
+.custom-speed-chip {
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--t-fast);
+  line-height: 1.4;
+}
+
+.custom-speed-chip:hover {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: var(--gold-400);
+  color: var(--gold-300);
+}
+
+.custom-speed-chip.active {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: var(--gold-400);
+  color: var(--gold-200);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.25);
+}
+
 /* Victory Buttons */
 .victory-btn-row {
   display: flex;

@@ -5798,36 +5798,144 @@ window.d1Service = d1Service;
 window.gAllAdminUsers = [];
 
 window.updateGameSpeedPreset = function(preset) {
-  let plan = 40;
-  let play = 3;
-  if (preset === 'BLITZ') {
-    plan = 20;
-    play = 3;
-  } else if (preset === 'RELAXED') {
-    plan = 60;
-    play = 3;
-  } else if (preset === 'STANDARD') {
-    plan = 40;
-    play = 3;
-  } else {
+  if (preset === 'CUSTOM') {
+    // Open the custom speed modal; pre-fill with current stored values
+    const storedPlan = parseInt(localStorage.getItem('sketch_warfare_planning_duration') || '40', 10);
+    const storedPlay = parseInt(localStorage.getItem('sketch_warfare_playback_speed') || '3', 10);
+    window.openCustomSpeedModal(storedPlan, storedPlay);
     return;
   }
 
-  const timerSelect = document.getElementById('select-timer-duration');
-  if (timerSelect) timerSelect.value = plan;
+  let plan = 40;
+  let play = 3;
+  if (preset === 'BLITZ')    { plan = 20; play = 3; }
+  else if (preset === 'RELAXED')  { plan = 60; play = 3; }
+  else if (preset === 'STANDARD') { plan = 40; play = 3; }
 
-  const speedSelect = document.getElementById('select-playback-duration');
-  if (speedSelect) speedSelect.value = play;
+  localStorage.setItem('sketch_warfare_planning_duration', plan);
+  localStorage.setItem('sketch_warfare_playback_speed', play);
 
-  d1Service.syncSettings({
-    planning_duration: plan,
-    playback_speed: play
-  });
+  d1Service.syncSettings({ planning_duration: plan, playback_speed: play });
 
-  if (typeof window.syncCustomSelects === 'function') {
-    window.syncCustomSelects();
-  }
+  if (typeof window.syncCustomSelects === 'function') window.syncCustomSelects();
 };
+
+// ─── CUSTOM SPEED MODAL ───────────────────────────────────────────────────────
+
+window.openCustomSpeedModal = function(planVal, playVal) {
+  const modal = document.getElementById('custom-speed-modal');
+  if (!modal) return;
+
+  const planInput = document.getElementById('custom-plan-input');
+  const playInput = document.getElementById('custom-play-input');
+  if (planInput) planInput.value = planVal || 40;
+  if (playInput) playInput.value = playVal || 3;
+
+  window._updateCustomSpeedSummary();
+  window._updateCustomChipActiveStates();
+
+  modal.style.display = 'flex';
+  if (planInput) setTimeout(() => planInput.focus(), 80);
+  try { if (window.gApp && window.gApp.audio) window.gApp.audio.playPencilScratch(); } catch(e) {}
+};
+
+window.closeCustomSpeedModal = function() {
+  const modal = document.getElementById('custom-speed-modal');
+  if (modal) modal.style.display = 'none';
+
+  // If user closes without applying, reset the preset select back to CUSTOM label
+  const presetSelect = document.getElementById('select-game-speed-preset');
+  if (presetSelect) {
+    const storedPlan = parseInt(localStorage.getItem('sketch_warfare_planning_duration') || '40', 10);
+    const storedPlay = parseInt(localStorage.getItem('sketch_warfare_playback_speed') || '3', 10);
+    if (storedPlan === 40 && storedPlay === 3) presetSelect.value = 'STANDARD';
+    else if (storedPlan === 20 && storedPlay === 3) presetSelect.value = 'BLITZ';
+    else if (storedPlan === 60 && storedPlay === 3) presetSelect.value = 'RELAXED';
+    else presetSelect.value = 'CUSTOM';
+    if (typeof window.syncCustomSelects === 'function') window.syncCustomSelects();
+  }
+  try { if (window.gApp && window.gApp.audio) window.gApp.audio.playPencilScratch(); } catch(e) {}
+};
+
+window.applyCustomSpeed = function() {
+  const planInput = document.getElementById('custom-plan-input');
+  const playInput = document.getElementById('custom-play-input');
+  if (!planInput || !playInput) return;
+
+  let plan = Math.min(300, Math.max(10, parseInt(planInput.value, 10) || 40));
+  let play = Math.min(30, Math.max(1, parseInt(playInput.value, 10) || 3));
+
+  planInput.value = plan;
+  playInput.value = play;
+
+  localStorage.setItem('sketch_warfare_planning_duration', plan);
+  localStorage.setItem('sketch_warfare_playback_speed', play);
+
+  d1Service.syncSettings({ planning_duration: plan, playback_speed: play });
+
+  // Reflect correct preset label
+  const presetSelect = document.getElementById('select-game-speed-preset');
+  if (presetSelect) {
+    if (plan === 40 && play === 3) presetSelect.value = 'STANDARD';
+    else if (plan === 20 && play === 3) presetSelect.value = 'BLITZ';
+    else if (plan === 60 && play === 3) presetSelect.value = 'RELAXED';
+    else presetSelect.value = 'CUSTOM';
+    if (typeof window.syncCustomSelects === 'function') window.syncCustomSelects();
+  }
+
+  if (window.gApp && window.gApp.ui) {
+    window.gApp.ui.showToast('Speed Applied', `Planning: ${plan}s  •  Playback: ${play}s`);
+  }
+
+  const modal = document.getElementById('custom-speed-modal');
+  if (modal) modal.style.display = 'none';
+  try { if (window.gApp && window.gApp.audio) window.gApp.audio.playPencilScratch(); } catch(e) {}
+};
+
+window.clampCustomSpeedInput = function(input, min, max) {
+  const val = parseInt(input.value, 10);
+  if (!isNaN(val)) {
+    if (val < min) input.value = min;
+    if (val > max) input.value = max;
+  }
+  window._updateCustomSpeedSummary();
+  window._updateCustomChipActiveStates();
+};
+
+window.setCustomChip = function(field, val) {
+  const input = document.getElementById(field === 'plan' ? 'custom-plan-input' : 'custom-play-input');
+  if (input) { input.value = val; }
+  window._updateCustomSpeedSummary();
+  window._updateCustomChipActiveStates();
+  try { if (window.gApp && window.gApp.audio) window.gApp.audio.playPencilScratch(); } catch(e) {}
+};
+
+window._updateCustomSpeedSummary = function() {
+  const summary = document.getElementById('custom-speed-summary');
+  const planInput = document.getElementById('custom-plan-input');
+  const playInput = document.getElementById('custom-play-input');
+  if (!summary || !planInput || !playInput) return;
+  const plan = parseInt(planInput.value, 10) || 40;
+  const play = parseInt(playInput.value, 10) || 3;
+  summary.textContent = `${plan}s Planning \u2022 ${play}s Playback`;
+};
+
+window._updateCustomChipActiveStates = function() {
+  const planVal = parseInt(document.getElementById('custom-plan-input')?.value, 10);
+  const playVal = parseInt(document.getElementById('custom-play-input')?.value, 10);
+
+  document.querySelectorAll('#custom-speed-modal .custom-speed-chip').forEach(chip => {
+    const onclick = chip.getAttribute('onclick') || '';
+    const isPlan = onclick.includes("'plan'");
+    const isPlay = onclick.includes("'play'");
+    const chipVal = parseInt(onclick.match(/,\s*(\d+)/)?.[1], 10);
+
+    if (isPlan) chip.classList.toggle('active', chipVal === planVal);
+    if (isPlay) chip.classList.toggle('active', chipVal === playVal);
+  });
+};
+
+
 
 window.updatePlanningDuration = function(val) {
   const plan = Number(val);
