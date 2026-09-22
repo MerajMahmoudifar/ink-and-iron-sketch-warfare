@@ -1662,6 +1662,11 @@ select.diesel-hidden-select {
   padding: 16px;
 }
 
+/* Must sit above the main-menu-overlay (700) and any other overlays */
+#custom-speed-modal {
+  z-index: 10000;
+}
+
 .menu-paper-card {
   background: linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(8, 13, 23, 0.98) 100%);
   border: 1px solid var(--border-medium);
