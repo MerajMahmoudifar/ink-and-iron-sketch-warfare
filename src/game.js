@@ -296,7 +296,7 @@ class MapGenerator {
           ['.', '.', '.', '.', '.', '.', '.', '.'],
           ['.', '.', '.', '.', '.', '.', '.', '.'],
           ['.', '.', '.', '.', '.', '.', '.', '.'],
-          ['.', '.', '.', '.', '.', '.', '.', 'B2']
+          ['.', '.', '.', '.', '.', '.', '.', '.']
         ];
         p1Base = { x: 0, y: 3 };
         p2Base = { x: 7, y: 7 };
@@ -849,9 +849,9 @@ class GameEngine {
         if (this.grid[3] && this.grid[3][3]) {
           this.grid[3][3].owner = 1;
         }
-        const at = new Unit('ANTI_TANK', 1, 2, 3);
+        const at = new Unit('ANTI_TANK', 1, 1, 3);
         this.players[1].units.push(at);
-        this.players[1].ink = 30;
+        this.players[1].ink = 50;
 
         const raider = new Unit('LIGHT_VEHICLE', 2, 4, 3);
         raider.hp = 40;
@@ -1561,7 +1561,7 @@ class GameEngine {
       this.winReason = 'TOTAL_ELIMINATION';
       this.phase = GAME_PHASES.GAME_OVER;
     } else if (p2Alive === 0 && this.players[2].ink < 100) {
-      if (this.bootcampLesson === 5 && this.turnNumber < 3) return;
+      if (this.bootcampLesson && this.bootcampLesson < 8) return;
       this.winner = 1;
       this.winReason = 'TOTAL_ELIMINATION';
       this.phase = GAME_PHASES.GAME_OVER;
@@ -4574,17 +4574,22 @@ class BootcampManager {
     } else if (this.activeLesson === 7) {
       // Lesson 7: Base Defense & Siege (Liberation Protocol)
       const enemies = engine.players[2].units.filter(u => u.isAlive());
-      const recruitedUnit = engine.players[1].units.length >= 2;
+      const forwardUnit = engine.players[1].units.find(u => u.isAlive() && u.x === 3 && u.y === 3);
 
       if (enemies.length > 0) {
         this.currentStep = 1;
         if (stepLabel) stepLabel.textContent = 'Step 1 of 2 • Break the Siege';
-        if (textEl) textEl.innerHTML = `Your forward Depot at ${formatCoord(3, 3)} is <b style="color:#ef4444;">UNDER SIEGE</b> by an adjacent enemy raider! Deployment is blocked. Select your AT Crew at ${formatCoord(2, 3)} and attack the raider at ${formatCoord(4, 3)}!`;
-        this.positionPointerAtTile(4, 3, '1. Eliminate Raider');
-      } else if (!recruitedUnit) {
+        if (textEl) textEl.innerHTML = `Your forward Depot at ${formatCoord(3, 3)} is <b style="color:#ef4444;">UNDER SIEGE</b> by an adjacent enemy raider at ${formatCoord(4, 3)}! Advance your AT Crew from ${formatCoord(1, 3)} to ${formatCoord(2, 3)} to get in range and eliminate the raider!`;
+        const at = engine.players[1].units.find(u => u.isAlive() && u.typeKey === 'ANTI_TANK');
+        if (at && at.x === 1 && at.y === 3) {
+          this.positionPointerAtTile(2, 3, '1. Advance to Fire');
+        } else {
+          this.positionPointerAtTile(4, 3, '1. Eliminate Raider');
+        }
+      } else if (!forwardUnit) {
         this.currentStep = 2;
         if (stepLabel) stepLabel.textContent = 'Step 2 of 2 • Forward Deployment';
-        if (textEl) textEl.innerHTML = `<b>Siege lifted!</b> The forward Supply Depot is liberated and clear. Recruit a <b>Rifle Squad</b> and deploy them directly onto the forward Depot at ${formatCoord(3, 3)} to complete the doctrine!`;
+        if (textEl) textEl.innerHTML = `<b>Siege lifted!</b> The forward Supply Depot is liberated and clear. Open the Store, recruit a <b>Rifle Squad</b>, and deploy them directly onto the forward Depot at ${formatCoord(3, 3)} to complete the doctrine!`;
         this.positionPointerAtElement('store-card-RIFLEMAN', '2. Deploy at Depot');
       } else {
         this.positionPointerAtTile(null, null);
@@ -4677,8 +4682,8 @@ class BootcampManager {
     }
     if (this.activeLesson === 7) {
       const enemies = engine.players[2].units.filter(u => u.isAlive());
-      const recruited = engine.players[1].units.length >= 2;
-      return enemies.length === 0 && recruited;
+      const forwardUnit = engine.players[1].units.find(u => u.isAlive() && u.x === 3 && u.y === 3);
+      return enemies.length === 0 && !!forwardUnit;
     }
     if (this.activeLesson === 8) {
       return engine.winner === 1;
@@ -4770,7 +4775,7 @@ class BootcampManager {
       4: "Recon asset lost! Use scouts to spot ahead in fog of war before advancing vulnerable forces.",
       5: "You were caught out in the open! Without Forest Ambush cover, your 25 HP squad has zero chance against vehicle autocannons. Take the mud shortcut, camp in the Forest Pass, and let the Ambush Strike vaporize them!",
       6: "Battery overrun! Keep spotters forward and blast enemy formations with indirect fire from behind cover.",
-      7: "Air defense breached! Position Anti-Air batteries to counter incoming bombers and protect key sectors.",
+      7: "Forward depot compromised! Move your AT Crew in range, destroy the besieging raider to lift the siege, and deploy fresh reinforcements at the forward depot.",
       8: "HQ fallen or forces eliminated! Synthesize all combined arms doctrines to overcome enemy assault lines."
     };
 
