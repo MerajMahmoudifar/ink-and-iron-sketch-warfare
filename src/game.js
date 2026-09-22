@@ -758,7 +758,6 @@ class GameEngine {
     this.player2Faction = config.p2Faction || FACTIONS.VANGUARD_LEGION;
     this.isSinglePlayer = config.isSinglePlayer !== undefined ? config.isSinglePlayer : true;
     this.aiDifficulty = config.aiDifficulty || 'VETERAN';
-    this.aiPersonality = config.aiPersonality || 'TACTICUS';
     this.audio = config.audio || null;
     this.playbackDurationConfig = config.playbackDuration || 3;
 
@@ -955,7 +954,7 @@ class GameEngine {
     this.currentPlaybackStep = 0;
 
     if (this.isSinglePlayer) {
-      CommanderAI.processTurn(this, this.aiDifficulty, this.aiPersonality);
+      CommanderAI.processTurn(this, this.aiDifficulty);
     }
 
     this.getAllUnits().forEach(u => {
@@ -1669,7 +1668,7 @@ class GameEngine {
 }
 
 class CommanderAI {
-  static processTurn(engine, difficulty = 'VETERAN', personality = 'TACTICUS') {
+  static processTurn(engine, difficulty = 'VETERAN') {
     const aiPlayer = engine.players[2];
     const humanPlayer = engine.players[1];
     if (!aiPlayer) return;
@@ -1724,33 +1723,19 @@ class CommanderAI {
         }
         return;
       }
-      // Lesson 8 falls through to full dynamic AI
+      // Lesson 8 falls through to dynamic AI
     }
 
-    // 1. Dynamic Counter & Doctrine Recruitment
-    this.buyUnitsAI(engine, difficulty, personality);
+    // 1. Dynamic Unit Recruitment
+    this.buyUnitsAI(engine, difficulty);
 
-    // 2. Honest Fog of War Ability Usage based on Doctrine
-    this.useAbilitiesAI(engine, difficulty, personality);
+    // 2. Ability Usage
+    this.useAbilitiesAI(engine, difficulty);
 
-    // 3. Dynamic Strategic Evaluation (Force Balance & Tactical State)
+    // 3. Movement & Target Evaluation
     const aiVision = engine.calculateVision(2);
     const visibleHumanUnits = humanPlayer.units.filter(u => u.isAlive() && aiVision[u.y][u.x]);
     const aiUnits = aiPlayer.units.filter(u => u.isAlive());
-
-    // Compute Force Power Ratio
-    let aiForce = aiUnits.reduce((acc, u) => acc + (u.hp * (u.attack / 30)), 0);
-    let humanForce = visibleHumanUnits.reduce((acc, u) => acc + (u.hp * (u.attack / 30)), 0);
-    if (humanForce === 0) humanForce = 50;
-
-    const forceRatio = aiForce / humanForce;
-
-    let macroStrategy = 'BALANCED';
-    if (forceRatio < 0.7) {
-      macroStrategy = 'DEFENSIVE_RECOVERY';
-    } else if (forceRatio > 1.3 && aiUnits.length >= 2) {
-      macroStrategy = 'OFFENSIVE_ASSAULT';
-    }
 
     aiUnits.forEach(unit => {
       const currentTile = engine.grid[unit.y][unit.x];
@@ -1769,60 +1754,27 @@ class CommanderAI {
 
       const isSittingOnBase = (unit.x === aiPlayer.basePos.x && unit.y === aiPlayer.basePos.y);
 
-      // LOW HP TACTICAL PRESERVATION (Skip preservation for Blitzkrieg aggressive raiders)
-      if (unit.getHpPercent() < 30 && macroStrategy !== 'OFFENSIVE_ASSAULT' && personality !== 'BLITZKRIEG' && !isSittingOnBase) {
+      // Low HP Tactical Preservation (retreat to forest cover or base)
+      if (unit.getHpPercent() < 30 && !isSittingOnBase) {
         const forestTile = this.findNearbyForest(engine, unit);
         const safeTarget = forestTile || aiPlayer.basePos;
         this.executeOrder(engine, unit, safeTarget);
         return;
       }
 
-      // DOCTRINE SPECIFIC MOVEMENT BEHAVIOR
-      if (personality === 'BLITZKRIEG') {
-        // BLITZKRIEG DOCTRINE: Relentless mobility, direct rush on human base & supply zones
-        unit.setStance(STANCES.ADVANCE.id); // Max speed
+      // Tactical Target Engagement based on difficulty
+      if (difficulty === 'RECRUIT') {
+        const target = this.findUnownedZoneOrEnemyBase(engine, unit, humanPlayer);
+        this.executeOrder(engine, unit, target);
+      } else {
         const closestVisibleEnemy = this.findClosestVisibleEnemy(unit, visibleHumanUnits);
-        if (closestVisibleEnemy && (unit.category === 'VEHICLE' || unit.typeKey === 'SCOUT')) {
-          // Fast raiders flank or strike directly
+        const distToEnemy = closestVisibleEnemy ? Math.max(Math.abs(unit.x - closestVisibleEnemy.x), Math.abs(unit.y - closestVisibleEnemy.y)) : 999;
+        
+        if (distToEnemy <= unit.attackRange + 1 && !isSittingOnBase) {
           this.executeOrder(engine, unit, { x: closestVisibleEnemy.x, y: closestVisibleEnemy.y });
         } else {
-          // Rush furthest supply zone or human base
-          this.executeOrder(engine, unit, humanPlayer.basePos);
-        }
-      } else if (personality === 'FORTRESS') {
-        // FORTRESS DOCTRINE: Secure supply zone chokes and hold position with DEFEND stance
-        const ownedOrNeutralZone = this.findClosestZone(engine, unit) || aiPlayer.basePos;
-        const distToZone = Math.max(Math.abs(unit.x - ownedOrNeutralZone.x), Math.abs(unit.y - ownedOrNeutralZone.y));
-
-        if (distToZone === 0) {
-          // Already holding choke point: lock down in DEFEND stance
-          unit.setStance(STANCES.DEFEND.id);
-          this.executeOrder(engine, unit, { x: unit.x, y: unit.y });
-        } else {
-          this.executeOrder(engine, unit, ownedOrNeutralZone);
-        }
-      } else {
-        // TACTICUS DOCTRINE (Balanced Mastermind)
-        if (difficulty === 'RECRUIT') {
           const target = this.findUnownedZoneOrEnemyBase(engine, unit, humanPlayer);
           this.executeOrder(engine, unit, target);
-        } else if (macroStrategy === 'OFFENSIVE_ASSAULT') {
-          const targetUnit = this.findBestCombatTarget(unit, visibleHumanUnits);
-          if (targetUnit) {
-            this.executeOrder(engine, unit, { x: targetUnit.x, y: targetUnit.y });
-          } else {
-            this.executeOrder(engine, unit, humanPlayer.basePos);
-          }
-        } else {
-          const closestVisibleEnemy = this.findClosestVisibleEnemy(unit, visibleHumanUnits);
-          const distToEnemy = closestVisibleEnemy ? Math.max(Math.abs(unit.x - closestVisibleEnemy.x), Math.abs(unit.y - closestVisibleEnemy.y)) : 999;
-          
-          if (distToEnemy <= unit.attackRange + 1 && !isSittingOnBase) {
-            this.executeOrder(engine, unit, { x: closestVisibleEnemy.x, y: closestVisibleEnemy.y });
-          } else {
-            const target = this.findUnownedZoneOrEnemyBase(engine, unit, humanPlayer);
-            this.executeOrder(engine, unit, target);
-          }
         }
       }
     });
@@ -1867,7 +1819,7 @@ class CommanderAI {
     return closest;
   }
 
-  static buyUnitsAI(engine, difficulty, personality) {
+  static buyUnitsAI(engine, difficulty = 'VETERAN') {
     const ai = engine.players[2];
 
     // GENTLE RECRUIT PACING: Cap unit count to 3 and 50% chance to pause buying
@@ -1893,47 +1845,22 @@ class CommanderAI {
 
     let targetType = 'RIFLEMAN';
 
-    if (personality === 'BLITZKRIEG') {
-      // BLITZKRIEG DOCTRINE: Favor high mobility raiders
-      if (humanVehicleCount >= 2 && ai.ink >= UNIT_TYPES.ANTI_TANK.cost) {
+    if (difficulty === 'RECRUIT') {
+      const types = ['RIFLEMAN', 'SCOUT'];
+      targetType = types[Math.floor(Math.random() * types.length)];
+    } else {
+      if (humanVehicleCount > 0 && ai.ink >= UNIT_TYPES.ANTI_TANK.cost) {
         targetType = 'ANTI_TANK';
+      } else if (humanATCount > 0 && ai.ink >= UNIT_TYPES.RIFLEMAN.cost) {
+        targetType = 'RIFLEMAN';
+      } else if (ai.faction.id === 'IRON_CORPS' && ai.ink >= UNIT_TYPES.HEAVY_SIEGE_TANK.cost) {
+        targetType = 'HEAVY_SIEGE_TANK';
       } else if (ai.faction.id === 'VANGUARD_LEGION' && ai.ink >= UNIT_TYPES.BLITZ_RECON.cost) {
         targetType = 'BLITZ_RECON';
-      } else if (ai.ink >= UNIT_TYPES.LIGHT_VEHICLE.cost && Math.random() > 0.3) {
+      } else if (humanInfantryCount > 1 && ai.ink >= UNIT_TYPES.LIGHT_VEHICLE.cost) {
         targetType = 'LIGHT_VEHICLE';
       } else {
-        targetType = 'SCOUT';
-      }
-    } else if (personality === 'FORTRESS') {
-      // FORTRESS DOCTRINE: Favor heavy armored siege & defensive crews
-      if (ai.faction.id === 'IRON_CORPS' && ai.ink >= UNIT_TYPES.HEAVY_SIEGE_TANK.cost) {
-        targetType = 'HEAVY_SIEGE_TANK';
-      } else if (humanVehicleCount > 0 && ai.ink >= UNIT_TYPES.ANTI_TANK.cost) {
-        targetType = 'ANTI_TANK';
-      } else if (ai.ink >= UNIT_TYPES.RIFLEMAN.cost) {
-        targetType = 'RIFLEMAN';
-      } else {
-        targetType = 'ANTI_TANK';
-      }
-    } else {
-      // TACTICUS DOCTRINE: Balanced Counter-Recruitment
-      if (difficulty === 'RECRUIT') {
-        const types = ['RIFLEMAN', 'SCOUT'];
-        targetType = types[Math.floor(Math.random() * types.length)];
-      } else {
-        if (humanVehicleCount > 0 && ai.ink >= UNIT_TYPES.ANTI_TANK.cost) {
-          targetType = 'ANTI_TANK';
-        } else if (humanATCount > 0 && ai.ink >= UNIT_TYPES.RIFLEMAN.cost) {
-          targetType = 'RIFLEMAN';
-        } else if (ai.faction.id === 'IRON_CORPS' && ai.ink >= UNIT_TYPES.HEAVY_SIEGE_TANK.cost) {
-          targetType = 'HEAVY_SIEGE_TANK';
-        } else if (ai.faction.id === 'VANGUARD_LEGION' && ai.ink >= UNIT_TYPES.BLITZ_RECON.cost) {
-          targetType = 'BLITZ_RECON';
-        } else if (humanInfantryCount > 1 && ai.ink >= UNIT_TYPES.LIGHT_VEHICLE.cost) {
-          targetType = 'LIGHT_VEHICLE';
-        } else {
-          targetType = Math.random() > 0.5 ? 'RIFLEMAN' : 'SCOUT';
-        }
+        targetType = Math.random() > 0.5 ? 'RIFLEMAN' : 'SCOUT';
       }
     }
 
@@ -1943,7 +1870,7 @@ class CommanderAI {
     }
   }
 
-  static useAbilitiesAI(engine, difficulty, personality) {
+  static useAbilitiesAI(engine, difficulty = 'VETERAN') {
     // RECRUIT bot never casts abilities on beginner players
     if (difficulty === 'RECRUIT') return;
 
@@ -1951,28 +1878,7 @@ class CommanderAI {
     const aiVision = engine.calculateVision(2);
     const visibleHumanUnits = engine.players[1].units.filter(u => u.isAlive() && aiVision[u.y][u.x]);
 
-    if (personality === 'FORTRESS') {
-      // FORTRESS: Prioritize heavy Artillery on human clusters near chokes
-      if (ai.cp >= 4 && visibleHumanUnits.length > 0) {
-        let bestTarget = visibleHumanUnits[0];
-        let maxHits = 0;
-        visibleHumanUnits.forEach(u => {
-          const hits = visibleHumanUnits.filter(other => Math.abs(other.x - u.x) <= 1 && Math.abs(other.y - u.y) <= 1).length;
-          if (hits > maxHits) { maxHits = hits; bestTarget = u; }
-        });
-        engine.useAbility(2, 'ARTILLERY_STRIKE', bestTarget.x, bestTarget.y);
-        return;
-      }
-    } else if (personality === 'BLITZKRIEG') {
-      // BLITZKRIEG: Use Smoke Screen to blind player base defenders and bypass killzones
-      if (ai.cp >= 3) {
-        const p1Base = engine.p1Base;
-        engine.useAbility(2, 'SMOKE_SCREEN', p1Base.x, p1Base.y);
-        return;
-      }
-    }
-
-    // Standard Ability Execution for Tacticus / Fallback
+    // Standard Ability Execution: Artillery Strike on enemy clusters
     if (ai.cp >= 4 && visibleHumanUnits.length > 0) {
       let bestTarget = visibleHumanUnits[0];
       let maxHits = 0;
@@ -1983,7 +1889,7 @@ class CommanderAI {
       engine.useAbility(2, 'ARTILLERY_STRIKE', bestTarget.x, bestTarget.y);
     } else if (ai.cp >= 2 && difficulty !== 'RECRUIT') {
       const p1Base = engine.p1Base;
-      if (!aiVision[p1Base.y][p1Base.x]) {
+      if (p1Base && !aiVision[p1Base.y][p1Base.x]) {
         engine.useAbility(2, 'RECON_FLARE', p1Base.x, p1Base.y);
       }
     }
@@ -5011,7 +4917,6 @@ class App {
         isTutorialMode: false,
         bootcampLesson: lessonId,
         aiDifficulty: 'RECRUIT',
-        aiPersonality: 'TACTICUS',
         playbackDuration: 3,
         audio: this.audio
       });
@@ -5022,7 +4927,7 @@ class App {
 
       this.engine.subscribe(() => {
         if (this.engine.isSinglePlayer && this.engine.phase === 'PLAYBACK' && this.engine.playbackTimeRemaining === this.engine.playbackDurationConfig) {
-          CommanderAI.processTurn(this.engine, this.engine.aiDifficulty, this.engine.aiPersonality);
+          CommanderAI.processTurn(this.engine, this.engine.aiDifficulty);
         }
         if (this.ui) this.ui.updateHUD(this.engine);
       });
@@ -5062,7 +4967,6 @@ class App {
       const gameMode = document.getElementById('select-game-mode')?.value || 'SINGLE_PLAYER';
       const p1FactionKey = document.getElementById('select-p1-faction')?.value || 'IRON_CORPS';
       const aiDiff = document.getElementById('select-ai-difficulty')?.value || window.gAiDifficulty || 'VETERAN';
-      const aiPersonality = document.getElementById('select-ai-personality')?.value || 'TACTICUS';
       const timerDuration = parseInt(document.getElementById('select-timer-duration')?.value || '20', 10);
       const playbackDuration = parseInt(document.getElementById('select-playback-duration')?.value || '3', 10);
 
@@ -5074,7 +4978,6 @@ class App {
         p2Faction: FACTIONS[p2FactionKey],
         isSinglePlayer: true,
         aiDifficulty: aiDiff,
-        aiPersonality: aiPersonality,
         playbackDuration: playbackDuration,
         audio: this.audio
       });
@@ -5084,7 +4987,7 @@ class App {
       this.engine.planningTimeRemaining = timerDuration;
       this.engine.subscribe(() => {
         if (this.engine.isSinglePlayer && this.engine.phase === 'PLAYBACK' && this.engine.playbackTimeRemaining === this.engine.playbackDurationConfig) {
-          CommanderAI.processTurn(this.engine, this.engine.aiDifficulty, this.engine.aiPersonality);
+          CommanderAI.processTurn(this.engine, this.engine.aiDifficulty);
         }
         if (this.ui) this.ui.updateHUD(this.engine);
       });

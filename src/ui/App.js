@@ -25,7 +25,6 @@ export class App {
 
     const mapVal = document.getElementById('select-map')?.value || 'PRESET_1';
     const p1FactionKey = document.getElementById('select-p1-faction')?.value || 'IRON_CORPS';
-    const aiPersonality = document.getElementById('select-ai-personality')?.value || 'TACTICUS';
     const gameMode = document.getElementById('select-game-mode')?.value || 'SINGLE_PLAYER';
     const timerDuration = parseInt(document.getElementById('select-timer-duration')?.value || '20', 10);
 
@@ -35,8 +34,7 @@ export class App {
       mapType: mapVal,
       p1Faction: FACTIONS[p1FactionKey],
       p2Faction: FACTIONS[p2FactionKey],
-      isSinglePlayer: gameMode === 'SINGLE_PLAYER',
-      aiPersonality: aiPersonality
+      isSinglePlayer: gameMode === 'SINGLE_PLAYER'
     });
 
     this.engine.planningTimeRemaining = timerDuration;
@@ -44,7 +42,7 @@ export class App {
     this.engine.subscribe(() => {
       // Trigger AI turn generation when phase switches to Playback in Single Player mode
       if (this.engine.isSinglePlayer && this.engine.phase === 'PLAYBACK' && this.engine.playbackTimeRemaining === 10) {
-        CommanderAI.processTurn(this.engine, this.engine.aiPersonality);
+        CommanderAI.processTurn(this.engine);
       }
       if (this.ui) this.ui.updateHUD(this.engine);
     });
