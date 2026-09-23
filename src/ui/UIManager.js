@@ -313,9 +313,9 @@ export class UIManager {
     if (exitBtn) {
       exitBtn.addEventListener('click', () => {
         this.app.audio.playPencilScratch();
-        this.closeInGameMenu();
-        if (this.app.engine) this.app.engine.pauseTimer();
-        this.mainMenuOverlay.style.display = 'flex';
+        if (this.app) {
+          this.app.exitToMainMenu();
+        }
       });
     }
 
@@ -371,11 +371,13 @@ export class UIManager {
     this.inGameMenuModal.style.display = 'flex';
   }
 
-  closeInGameMenu() {
+  closeInGameMenu(resumeTimer = true) {
     this.inGameMenuModal.style.display = 'none';
-    this.gameContainer.classList.remove('game-blurred');
-    if (this.app.engine && this.app.engine.phase !== 'GAME_OVER') {
-      this.app.engine.startTurnTimer();
+    if (resumeTimer) {
+      this.gameContainer.classList.remove('game-blurred');
+      if (this.app.engine && this.app.engine.phase !== 'GAME_OVER' && this.app.engine.phase !== 'MENU' && !this.app.engine.isStopped) {
+        this.app.engine.startTurnTimer();
+      }
     }
   }
 

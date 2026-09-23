@@ -16,6 +16,36 @@ export class App {
 
     this.setupCanvasInteractions();
     this.startRenderLoop();
+    this.initializePreviewBoard();
+  }
+
+  initializePreviewBoard() {
+    const mapVal = document.getElementById('select-map')?.value || 'PRESET_1';
+    const p1FactionKey = document.getElementById('select-p1-faction')?.value || 'IRON_CORPS';
+    const p2FactionKey = p1FactionKey === 'IRON_CORPS' ? 'VANGUARD_LEGION' : 'IRON_CORPS';
+
+    this.engine = new GameEngine({
+      mapType: mapVal,
+      p1Faction: FACTIONS[p1FactionKey],
+      p2Faction: FACTIONS[p2FactionKey],
+      isSinglePlayer: true
+    });
+    this.engine.stop();
+  }
+
+  exitToMainMenu() {
+    if (this.engine) {
+      this.engine.stop();
+    }
+    if (this.ui) {
+      this.ui.closeInGameMenu(false);
+      if (this.ui.mainMenuOverlay) this.ui.mainMenuOverlay.style.display = 'flex';
+    }
+    const menu = document.getElementById('main-menu-overlay');
+    if (menu) menu.style.display = 'flex';
+    try {
+      if (this.audio) this.audio.startMenuMusic(1.5);
+    } catch(err){}
   }
 
   launchMatchFromMenu() {

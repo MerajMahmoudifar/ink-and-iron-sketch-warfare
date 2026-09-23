@@ -65,9 +65,14 @@ export class GameEngine {
   }
 
   startTurnTimer() {
+    if (this.isStopped || this.phase === GAME_PHASES.GAME_OVER || this.phase === 'MENU') return;
     if (this.timerInterval) clearInterval(this.timerInterval);
 
     this.timerInterval = setInterval(() => {
+      if (this.isStopped || this.phase === GAME_PHASES.GAME_OVER || this.phase === 'MENU') {
+        this.pauseTimer();
+        return;
+      }
       if (this.phase === GAME_PHASES.PLANNING) {
         this.planningTimeRemaining--;
         if (this.planningTimeRemaining <= 0) {
@@ -84,10 +89,20 @@ export class GameEngine {
   }
 
   pauseTimer() {
-    if (this.timerInterval) clearInterval(this.timerInterval);
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
+  }
+
+  stop() {
+    this.isStopped = true;
+    this.pauseTimer();
+    this.phase = 'MENU';
   }
 
   endPlanningPhase() {
+    if (this.isStopped || this.phase === 'MENU' || this.phase === GAME_PHASES.GAME_OVER) return;
     this.phase = GAME_PHASES.PLAYBACK;
     this.playbackTimeRemaining = 10;
     this.combatLogs = [];
@@ -97,6 +112,7 @@ export class GameEngine {
   }
 
   endPlaybackPhase() {
+    if (this.isStopped || this.phase === 'MENU') return;
     if (this.winner) {
       this.phase = GAME_PHASES.GAME_OVER;
       this.pauseTimer();

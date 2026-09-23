@@ -924,8 +924,13 @@ class GameEngine {
   }
 
   startTurnTimer() {
+    if (this.isStopped || this.phase === GAME_PHASES.GAME_OVER || this.phase === 'MENU') return;
     if (this.timerInterval) clearInterval(this.timerInterval);
     this.timerInterval = setInterval(() => {
+      if (this.isStopped || this.phase === GAME_PHASES.GAME_OVER || this.phase === 'MENU') {
+        this.pauseTimer();
+        return;
+      }
       if (this.phase === GAME_PHASES.PLANNING) {
         this.planningTimeRemaining--;
         if (this.planningTimeRemaining <= 5 && this.planningTimeRemaining > 0) {
@@ -950,9 +955,21 @@ class GameEngine {
     }, 1000);
   }
 
-  pauseTimer() { if (this.timerInterval) clearInterval(this.timerInterval); }
+  pauseTimer() {
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
+  }
+
+  stop() {
+    this.isStopped = true;
+    this.pauseTimer();
+    this.phase = 'MENU';
+  }
 
   endPlanningPhase() {
+    if (this.isStopped || this.phase === 'MENU' || this.phase === GAME_PHASES.GAME_OVER) return;
     this.phase = GAME_PHASES.PLAYBACK;
     this.playbackTimeRemaining = this.playbackDurationConfig;
     this.currentPlaybackStep = 0;
@@ -972,6 +989,7 @@ class GameEngine {
   }
 
   endPlaybackPhase() {
+    if (this.isStopped || this.phase === 'MENU') return;
     if (this.winner) {
       this.phase = GAME_PHASES.GAME_OVER;
       this.pauseTimer();
@@ -1302,6 +1320,7 @@ class GameEngine {
   }
 
   executeSinglePlaybackStep(stepIndex) {
+    if (this.isStopped || this.phase === 'MENU') return;
     const allUnits = this.getAllUnits();
 
     // EXECUTE ARTILLERY STRIKES ON STEP 2 OF PLAYBACK
@@ -3685,12 +3704,11 @@ class UIManager {
 
     document.getElementById('btn-exit-to-main')?.addEventListener('click', (e) => {
       e.preventDefault();
-      this.closeInGameMenu();
-      if (this.app.engine) this.app.engine.pauseTimer();
-      if (this.mainMenuOverlay) this.mainMenuOverlay.style.display = 'flex';
+      if (this.app) {
+        this.app.exitToMainMenu();
+      }
       try {
         this.app.audio.playPaper();
-        this.app.audio.startMenuMusic(1.5);
       } catch(err){}
     });
 
@@ -3753,12 +3771,11 @@ class UIManager {
 
     document.getElementById('btn-victory-main-menu')?.addEventListener('click', (e) => {
       e.preventDefault();
-      const vicModal = document.getElementById('victory-modal');
-      if (vicModal) vicModal.style.display = 'none';
-      if (this.mainMenuOverlay) this.mainMenuOverlay.style.display = 'flex';
+      if (this.app) {
+        this.app.exitToMainMenu();
+      }
       try {
         this.app.audio.playPaper();
-        this.app.audio.startMenuMusic(1.5);
       } catch(err){}
     });
 
@@ -3858,11 +3875,13 @@ class UIManager {
     this.inGameMenuModal.style.display = 'flex';
   }
 
-  closeInGameMenu() {
+  closeInGameMenu(resumeTimer = true) {
     this.inGameMenuModal.style.display = 'none';
-    this.gameContainer.classList.remove('game-blurred');
-    if (this.app.engine && this.app.engine.phase !== 'GAME_OVER') {
-      this.app.engine.startTurnTimer();
+    if (resumeTimer) {
+      this.gameContainer.classList.remove('game-blurred');
+      if (this.app.engine && this.app.engine.phase !== 'GAME_OVER' && this.app.engine.phase !== 'MENU' && !this.app.engine.isStopped) {
+        this.app.engine.startTurnTimer();
+      }
     }
   }
 
@@ -5131,32 +5150,21 @@ window.enterTerrainView = function() {
 };
 
 window.returnToMainMenu = function() {
-  const banner = document.getElementById('terrain-view-banner');
-  if (banner) banner.style.display = 'none';
-  const modal = document.getElementById('victory-modal');
-  if (modal) modal.style.display = 'none';
-  const bModal = document.getElementById('modal-bootcamp-complete');
-  if (bModal) bModal.style.display = 'none';
-  const fModal = document.getElementById('modal-bootcamp-failed');
-  if (fModal) fModal.style.display = 'none';
-  const pointer = document.getElementById('bootcamp-pointer-hint');
-  if (pointer) {
-    pointer.style.display = 'none';
-    pointer.classList.remove('pointer-below');
+  if (window.gApp) {
+    window.gApp.exitToMainMenu();
+  } else {
+    const banner = document.getElementById('terrain-view-banner');
+    if (banner) banner.style.display = 'none';
+    const modal = document.getElementById('victory-modal');
+    if (modal) modal.style.display = 'none';
+    const bModal = document.getElementById('modal-bootcamp-complete');
+    if (bModal) bModal.style.display = 'none';
+    const fModal = document.getElementById('modal-bootcamp-failed');
+    if (fModal) fModal.style.display = 'none';
+    const menu = document.getElementById('main-menu-overlay');
+    if (menu) menu.style.display = 'flex';
   }
-  const dialog = document.getElementById('bootcamp-instructor-dialog');
-  if (dialog) dialog.style.display = 'none';
-  if (window.gApp && window.gApp.bootcampManager) {
-    window.gApp.bootcampManager.activeLesson = null;
-    window.gApp.bootcampManager.positionPointerAtTile(null, null);
-  }
-  ['btn-end-turn', 'btn-halt-all', 'btn-cancel-abilities', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery', 'btn-open-menu'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) { el.disabled = false; el.style.opacity = ''; }
-  });
-  const menu = document.getElementById('main-menu-overlay');
-  if (menu) menu.style.display = 'flex';
-  try { if (window.gApp && window.gApp.audio) window.gApp.audio.playPencilScratch(); } catch(e){}
+  try { if (window.gApp && window.gApp.audio) window.gApp.audio.playPaper(); } catch(e){}
 };
 
 window.startBootcampLesson = function(lessonId) {
@@ -5208,19 +5216,16 @@ window.replayBootcampLesson = function() {
 };
 
 window.returnToBootcampMenu = function() {
-  const modal = document.getElementById('modal-bootcamp-complete');
-  if (modal) modal.style.display = 'none';
-  const fModal = document.getElementById('modal-bootcamp-failed');
-  if (fModal) fModal.style.display = 'none';
-  const pointer = document.getElementById('bootcamp-pointer-hint');
-  if (pointer) {
-    pointer.style.display = 'none';
-    pointer.classList.remove('pointer-below');
+  if (window.gApp) {
+    window.gApp.exitToMainMenu();
+  } else {
+    const modal = document.getElementById('modal-bootcamp-complete');
+    if (modal) modal.style.display = 'none';
+    const fModal = document.getElementById('modal-bootcamp-failed');
+    if (fModal) fModal.style.display = 'none';
+    const menu = document.getElementById('main-menu-overlay');
+    if (menu) menu.style.display = 'flex';
   }
-  const dialog = document.getElementById('bootcamp-instructor-dialog');
-  if (dialog) dialog.style.display = 'none';
-  const menu = document.getElementById('main-menu-overlay');
-  if (menu) menu.style.display = 'flex';
   window.switchMenuTab('tab-btn-bootcamp', 'tab-pane-bootcamp');
   if (window.gApp && window.gApp.bootcampManager) {
     window.gApp.bootcampManager.activeLesson = null;
@@ -5264,7 +5269,7 @@ class App {
 
     this.setupCanvasInteractions();
     this.startRenderLoop();
-    this.launchMatchFromMenu(); // Pre-initialize match state in background
+    this.initializePreviewBoard(); // Pre-initialize static visual preview without running background timers
 
     setTimeout(() => {
       this.bootcampManager.updateMenuUI();
@@ -5273,6 +5278,71 @@ class App {
         if (invite) invite.style.display = 'flex';
       }
     }, 400);
+  }
+
+  initializePreviewBoard() {
+    try {
+      const mapVal = document.getElementById('select-map')?.value || 'PRESET_1';
+      const p1FactionKey = document.getElementById('select-p1-faction')?.value || 'IRON_CORPS';
+      const p2FactionKey = p1FactionKey === 'IRON_CORPS' ? 'VANGUARD_LEGION' : 'IRON_CORPS';
+
+      this.engine = new GameEngine({
+        mapType: mapVal,
+        p1Faction: FACTIONS[p1FactionKey],
+        p2Faction: FACTIONS[p2FactionKey],
+        isSinglePlayer: true,
+        aiDifficulty: 'RECRUIT',
+        planningDuration: 40,
+        playbackDuration: 3,
+        audio: this.audio
+      });
+
+      this.engine.stop(); // Stop all background timers and set phase to MENU
+      this.renderer.selectedTile = null;
+    } catch(err) {
+      console.error('Error initializing preview board:', err);
+    }
+  }
+
+  exitToMainMenu() {
+    if (this.engine) {
+      this.engine.stop();
+    }
+    if (this.ui) {
+      this.ui.closeInGameMenu(false);
+      if (this.ui.mainMenuOverlay) this.ui.mainMenuOverlay.style.display = 'flex';
+      if (this.ui.gameContainer) this.ui.gameContainer.classList.add('game-blurred');
+    }
+    const menu = document.getElementById('main-menu-overlay');
+    if (menu) menu.style.display = 'flex';
+    const gameContainer = document.getElementById('game-container');
+    if (gameContainer) gameContainer.classList.add('game-blurred');
+
+    const terrainBanner = document.getElementById('terrain-view-banner');
+    if (terrainBanner) terrainBanner.style.display = 'none';
+    const victoryModal = document.getElementById('victory-modal');
+    if (victoryModal) victoryModal.style.display = 'none';
+    const bModal = document.getElementById('modal-bootcamp-complete');
+    if (bModal) bModal.style.display = 'none';
+    const fModal = document.getElementById('modal-bootcamp-failed');
+    if (fModal) fModal.style.display = 'none';
+    const pointer = document.getElementById('bootcamp-pointer-hint');
+    if (pointer) {
+      pointer.style.display = 'none';
+      pointer.classList.remove('pointer-below');
+    }
+    const dialog = document.getElementById('bootcamp-instructor-dialog');
+    if (dialog) dialog.style.display = 'none';
+    if (this.bootcampManager) {
+      this.bootcampManager.activeLesson = null;
+      this.bootcampManager.positionPointerAtTile(null, null);
+    }
+
+    try {
+      if (this.audio) {
+        this.audio.startMenuMusic(1.5);
+      }
+    } catch(err){}
   }
 
   launchBootcampLesson(lessonId) {
