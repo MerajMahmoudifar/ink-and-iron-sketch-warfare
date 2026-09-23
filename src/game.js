@@ -2141,7 +2141,7 @@ class AudioEngine {
     this.isMuted = localStorage.getItem('sketch_warfare_muted') === 'true';
     this.masterVolume = parseInt(localStorage.getItem('sketch_warfare_vol_master') || '80', 10) / 100;
     this.sfxVolume = parseInt(localStorage.getItem('sketch_warfare_vol_sfx') || '100', 10) / 100;
-    this.ambientVolume = 0.4;
+    this.musicVolume = parseInt(localStorage.getItem('sketch_warfare_vol_music') || '60', 10) / 100;
 
     // Ambient loop source node
     this.ambientSource = null;
@@ -2358,6 +2358,21 @@ class AudioEngine {
         osc.stop(now + dur);
         break;
       }
+      case 'phase_action': {
+        const dur = 0.4;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(80, now);
+        osc.frequency.exponentialRampToValueAtTime(30, now + dur);
+        gain.gain.setValueAtTime(vol * 0.9, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + dur);
+        break;
+      }
       default: {
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -2490,7 +2505,7 @@ class AudioEngine {
       this.ambientSource.loop = true;
 
       this.ambientGain = this.ctx.createGain();
-      const targetGain = this.isMuted ? 0 : (this.masterVolume * this.ambientVolume);
+      const targetGain = this.isMuted ? 0 : (this.masterVolume * this.musicVolume);
 
       this.ambientGain.gain.setValueAtTime(0.001, this.ctx.currentTime);
       this.ambientGain.gain.linearRampToValueAtTime(targetGain, this.ctx.currentTime + 1.5);
@@ -2524,7 +2539,7 @@ class AudioEngine {
     localStorage.setItem('sketch_warfare_muted', this.isMuted);
 
     if (this.ambientGain && this.ctx) {
-      const targetGain = this.isMuted ? 0 : (this.masterVolume * this.ambientVolume);
+      const targetGain = this.isMuted ? 0 : (this.masterVolume * this.musicVolume);
       this.ambientGain.gain.setValueAtTime(targetGain, this.ctx.currentTime);
     }
     return this.isMuted;
@@ -2535,7 +2550,7 @@ class AudioEngine {
     localStorage.setItem('sketch_warfare_vol_master', Math.round(this.masterVolume * 100));
 
     if (this.ambientGain && this.ctx) {
-      const targetGain = this.isMuted ? 0 : (this.masterVolume * this.ambientVolume);
+      const targetGain = this.isMuted ? 0 : (this.masterVolume * this.musicVolume);
       this.ambientGain.gain.setValueAtTime(targetGain, this.ctx.currentTime);
     }
   }
@@ -2543,6 +2558,16 @@ class AudioEngine {
   setSFXVolume(val) {
     this.sfxVolume = Math.max(0, Math.min(1, val));
     localStorage.setItem('sketch_warfare_vol_sfx', Math.round(this.sfxVolume * 100));
+  }
+
+  setMusicVolume(val) {
+    this.musicVolume = Math.max(0, Math.min(1, val));
+    localStorage.setItem('sketch_warfare_vol_music', Math.round(this.musicVolume * 100));
+
+    if (this.ambientGain && this.ctx) {
+      const targetGain = this.isMuted ? 0 : (this.masterVolume * this.musicVolume);
+      this.ambientGain.gain.setValueAtTime(targetGain, this.ctx.currentTime);
+    }
   }
 }
 
@@ -5703,6 +5728,12 @@ window.updateSFXVolume = function(val) {
   }
 };
 
+window.updateMusicVolume = function(val) {
+  if (window.gApp && window.gApp.audio) {
+    window.gApp.audio.setMusicVolume(val / 100);
+  }
+};
+
 window.openCheatSheetModal = function() {
   const modal = document.getElementById('cheatsheet-modal');
   if (modal) modal.style.display = 'flex';
@@ -6675,6 +6706,11 @@ function bootGame() {
     const sfxSlider = document.getElementById('slider-sfx-vol');
     if (sfxSlider) sfxSlider.value = user.sfx_volume;
     if (window.gApp && window.gApp.audio) window.gApp.audio.setSFXVolume(user.sfx_volume / 100);
+
+    const musicVol = parseInt(localStorage.getItem('sketch_warfare_vol_music') || '60', 10);
+    const musicSlider = document.getElementById('slider-music-vol');
+    if (musicSlider) musicSlider.value = musicVol;
+    if (window.gApp && window.gApp.audio) window.gApp.audio.setMusicVolume(musicVol / 100);
 
     const planVal = Number(user.planning_duration || 40);
     const playVal = Number(user.playback_speed || 3);

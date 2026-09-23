@@ -16,7 +16,7 @@ export class AudioEngine {
     this.isMuted = localStorage.getItem('sketch_warfare_muted') === 'true';
     this.masterVolume = parseInt(localStorage.getItem('sketch_warfare_vol_master') || '80', 10) / 100;
     this.sfxVolume = parseInt(localStorage.getItem('sketch_warfare_vol_sfx') || '100', 10) / 100;
-    this.ambientVolume = 0.4;
+    this.musicVolume = parseInt(localStorage.getItem('sketch_warfare_vol_music') || '60', 10) / 100;
 
     // Ambient loop source node
     this.ambientSource = null;
@@ -95,8 +95,7 @@ export class AudioEngine {
         const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
         this.buffers.set(key, audioBuffer);
       } catch (err) {
-        // Fallback: If asset cannot be fetched, we will use procedural synthesis
-        // console.debug(`[AudioEngine] Falling back to procedural for ${key}`);
+        // Fallback: If asset cannot be fetched, procedural fallback will play
       }
     });
 
@@ -243,6 +242,21 @@ export class AudioEngine {
         osc.stop(now + dur);
         break;
       }
+      case 'phase_action': {
+        const dur = 0.4;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(80, now);
+        osc.frequency.exponentialRampToValueAtTime(30, now + dur);
+        gain.gain.setValueAtTime(vol * 0.9, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + dur);
+        break;
+      }
       default: {
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -375,7 +389,7 @@ export class AudioEngine {
       this.ambientSource.loop = true;
 
       this.ambientGain = this.ctx.createGain();
-      const targetGain = this.isMuted ? 0 : (this.masterVolume * this.ambientVolume);
+      const targetGain = this.isMuted ? 0 : (this.masterVolume * this.musicVolume);
 
       this.ambientGain.gain.setValueAtTime(0.001, this.ctx.currentTime);
       this.ambientGain.gain.linearRampToValueAtTime(targetGain, this.ctx.currentTime + 1.5);
@@ -409,7 +423,7 @@ export class AudioEngine {
     localStorage.setItem('sketch_warfare_muted', this.isMuted);
 
     if (this.ambientGain && this.ctx) {
-      const targetGain = this.isMuted ? 0 : (this.masterVolume * this.ambientVolume);
+      const targetGain = this.isMuted ? 0 : (this.masterVolume * this.musicVolume);
       this.ambientGain.gain.setValueAtTime(targetGain, this.ctx.currentTime);
     }
     return this.isMuted;
@@ -420,7 +434,7 @@ export class AudioEngine {
     localStorage.setItem('sketch_warfare_vol_master', Math.round(this.masterVolume * 100));
 
     if (this.ambientGain && this.ctx) {
-      const targetGain = this.isMuted ? 0 : (this.masterVolume * this.ambientVolume);
+      const targetGain = this.isMuted ? 0 : (this.masterVolume * this.musicVolume);
       this.ambientGain.gain.setValueAtTime(targetGain, this.ctx.currentTime);
     }
   }
@@ -428,5 +442,15 @@ export class AudioEngine {
   setSFXVolume(val) {
     this.sfxVolume = Math.max(0, Math.min(1, val));
     localStorage.setItem('sketch_warfare_vol_sfx', Math.round(this.sfxVolume * 100));
+  }
+
+  setMusicVolume(val) {
+    this.musicVolume = Math.max(0, Math.min(1, val));
+    localStorage.setItem('sketch_warfare_vol_music', Math.round(this.musicVolume * 100));
+
+    if (this.ambientGain && this.ctx) {
+      const targetGain = this.isMuted ? 0 : (this.masterVolume * this.musicVolume);
+      this.ambientGain.gain.setValueAtTime(targetGain, this.ctx.currentTime);
+    }
   }
 }
