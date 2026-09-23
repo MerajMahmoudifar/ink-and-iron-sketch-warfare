@@ -2143,9 +2143,10 @@ class AudioEngine {
     this.sfxVolume = parseInt(localStorage.getItem('sketch_warfare_vol_sfx') || '100', 10) / 100;
     this.musicVolume = parseInt(localStorage.getItem('sketch_warfare_vol_music') || '60', 10) / 100;
 
-    // Ambient loop source node
-    this.ambientSource = null;
-    this.ambientGain = null;
+    // Music loop state
+    this.currentMusicTrack = null;
+    this.currentMusicSource = null;
+    this.currentMusicGain = null;
 
     // Registry of audio files
     this.audioManifest = {
@@ -2170,7 +2171,8 @@ class AudioEngine {
       'phase_action': 'assets/audio/phase_action.wav',
       'victory_fanfare': 'assets/audio/victory_fanfare.wav',
       'defeat_dirge': 'assets/audio/defeat_dirge.wav',
-      'ambient_warroom': 'assets/audio/ambient_warroom.wav'
+      'ambient_warroom': 'assets/audio/ambient_warroom.wav',
+      'music_menu': 'assets/audio/music_menu.wav'
     };
 
     this.setupUnlockListeners();
@@ -2198,6 +2200,9 @@ class AudioEngine {
   setupUnlockListeners() {
     const unlock = () => {
       this.init();
+      if (!this.currentMusicTrack) {
+        this.startMenuMusic(1.5);
+      }
       ['click', 'keydown', 'touchstart', 'pointerdown'].forEach(ev => {
         window.removeEventListener(ev, unlock);
       });
@@ -2490,46 +2495,93 @@ class AudioEngine {
     this.playSfx('defeat_dirge', { volume: 0.9, pitchVar: 0.0 });
   }
 
-  // ─── AMBIENT ROOM-TONE CONTROLLER ──────────────────────────────────────────
+  // ─── DYNAMIC MUSIC & AMBIENT CROSS-FADER ────────────────────────────────────
 
-  startAmbient() {
+  playMusic(trackKey, fadeDuration = 1.2) {
     try {
       this.init();
-      if (!this.ctx || this.ambientSource) return;
+      if (!this.ctx) return;
 
-      const buffer = this.buffers.get('ambient_warroom');
+      if (this.currentMusicTrack === trackKey && this.currentMusicSource) {
+        return; // Already playing this track
+      }
+
+      const buffer = this.buffers.get(trackKey);
       if (!buffer) return;
 
-      this.ambientSource = this.ctx.createBufferSource();
-      this.ambientSource.buffer = buffer;
-      this.ambientSource.loop = true;
-
-      this.ambientGain = this.ctx.createGain();
+      const now = this.ctx.currentTime;
       const targetGain = this.isMuted ? 0 : (this.masterVolume * this.musicVolume);
 
-      this.ambientGain.gain.setValueAtTime(0.001, this.ctx.currentTime);
-      this.ambientGain.gain.linearRampToValueAtTime(targetGain, this.ctx.currentTime + 1.5);
+      // Fade out and stop existing track
+      if (this.currentMusicSource && this.currentMusicGain) {
+        const oldGain = this.currentMusicGain;
+        const oldSource = this.currentMusicSource;
+        oldGain.gain.setValueAtTime(oldGain.gain.value, now);
+        oldGain.gain.linearRampToValueAtTime(0.0001, now + fadeDuration);
+        setTimeout(() => {
+          try {
+            oldSource.stop();
+            oldSource.disconnect();
+            oldGain.disconnect();
+          } catch(e){}
+        }, Math.floor(fadeDuration * 1000) + 50);
+      }
 
-      this.ambientSource.connect(this.ambientGain);
-      this.ambientGain.connect(this.ctx.destination);
-      this.ambientSource.start(0);
+      // Create and fade in new track
+      const newSource = this.ctx.createBufferSource();
+      newSource.buffer = buffer;
+      newSource.loop = true;
+
+      const newGain = this.ctx.createGain();
+      newGain.gain.setValueAtTime(0.0001, now);
+      newGain.gain.linearRampToValueAtTime(targetGain, now + fadeDuration);
+
+      newSource.connect(newGain);
+      newGain.connect(this.ctx.destination);
+      newSource.start(now);
+
+      this.currentMusicTrack = trackKey;
+      this.currentMusicSource = newSource;
+      this.currentMusicGain = newGain;
+    } catch (e) {}
+  }
+
+  startMenuMusic(fade = 1.2) {
+    this.playMusic('music_menu', fade);
+  }
+
+  startBattleMusic(fade = 1.2) {
+    this.playMusic('ambient_warroom', fade);
+  }
+
+  startAmbient() {
+    this.startBattleMusic();
+  }
+
+  stopMusic(fade = 0.8) {
+    try {
+      if (this.currentMusicSource && this.currentMusicGain && this.ctx) {
+        const now = this.ctx.currentTime;
+        this.currentMusicGain.gain.setValueAtTime(this.currentMusicGain.gain.value, now);
+        this.currentMusicGain.gain.linearRampToValueAtTime(0.0001, now + fade);
+        const oldSource = this.currentMusicSource;
+        const oldGain = this.currentMusicGain;
+        this.currentMusicTrack = null;
+        this.currentMusicSource = null;
+        this.currentMusicGain = null;
+        setTimeout(() => {
+          try {
+            oldSource.stop();
+            oldSource.disconnect();
+            oldGain.disconnect();
+          } catch(e){}
+        }, Math.floor(fade * 1000) + 50);
+      }
     } catch (e) {}
   }
 
   stopAmbient() {
-    try {
-      if (this.ambientSource && this.ambientGain && this.ctx) {
-        this.ambientGain.gain.setValueAtTime(this.ambientGain.gain.value, this.ctx.currentTime);
-        this.ambientGain.gain.linearRampToValueAtTime(0.001, this.ctx.currentTime + 0.8);
-        setTimeout(() => {
-          if (this.ambientSource) {
-            try { this.ambientSource.stop(); } catch(e){}
-            this.ambientSource = null;
-            this.ambientGain = null;
-          }
-        }, 850);
-      }
-    } catch (e) {}
+    this.stopMusic();
   }
 
   // ─── SETTINGS & VOLUME CONTROLS ─────────────────────────────────────────────
@@ -2538,9 +2590,9 @@ class AudioEngine {
     this.isMuted = !this.isMuted;
     localStorage.setItem('sketch_warfare_muted', this.isMuted);
 
-    if (this.ambientGain && this.ctx) {
+    if (this.currentMusicGain && this.ctx) {
       const targetGain = this.isMuted ? 0 : (this.masterVolume * this.musicVolume);
-      this.ambientGain.gain.setValueAtTime(targetGain, this.ctx.currentTime);
+      this.currentMusicGain.gain.setValueAtTime(targetGain, this.ctx.currentTime);
     }
     return this.isMuted;
   }
@@ -2549,9 +2601,9 @@ class AudioEngine {
     this.masterVolume = Math.max(0, Math.min(1, val));
     localStorage.setItem('sketch_warfare_vol_master', Math.round(this.masterVolume * 100));
 
-    if (this.ambientGain && this.ctx) {
+    if (this.currentMusicGain && this.ctx) {
       const targetGain = this.isMuted ? 0 : (this.masterVolume * this.musicVolume);
-      this.ambientGain.gain.setValueAtTime(targetGain, this.ctx.currentTime);
+      this.currentMusicGain.gain.setValueAtTime(targetGain, this.ctx.currentTime);
     }
   }
 
@@ -2564,9 +2616,9 @@ class AudioEngine {
     this.musicVolume = Math.max(0, Math.min(1, val));
     localStorage.setItem('sketch_warfare_vol_music', Math.round(this.musicVolume * 100));
 
-    if (this.ambientGain && this.ctx) {
+    if (this.currentMusicGain && this.ctx) {
       const targetGain = this.isMuted ? 0 : (this.masterVolume * this.musicVolume);
-      this.ambientGain.gain.setValueAtTime(targetGain, this.ctx.currentTime);
+      this.currentMusicGain.gain.setValueAtTime(targetGain, this.ctx.currentTime);
     }
   }
 }
@@ -3613,7 +3665,10 @@ class UIManager {
       if (this.mainMenuOverlay) this.mainMenuOverlay.style.display = 'none';
       if (this.gameContainer) this.gameContainer.classList.remove('game-blurred');
       this.app.launchMatchFromMenu();
-      try { this.app.audio.playStamp(); } catch(err){}
+      try {
+        this.app.audio.playStamp();
+        this.app.audio.startBattleMusic(1.5);
+      } catch(err){}
     });
 
     document.getElementById('btn-open-menu')?.addEventListener('click', (e) => {
@@ -3633,7 +3688,10 @@ class UIManager {
       this.closeInGameMenu();
       if (this.app.engine) this.app.engine.pauseTimer();
       if (this.mainMenuOverlay) this.mainMenuOverlay.style.display = 'flex';
-      try { this.app.audio.playPaper(); } catch(err){}
+      try {
+        this.app.audio.playPaper();
+        this.app.audio.startMenuMusic(1.5);
+      } catch(err){}
     });
 
     document.getElementById('btn-menu-open-auth')?.addEventListener('click', (e) => {
@@ -3698,7 +3756,10 @@ class UIManager {
       const vicModal = document.getElementById('victory-modal');
       if (vicModal) vicModal.style.display = 'none';
       if (this.mainMenuOverlay) this.mainMenuOverlay.style.display = 'flex';
-      try { this.app.audio.playPaper(); } catch(err){}
+      try {
+        this.app.audio.playPaper();
+        this.app.audio.startMenuMusic(1.5);
+      } catch(err){}
     });
 
     document.getElementById('btn-toggle-sound')?.addEventListener('click', (e) => {
