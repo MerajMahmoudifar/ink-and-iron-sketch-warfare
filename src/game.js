@@ -2644,7 +2644,10 @@ class AudioEngine {
 
     if (this.currentMusicGain && this.ctx) {
       const targetGain = this.isMuted ? 0 : (this.masterVolume * this.musicVolume);
-      this.currentMusicGain.gain.setValueAtTime(targetGain, this.ctx.currentTime);
+      try {
+        this.currentMusicGain.gain.cancelScheduledValues(this.ctx.currentTime);
+        this.currentMusicGain.gain.setValueAtTime(targetGain, this.ctx.currentTime);
+      } catch(e){}
     }
   }
 
@@ -2659,7 +2662,10 @@ class AudioEngine {
 
     if (this.currentMusicGain && this.ctx) {
       const targetGain = this.isMuted ? 0 : (this.masterVolume * this.musicVolume);
-      this.currentMusicGain.gain.setValueAtTime(targetGain, this.ctx.currentTime);
+      try {
+        this.currentMusicGain.gain.cancelScheduledValues(this.ctx.currentTime);
+        this.currentMusicGain.gain.setValueAtTime(targetGain, this.ctx.currentTime);
+      } catch(e){}
     }
   }
 }
@@ -5889,20 +5895,62 @@ window.toggleAudioMute = function() {
 };
 
 window.updateMasterVolume = function(val) {
+  const num = Math.round(Number(val));
   if (window.gApp && window.gApp.audio) {
-    window.gApp.audio.setMasterVolume(val / 100);
+    window.gApp.audio.setMasterVolume(num / 100);
+  }
+  const slider = document.getElementById('slider-master-vol');
+  if (slider && Number(slider.value) !== num) slider.value = num;
+  const lbl = document.getElementById('label-master-vol');
+  if (lbl) lbl.textContent = `${num}%`;
+
+  const pauseSlider = document.getElementById('slider-pause-master-vol');
+  if (pauseSlider && Number(pauseSlider.value) !== num) pauseSlider.value = num;
+  const pauseLbl = document.getElementById('label-pause-master-vol');
+  if (pauseLbl) pauseLbl.textContent = `${num}%`;
+
+  if (typeof d1Service !== 'undefined') {
+    d1Service.syncSettings({ master_volume: num });
   }
 };
 
 window.updateSFXVolume = function(val) {
+  const num = Math.round(Number(val));
   if (window.gApp && window.gApp.audio) {
-    window.gApp.audio.setSFXVolume(val / 100);
+    window.gApp.audio.setSFXVolume(num / 100);
+  }
+  const slider = document.getElementById('slider-sfx-vol');
+  if (slider && Number(slider.value) !== num) slider.value = num;
+  const lbl = document.getElementById('label-sfx-vol');
+  if (lbl) lbl.textContent = `${num}%`;
+
+  const pauseSlider = document.getElementById('slider-pause-sfx-vol');
+  if (pauseSlider && Number(pauseSlider.value) !== num) pauseSlider.value = num;
+  const pauseLbl = document.getElementById('label-pause-sfx-vol');
+  if (pauseLbl) pauseLbl.textContent = `${num}%`;
+
+  if (typeof d1Service !== 'undefined') {
+    d1Service.syncSettings({ sfx_volume: num });
   }
 };
 
 window.updateMusicVolume = function(val) {
+  const num = Math.round(Number(val));
   if (window.gApp && window.gApp.audio) {
-    window.gApp.audio.setMusicVolume(val / 100);
+    window.gApp.audio.setMusicVolume(num / 100);
+  }
+  const slider = document.getElementById('slider-music-vol');
+  if (slider && Number(slider.value) !== num) slider.value = num;
+  const lbl = document.getElementById('label-music-vol');
+  if (lbl) lbl.textContent = `${num}%`;
+
+  const pauseSlider = document.getElementById('slider-pause-music-vol');
+  if (pauseSlider && Number(pauseSlider.value) !== num) pauseSlider.value = num;
+  const pauseLbl = document.getElementById('label-pause-music-vol');
+  if (pauseLbl) pauseLbl.textContent = `${num}%`;
+
+  if (typeof d1Service !== 'undefined') {
+    d1Service.syncSettings({ music_volume: num });
   }
 };
 
@@ -5974,6 +6022,7 @@ const d1Service = {
       email: '',
       master_volume: 80,
       sfx_volume: 100,
+      music_volume: 60,
       audio_muted: false,
       planning_duration: 40,
       playback_speed: 3,
@@ -6874,18 +6923,14 @@ function bootGame() {
     const usernameInput = document.getElementById('input-username');
     if (usernameInput) usernameInput.value = user.username || '';
 
-    const masterSlider = document.getElementById('slider-master-vol');
-    if (masterSlider) masterSlider.value = user.master_volume;
-    if (window.gApp && window.gApp.audio) window.gApp.audio.setMasterVolume(user.master_volume / 100);
+    const masterVol = typeof user.master_volume === 'number' ? user.master_volume : 80;
+    window.updateMasterVolume(masterVol);
 
-    const sfxSlider = document.getElementById('slider-sfx-vol');
-    if (sfxSlider) sfxSlider.value = user.sfx_volume;
-    if (window.gApp && window.gApp.audio) window.gApp.audio.setSFXVolume(user.sfx_volume / 100);
+    const sfxVol = typeof user.sfx_volume === 'number' ? user.sfx_volume : 100;
+    window.updateSFXVolume(sfxVol);
 
-    const musicVol = parseInt(localStorage.getItem('sketch_warfare_vol_music') || '60', 10);
-    const musicSlider = document.getElementById('slider-music-vol');
-    if (musicSlider) musicSlider.value = musicVol;
-    if (window.gApp && window.gApp.audio) window.gApp.audio.setMusicVolume(musicVol / 100);
+    const musicVol = typeof user.music_volume === 'number' ? user.music_volume : parseInt(localStorage.getItem('sketch_warfare_vol_music') || '60', 10);
+    window.updateMusicVolume(musicVol);
 
     const planVal = Number(user.planning_duration || 40);
     const playVal = Number(user.playback_speed || 3);

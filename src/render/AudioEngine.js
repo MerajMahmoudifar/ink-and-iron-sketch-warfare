@@ -509,7 +509,10 @@ export class AudioEngine {
 
     if (this.currentMusicGain && this.ctx) {
       const targetGain = this.isMuted ? 0 : (this.masterVolume * this.musicVolume);
-      this.currentMusicGain.gain.setValueAtTime(targetGain, this.ctx.currentTime);
+      try {
+        this.currentMusicGain.gain.cancelScheduledValues(this.ctx.currentTime);
+        this.currentMusicGain.gain.setValueAtTime(targetGain, this.ctx.currentTime);
+      } catch(e){}
     }
   }
 
@@ -524,7 +527,10 @@ export class AudioEngine {
 
     if (this.currentMusicGain && this.ctx) {
       const targetGain = this.isMuted ? 0 : (this.masterVolume * this.musicVolume);
-      this.currentMusicGain.gain.setValueAtTime(targetGain, this.ctx.currentTime);
+      try {
+        this.currentMusicGain.gain.cancelScheduledValues(this.ctx.currentTime);
+        this.currentMusicGain.gain.setValueAtTime(targetGain, this.ctx.currentTime);
+      } catch(e){}
     }
   }
 }

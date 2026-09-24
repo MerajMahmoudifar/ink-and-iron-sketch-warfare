@@ -36,13 +36,27 @@ export class UIManager {
     const usernameInput = document.getElementById('input-username');
     if (usernameInput) usernameInput.value = user.username || '';
 
+    const masterVol = typeof user.master_volume === 'number' ? user.master_volume : 80;
+    const sfxVol = typeof user.sfx_volume === 'number' ? user.sfx_volume : 100;
+    const musicVol = typeof user.music_volume === 'number' ? user.music_volume : parseInt(localStorage.getItem('sketch_warfare_vol_music') || '60', 10);
+
     const masterSlider = document.getElementById('slider-master-vol');
-    if (masterSlider) masterSlider.value = user.master_volume;
-    if (this.app && this.app.audio) this.app.audio.setMasterVolume(user.master_volume / 100);
+    if (masterSlider) masterSlider.value = masterVol;
+    const masterLabel = document.getElementById('label-master-vol');
+    if (masterLabel) masterLabel.textContent = `${masterVol}%`;
+    if (this.app && this.app.audio) this.app.audio.setMasterVolume(masterVol / 100);
 
     const sfxSlider = document.getElementById('slider-sfx-vol');
-    if (sfxSlider) sfxSlider.value = user.sfx_volume;
-    if (this.app && this.app.audio) this.app.audio.setSFXVolume(user.sfx_volume / 100);
+    if (sfxSlider) sfxSlider.value = sfxVol;
+    const sfxLabel = document.getElementById('label-sfx-vol');
+    if (sfxLabel) sfxLabel.textContent = `${sfxVol}%`;
+    if (this.app && this.app.audio) this.app.audio.setSFXVolume(sfxVol / 100);
+
+    const musicSlider = document.getElementById('slider-music-vol');
+    if (musicSlider) musicSlider.value = musicVol;
+    const musicLabel = document.getElementById('label-music-vol');
+    if (musicLabel) musicLabel.textContent = `${musicVol}%`;
+    if (this.app && this.app.audio) this.app.audio.setMusicVolume(musicVol / 100);
 
     const timerSelect = document.getElementById('select-timer-duration');
     if (timerSelect) timerSelect.value = user.planning_duration;
@@ -96,13 +110,45 @@ export class UIManager {
     };
 
     window.updateMasterVolume = (val) => {
-      if (this.app && this.app.audio) this.app.audio.setMasterVolume(val / 100);
-      d1Service.syncSettings({ master_volume: Number(val) });
+      const num = Math.round(Number(val));
+      if (this.app && this.app.audio) this.app.audio.setMasterVolume(num / 100);
+      const slider = document.getElementById('slider-master-vol');
+      if (slider && Number(slider.value) !== num) slider.value = num;
+      const lbl = document.getElementById('label-master-vol');
+      if (lbl) lbl.textContent = `${num}%`;
+      const pauseSlider = document.getElementById('slider-pause-master-vol');
+      if (pauseSlider && Number(pauseSlider.value) !== num) pauseSlider.value = num;
+      const pauseLbl = document.getElementById('label-pause-master-vol');
+      if (pauseLbl) pauseLbl.textContent = `${num}%`;
+      d1Service.syncSettings({ master_volume: num });
     };
 
     window.updateSFXVolume = (val) => {
-      if (this.app && this.app.audio) this.app.audio.setSFXVolume(val / 100);
-      d1Service.syncSettings({ sfx_volume: Number(val) });
+      const num = Math.round(Number(val));
+      if (this.app && this.app.audio) this.app.audio.setSFXVolume(num / 100);
+      const slider = document.getElementById('slider-sfx-vol');
+      if (slider && Number(slider.value) !== num) slider.value = num;
+      const lbl = document.getElementById('label-sfx-vol');
+      if (lbl) lbl.textContent = `${num}%`;
+      const pauseSlider = document.getElementById('slider-pause-sfx-vol');
+      if (pauseSlider && Number(pauseSlider.value) !== num) pauseSlider.value = num;
+      const pauseLbl = document.getElementById('label-pause-sfx-vol');
+      if (pauseLbl) pauseLbl.textContent = `${num}%`;
+      d1Service.syncSettings({ sfx_volume: num });
+    };
+
+    window.updateMusicVolume = (val) => {
+      const num = Math.round(Number(val));
+      if (this.app && this.app.audio) this.app.audio.setMusicVolume(num / 100);
+      const slider = document.getElementById('slider-music-vol');
+      if (slider && Number(slider.value) !== num) slider.value = num;
+      const lbl = document.getElementById('label-music-vol');
+      if (lbl) lbl.textContent = `${num}%`;
+      const pauseSlider = document.getElementById('slider-pause-music-vol');
+      if (pauseSlider && Number(pauseSlider.value) !== num) pauseSlider.value = num;
+      const pauseLbl = document.getElementById('label-pause-music-vol');
+      if (pauseLbl) pauseLbl.textContent = `${num}%`;
+      d1Service.syncSettings({ music_volume: num });
     };
 
     window.toggleAudioMute = () => {
