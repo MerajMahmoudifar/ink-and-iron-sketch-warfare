@@ -1411,7 +1411,7 @@ class GameEngine {
           unit.targetY = nextTile.y;
           unit.hasMovedThisTurn = true;
           this.evaluateAutoStances();
-          if (this.audio && unit.owner === 1) this.audio.playMarching(unit.category === 'VEHICLE');
+          if (this.audio) this.audio.playMarching(unit.category === 'VEHICLE', unit.owner !== 1);
 
           // Check if infantry entered Deep Mud / Swamp / Pond
           if (tile.id === 'SWAMP') {
@@ -2282,6 +2282,10 @@ class AudioEngine {
         const detuneCents = (Math.random() * 2 - 1) * (pitchVariance * 1200);
         source.detune.setValueAtTime(detuneCents, now);
 
+        if (options.playbackRate !== undefined) {
+          source.playbackRate.setValueAtTime(options.playbackRate, now);
+        }
+
         const gain = this.ctx.createGain();
         gain.gain.setValueAtTime(vol, now);
 
@@ -2450,11 +2454,11 @@ class AudioEngine {
     this.playSfx('unit_select', { volume: 0.7, pitchVar: 0.05 });
   }
 
-  playMarching(isVehicle = false) {
+  playMarching(isVehicle = false, isEnemy = false) {
     if (isVehicle) {
-      this.playSfx('engine_vehicle', { volume: 0.6, pitchVar: 0.04 });
+      this.playSfx('engine_vehicle', { volume: isEnemy ? 0.55 : 0.70, pitchVar: 0.04, playbackRate: isEnemy ? 0.85 : 1.0 });
     } else {
-      this.playSfx('march_infantry', { volume: 0.65, pitchVar: 0.06 });
+      this.playSfx('march_infantry', { volume: isEnemy ? 0.50 : 0.65, pitchVar: 0.05, playbackRate: isEnemy ? 0.88 : 1.0 });
     }
   }
 
