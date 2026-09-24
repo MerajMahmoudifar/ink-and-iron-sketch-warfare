@@ -3806,13 +3806,6 @@ class UIManager {
       } catch(err){}
     });
 
-    document.getElementById('btn-toggle-sound')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      const muted = this.app.audio.toggleMute();
-      e.target.textContent = muted ? 'Disabled (Muted)' : 'Enabled';
-      e.target.style.background = muted ? '#fecdd3' : '#bbf7d0';
-    });
-
     // LOG FILTER CHIP LISTENERS
     this.currentLogFilter = 'ALL';
     document.getElementById('log-filter-all')?.addEventListener('click', (e) => {

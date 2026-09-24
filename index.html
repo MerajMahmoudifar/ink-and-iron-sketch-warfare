@@ -589,10 +589,6 @@
               </div>
             </div>
             <div class="setting-row">
-              <span>Audio Mute State</span>
-              <button id="btn-toggle-sound" class="btn-sketch setting-btn" onclick="window.toggleAudioMute()">SFX Enabled</button>
-            </div>
-            <div class="setting-row">
               <span>Gaming Speed Preset</span>
               <select id="select-game-speed-preset" class="btn-sketch setting-select" onchange="window.updateGameSpeedPreset(this.value)">
                 <option value="STANDARD" selected>Standard &mdash; 40s + 3s (Default)</option>
@@ -646,9 +642,6 @@
           <div class="player-ink-badge cp-badge">
             <span id="p1-cp">CP: 0/10</span>
           </div>
-          <button id="btn-hud-audio" class="btn-sketch menu-btn-hud" onclick="window.toggleAudioMute()">
-            🔊 SFX
-          </button>
           <button id="btn-open-menu" class="btn-sketch menu-btn-hud">
             Menu
           </button>
