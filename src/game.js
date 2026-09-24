@@ -2742,8 +2742,8 @@ class SketchRenderer {
     }
     this.ctx.restore();
 
-    // In GAME_OVER terrain-view mode: reveal all tiles (no fog)
-    const isTerrainView = engine.phase === 'GAME_OVER';
+    // In GAME_OVER terrain-view mode or RECON mode: reveal all tiles (no fog)
+    const isTerrainView = engine.phase === 'GAME_OVER' || engine.isReconPhase;
     const p1Vision = isTerrainView ? Array(8).fill(null).map(() => Array(8).fill(true)) : engine.calculateVision(1);
 
     // 3. Terrain Tiles
@@ -2941,6 +2941,80 @@ class SketchRenderer {
       this.ctx.fillRect(sx + 1, sy + 34, 2, 3);
       this.ctx.fillRect(sx + 67, sy + 34, 2, 3);
       this.ctx.restore();
+    }
+
+    // 9.5 RECONNAISSANCE MAPSHOW TACTICAL HUD HIGHLIGHTS
+    if (engine.isReconPhase) {
+      const now = Date.now();
+      const pulse = (Math.sin(now / 180) + 1) / 2; // 0 to 1 pulsating scale
+
+      // 1. Highlight Player 1 Base (Allied HQ)
+      if (engine.players[1] && engine.players[1].basePos) {
+        const bp = engine.players[1].basePos;
+        const bPos = this.getScreenCoords(bp.x, bp.y);
+        
+        this.ctx.save();
+        this.ctx.strokeStyle = `rgba(59, 130, 246, ${0.6 + pulse * 0.4})`;
+        this.ctx.lineWidth = 2.5;
+        this.ctx.strokeRect(bPos.x + 2, bPos.y + 2, 66, 66);
+
+        // Pulsing radar ring
+        this.ctx.beginPath();
+        this.ctx.arc(bPos.x + 35, bPos.y + 35, 22 + pulse * 10, 0, Math.PI * 2);
+        this.ctx.strokeStyle = `rgba(59, 130, 246, ${0.45 - pulse * 0.35})`;
+        this.ctx.lineWidth = 2;
+        this.ctx.stroke();
+
+        // Label Tag
+        this.ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+        this.ctx.fillRect(bPos.x + 4, bPos.y + 48, 62, 16);
+        this.ctx.font = 'bold 8.5px "JetBrains Mono", monospace';
+        this.ctx.fillStyle = '#60a5fa';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('[YOUR HQ]', bPos.x + 35, bPos.y + 59);
+        this.ctx.restore();
+      }
+
+      // 2. Highlight Capture Zones / Depots
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          if (engine.grid[r][c].id === 'CAPTURE_ZONE') {
+            const zPos = this.getScreenCoords(c, r);
+            this.ctx.save();
+            this.ctx.strokeStyle = `rgba(245, 158, 11, ${0.5 + pulse * 0.35})`;
+            this.ctx.lineWidth = 1.8;
+            this.ctx.setLineDash([4, 3]);
+            this.ctx.strokeRect(zPos.x + 3, zPos.y + 3, 64, 64);
+            this.ctx.setLineDash([]);
+            
+            this.ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+            this.ctx.fillRect(zPos.x + 4, zPos.y + 50, 62, 14);
+            this.ctx.font = 'bold 7.5px "JetBrains Mono", monospace';
+            this.ctx.fillStyle = '#fbbf24';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText('[DEPOT]', zPos.x + 35, zPos.y + 60);
+            this.ctx.restore();
+          }
+        }
+      }
+
+      // 3. Highlight Enemy HQ
+      if (engine.players[2] && engine.players[2].basePos) {
+        const ep = engine.players[2].basePos;
+        const ePos = this.getScreenCoords(ep.x, ep.y);
+        this.ctx.save();
+        this.ctx.strokeStyle = `rgba(239, 68, 68, ${0.5 + pulse * 0.35})`;
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(ePos.x + 2, ePos.y + 2, 66, 66);
+        
+        this.ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+        this.ctx.fillRect(ePos.x + 4, ePos.y + 48, 62, 16);
+        this.ctx.font = 'bold 8.5px "JetBrains Mono", monospace';
+        this.ctx.fillStyle = '#f87171';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('[ENEMY HQ]', ePos.x + 35, ePos.y + 59);
+        this.ctx.restore();
+      }
     }
 
     // 10. FOG OF WAR PENCIL HATCH OVERLAY (skip in terrain-view / GAME_OVER)
@@ -3966,7 +4040,15 @@ class UIManager {
     if (!engine) return;
     this.turnCounter.textContent = `Turn ${engine.turnNumber}`;
 
-    if (engine.bootcampLesson) {
+    if (engine.isReconPhase) {
+      this.phaseBadge.textContent = `Reconnaissance Survey`;
+      this.phaseBadge.style.background = 'rgba(59, 130, 246, 0.25)';
+      this.timerBarFill.style.width = '100%';
+      const dialog = document.getElementById('bootcamp-instructor-dialog');
+      const pointer = document.getElementById('bootcamp-pointer-hint');
+      if (dialog) dialog.style.display = 'none';
+      if (pointer) pointer.style.display = 'none';
+    } else if (engine.bootcampLesson) {
       this.phaseBadge.textContent = `Bootcamp — Lesson ${engine.bootcampLesson}`;
       this.phaseBadge.style.background = '';
       this.timerBarFill.style.width = '100%';
@@ -5521,11 +5603,93 @@ class App {
       this.bootcampManager.positionPointerAtTile(null, null);
     }
 
+    if (this.reconTimer) {
+      clearInterval(this.reconTimer);
+      this.reconTimer = null;
+    }
+    const reconOverlay = document.getElementById('battlefield-recon-overlay');
+    if (reconOverlay) reconOverlay.style.display = 'none';
+
     try {
       if (this.audio) {
         this.audio.startMenuMusic(1.5);
       }
     } catch(err){}
+  }
+
+  startReconPhase(durationMs = 2800) {
+    if (this.reconTimer) {
+      clearInterval(this.reconTimer);
+      this.reconTimer = null;
+    }
+
+    if (!this.engine) return;
+    this.engine.isReconPhase = true;
+    this.engine.pauseTimer();
+
+    const overlay = document.getElementById('battlefield-recon-overlay');
+    const badge = document.getElementById('recon-countdown-badge');
+    const progressFill = document.getElementById('recon-progress-fill');
+    const titleEl = document.getElementById('recon-sector-title');
+    const subEl = document.getElementById('recon-sector-sub');
+
+    // Display map name nicely
+    const mapSelect = document.getElementById('select-map');
+    const mapName = mapSelect && mapSelect.selectedOptions && mapSelect.selectedOptions[0] ? mapSelect.selectedOptions[0].text : 'THE IRON BASIN';
+
+    if (titleEl) titleEl.textContent = `SURVEYING SECTOR: ${mapName.toUpperCase()}`;
+    if (subEl) subEl.textContent = 'Analyzing terrain hazards, capture depots, and allied headquarters deployment.';
+    if (badge) badge.textContent = `DEPLOYING IN ${Math.ceil(durationMs / 1000)}s`;
+    if (progressFill) progressFill.style.width = '0%';
+    if (overlay) overlay.style.display = 'flex';
+
+    // Lock HUD buttons during recon survey
+    ['btn-end-turn', 'btn-halt-all', 'btn-cancel-abilities', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.disabled = true; el.style.opacity = '0.5'; }
+    });
+
+    const startTime = Date.now();
+
+    window.skipReconPhase = () => {
+      if (this.reconTimer) {
+        clearInterval(this.reconTimer);
+        this.reconTimer = null;
+      }
+      if (overlay) overlay.style.display = 'none';
+      if (this.engine && this.engine.isReconPhase) {
+        this.engine.isReconPhase = false;
+        this.engine.startTurnTimer();
+        try {
+          if (this.audio) this.audio.playActionWhistle();
+        } catch(err){}
+        ['btn-end-turn', 'btn-halt-all', 'btn-cancel-abilities', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) { el.disabled = false; el.style.opacity = ''; }
+        });
+        if (this.ui) this.ui.updateHUD(this.engine);
+        if (this.renderer) this.renderer.render(this.engine);
+      }
+    };
+
+    this.reconTimer = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const remainingMs = Math.max(0, durationMs - elapsed);
+      const secsRemaining = Math.max(1, Math.ceil(remainingMs / 1000));
+
+      if (badge) badge.textContent = `DEPLOYING IN ${secsRemaining}s`;
+      if (progressFill) {
+        const pct = Math.min(100, (elapsed / durationMs) * 100);
+        progressFill.style.width = `${pct}%`;
+      }
+
+      if (elapsed >= durationMs) {
+        window.skipReconPhase();
+      }
+    }, 50);
+
+    if (this.ui) this.ui.updateHUD(this.engine);
+    if (this.renderer) this.renderer.render(this.engine);
   }
 
   launchBootcampLesson(lessonId) {
@@ -5617,7 +5781,6 @@ class App {
         if (this.ui) this.ui.updateHUD(this.engine);
       });
 
-      this.engine.startTurnTimer();
       this.renderer.selectedTile = null;
       if (this.audio) this.audio.startAmbient();
 
@@ -5632,12 +5795,8 @@ class App {
         gameContainer.style.pointerEvents = '';
         gameContainer.style.filter = '';
       }
-      ['btn-end-turn', 'btn-halt-all', 'btn-cancel-abilities', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery', 'btn-open-menu'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) { el.disabled = false; el.style.opacity = ''; el.style.pointerEvents = ''; }
-      });
 
-      this.ui.updateHUD(this.engine);
+      this.startReconPhase(2800);
     } catch (err) {
       console.error('Error starting game:', err);
     }
@@ -5646,6 +5805,10 @@ class App {
   setupCanvasInteractions() {
     this.canvas.addEventListener('click', (e) => {
       if (!this.engine) return;
+      if (this.engine.isReconPhase) {
+        if (window.skipReconPhase) window.skipReconPhase();
+        return;
+      }
       const rect = this.canvas.getBoundingClientRect();
       const gridCoords = this.renderer.getGridCoords(e.clientX - rect.left, e.clientY - rect.top);
       if (!gridCoords) return;
@@ -7016,8 +7179,17 @@ document.addEventListener('click', (e) => {
   }
 });
 
-// Escape key to dismiss custom selects, deselect active tile/unit, or cancel pending abilities
+// Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
+  // Space or Enter: Skip reconnaissance survey and engage immediately
+  if ((e.code === 'Space' || e.key === ' ' || e.key === 'Enter') && window.gApp && window.gApp.engine && window.gApp.engine.isReconPhase) {
+    if (window.skipReconPhase) {
+      e.preventDefault();
+      window.skipReconPhase();
+      return;
+    }
+  }
+
   if (e.key === 'Escape') {
     document.querySelectorAll('.diesel-select-wrapper.open').forEach(w => {
       w.classList.remove('open');

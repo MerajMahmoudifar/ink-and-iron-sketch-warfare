@@ -683,6 +683,25 @@
             <span class="sitrep-badge">SITREP</span>
             <span id="canvas-sitrep-text" class="sitrep-text">SECTOR 8x8 &bull; MAP: THE IRON BASIN &bull; ALLIED COMMAND</span>
           </div>
+
+          <!-- Tactical Reconnaissance / Pre-Battle Map Survey Overlay -->
+          <div id="battlefield-recon-overlay" class="battlefield-recon-overlay" style="display: none;">
+            <div class="recon-glass-card">
+              <div class="recon-badge-row">
+                <span class="recon-badge">TACTICAL RECONNAISSANCE</span>
+                <span id="recon-countdown-badge" class="recon-countdown-badge">DEPLOYING IN 3s</span>
+              </div>
+              <div class="recon-title" id="recon-sector-title">SURVEYING BATTLEFIELD SECTOR</div>
+              <div class="recon-sub" id="recon-sector-sub">Analyzing terrain hazards, capture depots, and allied headquarters deployment.</div>
+              <div class="recon-progress-track">
+                <div id="recon-progress-fill" class="recon-progress-fill"></div>
+              </div>
+              <div class="recon-action-row">
+                <button id="btn-skip-recon" class="btn-sketch btn-sm" onclick="if(window.skipReconPhase) window.skipReconPhase()">Engage Immediately [Space]</button>
+              </div>
+            </div>
+          </div>
+
           <canvas id="sketch-canvas"></canvas>
 
           <!-- General Crow Instructor Briefing Card (Bootcamp Only) -->
