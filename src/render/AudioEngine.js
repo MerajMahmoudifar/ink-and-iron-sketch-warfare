@@ -170,14 +170,15 @@ export class AudioEngine {
       case 'ui_tick': {
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(2600, now);
-        gain.gain.setValueAtTime(vol * 0.5, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(1400, now);
+        osc.frequency.exponentialRampToValueAtTime(320, now + 0.035);
+        gain.gain.setValueAtTime(vol * 0.7, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         osc.start(now);
-        osc.stop(now + 0.04);
+        osc.stop(now + 0.035);
         break;
       }
       case 'ui_paper': {
