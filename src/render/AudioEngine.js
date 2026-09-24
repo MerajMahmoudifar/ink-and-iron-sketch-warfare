@@ -45,6 +45,7 @@ export class AudioEngine {
       'phase_countdown': 'assets/audio/phase_countdown.wav',
       'phase_action': 'assets/audio/phase_action.wav',
       'victory_fanfare': 'assets/audio/victory_fanfare.wav',
+      'tutorial_victory': 'assets/audio/tutorial_victory.wav',
       'defeat_dirge': 'assets/audio/defeat_dirge.wav',
       'ambient_warroom': 'assets/audio/ambient_warroom.wav',
       'music_menu': 'assets/audio/music_menu.wav'
@@ -377,6 +378,10 @@ export class AudioEngine {
 
   playVictorySound() {
     this.playSfx('victory_fanfare', { volume: 0.95, pitchVar: 0.0 });
+  }
+
+  playTutorialVictorySound() {
+    this.playSfx('tutorial_victory', { volume: 0.9, pitchVar: 0.0 });
   }
 
   playDefeatSound() {

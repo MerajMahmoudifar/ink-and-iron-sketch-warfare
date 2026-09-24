@@ -2224,6 +2224,7 @@ class AudioEngine {
       'phase_countdown': 'assets/audio/phase_countdown.wav',
       'phase_action': 'assets/audio/phase_action.wav',
       'victory_fanfare': 'assets/audio/victory_fanfare.wav',
+      'tutorial_victory': 'assets/audio/tutorial_victory.wav',
       'defeat_dirge': 'assets/audio/defeat_dirge.wav',
       'ambient_warroom': 'assets/audio/ambient_warroom.wav',
       'music_menu': 'assets/audio/music_menu.wav'
@@ -2547,6 +2548,10 @@ class AudioEngine {
 
   playVictorySound() {
     this.playSfx('victory_fanfare', { volume: 0.95, pitchVar: 0.0 });
+  }
+
+  playTutorialVictorySound() {
+    this.playSfx('tutorial_victory', { volume: 0.9, pitchVar: 0.0 });
   }
 
   playDefeatSound() {
@@ -5392,7 +5397,7 @@ class BootcampManager {
     const dialog = document.getElementById('bootcamp-instructor-dialog');
     if (dialog) dialog.style.display = 'none';
 
-    try { this.app.audio.playVictorySound(); } catch(e){}
+    try { this.app.audio.playTutorialVictorySound(); } catch(e){}
 
     const modal = document.getElementById('modal-bootcamp-complete');
     const title = document.getElementById('bootcamp-complete-title');
