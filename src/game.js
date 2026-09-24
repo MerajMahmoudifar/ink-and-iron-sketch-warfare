@@ -4420,6 +4420,33 @@ class UIManager {
     if (!this.inspectorContent) return;
     const sel = this.app.renderer.selectedTile;
     if (!sel) {
+      if (engine && engine.isReconPhase) {
+        const mapSelect = document.getElementById('select-map');
+        const mapName = mapSelect && mapSelect.selectedOptions && mapSelect.selectedOptions[0] ? mapSelect.selectedOptions[0].text : 'THE IRON BASIN';
+        this.inspectorContent.innerHTML = `
+          <div class="dossier-card recon-inspector-dossier" style="border-left: 3px solid var(--gold-400);">
+            <div class="dossier-sector-header">
+              <span class="dossier-coord-stamp">RECON DOSSIER</span>
+              <span class="dossier-status-live" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);">MAP SURVEY</span>
+            </div>
+            <div style="padding: 6px 0; font-size: 0.8rem; color: var(--text-primary);">
+              <div style="font-weight: 700; color: var(--gold-400); margin-bottom: 4px;">MAP: ${mapName.toUpperCase()}</div>
+              <div style="font-size: 0.72rem; color: var(--text-secondary); line-height: 1.4; margin-bottom: 8px;">
+                Surveying 8x8 battlefield grid. Fog of War temporarily lifted.
+              </div>
+              <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(71, 85, 105, 0.4); border-radius: 4px; padding: 6px 8px; margin-bottom: 10px; font-size: 0.7rem; font-family: var(--font-mono); line-height: 1.5;">
+                <div style="color: #60a5fa;">[YOUR HQ] &bull; Southern Allied Base</div>
+                <div style="color: #fbbf24;">[DEPOT] &bull; Strategic Capture Zones</div>
+                <div style="color: #f87171;">[ENEMY HQ] &bull; Northern Hostile Base</div>
+              </div>
+              <button class="btn-sketch btn-accent" style="font-size: 0.75rem; padding: 6px 10px; width: 100%;" onclick="if(window.skipReconPhase) window.skipReconPhase()">
+                DEPLOY NOW [SPACE]
+              </button>
+            </div>
+          </div>`;
+        return;
+      }
+
       this.inspectorContent.innerHTML = `
         <div class="dossier-placeholder">
           <span class="dossier-placeholder-icon">&#x2316;</span>
@@ -5617,7 +5644,7 @@ class App {
     } catch(err){}
   }
 
-  startReconPhase(durationMs = 2800) {
+  startReconPhase(durationMs = 10000) {
     if (this.reconTimer) {
       clearInterval(this.reconTimer);
       this.reconTimer = null;
@@ -5631,14 +5658,12 @@ class App {
     const badge = document.getElementById('recon-countdown-badge');
     const progressFill = document.getElementById('recon-progress-fill');
     const titleEl = document.getElementById('recon-sector-title');
-    const subEl = document.getElementById('recon-sector-sub');
 
     // Display map name nicely
     const mapSelect = document.getElementById('select-map');
     const mapName = mapSelect && mapSelect.selectedOptions && mapSelect.selectedOptions[0] ? mapSelect.selectedOptions[0].text : 'THE IRON BASIN';
 
     if (titleEl) titleEl.textContent = `SURVEYING SECTOR: ${mapName.toUpperCase()}`;
-    if (subEl) subEl.textContent = 'Analyzing terrain hazards, capture depots, and allied headquarters deployment.';
     if (badge) badge.textContent = `DEPLOYING IN ${Math.ceil(durationMs / 1000)}s`;
     if (progressFill) progressFill.style.width = '0%';
     if (overlay) overlay.style.display = 'flex';
@@ -5796,7 +5821,7 @@ class App {
         gameContainer.style.filter = '';
       }
 
-      this.startReconPhase(2800);
+      this.startReconPhase(10000);
     } catch (err) {
       console.error('Error starting game:', err);
     }
