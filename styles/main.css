@@ -3727,18 +3727,19 @@ select.diesel-hidden-select {
 }
 
 .dossier-card {
-  background: rgba(15, 23, 42, 0.65);
-  border: 1px solid var(--border-medium);
-  border-radius: var(--r-sm);
-  padding: 10px 12px;
-  backdrop-filter: blur(4px);
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.92) 0%, rgba(11, 17, 32, 0.95) 100%);
+  border: 1px solid rgba(71, 85, 105, 0.6);
+  border-radius: 6px;
+  padding: 12px 14px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 .dossier-sector-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 .dossier-coord-stamp {
   font-family: var(--font-mono);
@@ -3746,17 +3747,17 @@ select.diesel-hidden-select {
   font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--gold-400);
-  background: rgba(217, 119, 6, 0.12);
-  border: 1px solid rgba(217, 119, 6, 0.35);
-  padding: 2px 7px;
-  border-radius: 3px;
+  background: rgba(217, 119, 6, 0.14);
+  border: 1px solid rgba(217, 119, 6, 0.4);
+  padding: 3px 8px;
+  border-radius: 4px;
 }
 .dossier-terrain-title {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: 1rem;
   color: #f8fafc;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
 }
 .dossier-status-fog {
   font-family: var(--font-mono);
@@ -3768,33 +3769,33 @@ select.diesel-hidden-select {
 .dossier-fog-body {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 0 2px;
+  gap: 12px;
+  padding: 8px 0 4px;
 }
 .dossier-fog-icon {
-  font-size: 1.3rem;
+  font-size: 1.4rem;
   color: #64748b;
   line-height: 1;
 }
 .dossier-fog-desc {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   color: #94a3b8;
-  line-height: 1.4;
+  line-height: 1.45;
   margin: 0;
 }
 
 .dossier-badge-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
-  margin-top: 6px;
+  gap: 6px;
+  margin-top: 8px;
 }
 .dossier-pill {
   font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 3px;
+  padding: 3px 8px;
+  border-radius: 4px;
   letter-spacing: 0.03em;
   white-space: nowrap;
 }
@@ -3829,45 +3830,46 @@ select.diesel-hidden-select {
   border: 1px solid rgba(245, 158, 11, 0.5);
 }
 .dossier-terrain-intel {
-  margin-top: 8px;
+  margin-top: 10px;
   font-family: var(--font-mono);
-  font-size: 0.68rem;
-  line-height: 1.4;
-  padding: 6px 8px;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  padding: 8px 10px;
   border-radius: 4px;
 }
 .dossier-intel-hazard {
-  background: rgba(180, 83, 9, 0.15);
+  background: rgba(180, 83, 9, 0.16);
   border: 1px dashed rgba(245, 158, 11, 0.6);
   color: #fef3c7;
 }
 
 .dossier-spawn-status {
-  margin-top: 6px;
-  font-size: 0.72rem;
+  margin-top: 8px;
+  font-size: 0.74rem;
   font-family: var(--font-mono);
   font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 3px;
+  padding: 4px 10px;
+  border-radius: 4px;
   text-align: center;
 }
 .dossier-spawn-status.occupied {
-  background: rgba(239, 68, 68, 0.15);
+  background: rgba(239, 68, 68, 0.14);
   color: #fca5a5;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  border: 1px solid rgba(239, 68, 68, 0.35);
 }
 .dossier-spawn-status.ready {
-  background: rgba(16, 185, 129, 0.15);
+  background: rgba(16, 185, 129, 0.14);
   color: #6ee7b7;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  border: 1px solid rgba(16, 185, 129, 0.35);
 }
 
 .dossier-unit-card {
-  margin-top: 10px;
-  background: rgba(15, 23, 42, 0.75);
-  border: 1px solid var(--border-medium);
-  border-radius: var(--r-sm);
-  padding: 10px 12px;
+  margin-top: 12px;
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.95) 0%, rgba(13, 19, 33, 0.98) 100%);
+  border: 1px solid rgba(71, 85, 105, 0.6);
+  border-radius: 6px;
+  padding: 12px 14px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
 .dossier-unit-header {
   display: flex;
@@ -3875,7 +3877,7 @@ select.diesel-hidden-select {
   gap: 4px;
 }
 .dossier-allegiance-badge {
-  font-size: 0.65rem;
+  font-size: 0.68rem;
   font-family: var(--font-mono);
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -3891,26 +3893,26 @@ select.diesel-hidden-select {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px 8px;
+  gap: 8px 10px;
   margin-top: 2px;
 }
 .dossier-unit-symbol {
-  font-size: 1.15rem;
+  font-size: 1.2rem;
   line-height: 1;
 }
 .dossier-unit-name {
   font-family: var(--font-display);
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 700;
   color: #f8fafc;
   white-space: normal;
   word-break: normal;
 }
 .unit-role-tag {
-  font-size: 0.65rem;
+  font-size: 0.68rem;
   font-family: var(--font-mono);
   font-weight: 700;
-  padding: 2px 6px;
+  padding: 2px 7px;
   border-radius: 3px;
   letter-spacing: 0.05em;
 }
@@ -3931,14 +3933,14 @@ select.diesel-hidden-select {
 }
 
 .dossier-hp-section {
-  margin-top: 8px;
+  margin-top: 10px;
 }
 .dossier-hp-meta {
   display: flex;
   justify-content: space-between;
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   font-family: var(--font-mono);
-  margin-bottom: 3px;
+  margin-bottom: 4px;
 }
 .dossier-hp-lbl {
   color: var(--text-muted);
@@ -3949,15 +3951,15 @@ select.diesel-hidden-select {
   font-weight: 700;
 }
 .dossier-hp-track {
-  height: 6px;
-  background: rgba(0, 0, 0, 0.45);
-  border-radius: 3px;
+  height: 7px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 .dossier-hp-fill {
   height: 100%;
-  border-radius: 2px;
+  border-radius: 3px;
   transition: width 0.3s ease;
 }
 .dossier-hp-fill.hp-good {
@@ -3976,78 +3978,79 @@ select.diesel-hidden-select {
 .dossier-stats-strip {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
+  gap: 8px;
   background: rgba(0, 0, 0, 0.35);
-  padding: 6px 8px;
-  border-radius: 4px;
-  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 5px;
+  margin-top: 10px;
   text-align: center;
   font-family: var(--font-mono);
   font-size: 0.72rem;
   color: var(--text-muted);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 .dossier-stats-strip strong {
   color: var(--text-primary);
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   display: block;
-  margin-top: 1px;
+  margin-top: 2px;
 }
 .dossier-orders-tag {
-  margin-top: 8px;
+  margin-top: 10px;
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: #38bdf8;
-  background: rgba(56, 189, 248, 0.1);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  padding: 3px 6px;
-  border-radius: 3px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  padding: 4px 8px;
+  border-radius: 4px;
   text-align: center;
   letter-spacing: 0.04em;
 }
 
 .dossier-stance-block {
-  margin-top: 10px;
-  border-top: 1px dashed var(--border-subtle);
-  padding-top: 8px;
+  margin-top: 12px;
+  border-top: 1px dashed rgba(100, 116, 139, 0.4);
+  padding-top: 10px;
 }
 .dossier-stance-label {
   display: block;
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   font-family: var(--font-mono);
   font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--text-muted);
-  margin-bottom: 5px;
+  margin-bottom: 6px;
 }
 .dossier-stance-btns {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 5px;
+  gap: 6px;
 }
 .dossier-stance-btn {
-  padding: 5px 2px;
-  font-size: 0.74rem;
+  padding: 6px 4px;
+  font-size: 0.76rem;
   font-weight: 600;
   text-align: center;
   cursor: pointer;
   border-radius: 4px;
-  transition: all 0.15s ease;
-  background: rgba(30, 41, 59, 0.8);
-  border: 1px solid var(--border-medium);
+  transition: all 0.18s ease;
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(71, 85, 105, 0.6);
   color: var(--text-secondary);
 }
 .dossier-stance-btn:hover:not(:disabled) {
-  background: rgba(51, 65, 85, 0.9);
+  background: rgba(51, 65, 85, 0.95);
   color: var(--text-primary);
+  border-color: rgba(148, 163, 184, 0.6);
 }
 .dossier-stance-btn.active {
   background: var(--gold-500) !important;
   color: #0b1120 !important;
   font-weight: 700 !important;
   border-color: var(--gold-400) !important;
-  box-shadow: 0 0 8px rgba(217, 119, 6, 0.4);
+  box-shadow: 0 0 10px rgba(217, 119, 6, 0.45);
 }
 .dossier-stance-btn:disabled {
   opacity: 0.4;
@@ -4055,9 +4058,9 @@ select.diesel-hidden-select {
 }
 .dossier-cancel-btn {
   width: 100%;
-  margin-top: 6px;
-  padding: 5px 8px;
-  font-size: 0.75rem;
+  margin-top: 8px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
 }
 
 /* ============================================
@@ -4297,49 +4300,49 @@ select.diesel-hidden-select {
    TACTICAL INTELLIGENCE FIELD CHEAT-SHEET MODAL
    ============================================ */
 .tactical-cheatsheet-card {
-  max-width: 860px;
+  max-width: 880px;
   width: 95%;
-  max-height: 88vh;
-  padding: 22px 26px;
+  max-height: 86vh;
+  padding: 24px 28px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: rgba(13, 19, 33, 0.98);
-  border: 1px solid var(--border-medium);
+  background: linear-gradient(180deg, rgba(16, 24, 40, 0.98) 0%, rgba(10, 15, 26, 0.99) 100%);
+  border: 1px solid rgba(71, 85, 105, 0.55);
   border-top: 4px solid var(--gold-400);
-  border-radius: var(--r-md);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85), inset 0 0 40px rgba(0, 0, 0, 0.5);
+  border-radius: 8px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   text-align: left;
   position: relative;
   animation: modalFadeIn 0.22s ease-out;
 }
 
 .cheatsheet-header {
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .cheatsheet-badge-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .cheatsheet-doc-stamp {
   font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   color: var(--gold-400);
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px dashed rgba(245, 158, 11, 0.35);
-  padding: 2px 8px;
-  border-radius: 3px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px dashed rgba(245, 158, 11, 0.4);
+  padding: 3px 9px;
+  border-radius: 4px;
 }
 
 .cheatsheet-title {
   font-family: var(--font-display);
-  font-size: 1.45rem;
+  font-size: 1.5rem;
   font-weight: 900;
   letter-spacing: 0.06em;
   color: #ffffff;
@@ -4348,36 +4351,37 @@ select.diesel-hidden-select {
 }
 
 .cheatsheet-subtitle {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  margin: 3px 0 0 0;
+  font-size: 0.84rem;
+  color: #94a3b8;
+  margin: 4px 0 0 0;
   letter-spacing: 0.02em;
+  line-height: 1.4;
 }
 
 /* Tab Navigation Bar */
 .cheatsheet-tab-bar {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   background: rgba(15, 23, 42, 0.85);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--r-sm);
-  padding: 4px;
-  margin: 12px 0 14px 0;
+  border: 1px solid rgba(71, 85, 105, 0.4);
+  border-radius: 6px;
+  padding: 5px;
+  margin: 14px 0 16px 0;
   flex-wrap: wrap;
 }
 
 .cs-tab-btn {
   font-family: var(--font-display);
-  font-size: 0.74rem;
+  font-size: 0.76rem;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  padding: 7px 14px;
+  padding: 8px 16px;
   background: transparent;
   border: 1px solid transparent;
-  color: var(--text-muted);
+  color: #94a3b8;
   cursor: pointer;
-  border-radius: var(--r-sm);
+  border-radius: 5px;
   transition: all var(--t-fast);
   display: flex;
   align-items: center;
@@ -4385,21 +4389,21 @@ select.diesel-hidden-select {
 }
 
 .cs-tab-btn:hover {
-  color: var(--text-primary);
+  color: #f8fafc;
   background: rgba(255, 255, 255, 0.06);
 }
 
 .cs-tab-btn.active {
   color: var(--gold-300);
-  background: rgba(245, 158, 11, 0.15);
-  border-color: rgba(245, 158, 11, 0.4);
-  box-shadow: 0 0 10px rgba(245, 158, 11, 0.12);
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.45);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.15);
 }
 
 .cs-tab-num {
   font-family: var(--font-mono);
-  font-size: 0.66rem;
-  opacity: 0.65;
+  font-size: 0.68rem;
+  opacity: 0.75;
   color: var(--gold-400);
 }
 
@@ -4407,12 +4411,12 @@ select.diesel-hidden-select {
 .cs-pane {
   overflow-y: auto;
   max-height: 52vh;
-  padding-right: 6px;
+  padding-right: 8px;
   animation: modalFadeIn 0.18s ease-out;
 }
 
 .cs-pane::-webkit-scrollbar {
-  width: 5px;
+  width: 6px;
 }
 .cs-pane::-webkit-scrollbar-track {
   background: rgba(15, 23, 42, 0.6);
@@ -4428,15 +4432,15 @@ select.diesel-hidden-select {
 
 /* High Command Directive Banner */
 .cs-directive-banner {
-  background: rgba(30, 41, 59, 0.7);
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  background: rgba(30, 41, 59, 0.65);
+  border: 1px solid rgba(245, 158, 11, 0.28);
   border-left: 4px solid var(--gold-400);
-  border-radius: var(--r-sm);
-  padding: 10px 14px;
-  margin-bottom: 12px;
-  font-size: 0.78rem;
-  color: var(--text-secondary);
-  line-height: 1.45;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  line-height: 1.5;
 }
 
 .cs-directive-banner b {
@@ -4447,7 +4451,7 @@ select.diesel-hidden-select {
 .cs-matrix-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
+  gap: 12px;
 }
 
 @media (max-width: 640px) {
@@ -4457,19 +4461,21 @@ select.diesel-hidden-select {
 }
 
 .cs-unit-card {
-  background: rgba(15, 23, 42, 0.65);
-  border: 1px solid var(--border-medium);
-  border-radius: var(--r-sm);
-  padding: 10px 12px;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(71, 85, 105, 0.45);
+  border-radius: 6px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  transition: border-color var(--t-fast);
+  gap: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 .cs-unit-card:hover {
-  border-color: var(--border-glow);
-  background: rgba(22, 33, 58, 0.7);
+  border-color: rgba(96, 165, 250, 0.5);
+  background: rgba(22, 33, 58, 0.8);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
 }
 
 .cs-unit-header {
@@ -4482,21 +4488,21 @@ select.diesel-hidden-select {
 .cs-unit-badge-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .cs-unit-name {
   font-family: var(--font-display);
-  font-size: 0.88rem;
+  font-size: 0.92rem;
   font-weight: 700;
   color: #ffffff;
 }
 
 .cs-role-pill {
   font-family: var(--font-mono);
-  font-size: 0.65rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  padding: 2px 6px;
+  padding: 3px 7px;
   border-radius: 3px;
   text-transform: uppercase;
 }
@@ -4515,56 +4521,59 @@ select.diesel-hidden-select {
 
 .cs-stats-strip {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   color: #94a3b8;
-  background: rgba(0, 0, 0, 0.25);
-  padding: 4px 8px;
-  border-radius: 3px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 5px 10px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .cs-stats-strip span strong {
-  color: #f1f5f9;
+  color: #f8fafc;
+  margin-left: 2px;
 }
 
 .cs-counter-tags {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  font-size: 0.73rem;
-  line-height: 1.35;
+  gap: 4px;
+  font-size: 0.75rem;
+  line-height: 1.45;
 }
 
 .cs-tag-bonus {
   color: #4ade80;
-  background: rgba(74, 222, 128, 0.1);
+  background: rgba(74, 222, 128, 0.12);
   border: 1px solid rgba(74, 222, 128, 0.25);
-  padding: 2px 6px;
-  border-radius: 3px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 500;
 }
 
 .cs-tag-penalty {
-  color: #f87171;
+  color: #fca5a5;
   background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  padding: 2px 6px;
-  border-radius: 3px;
+  border: 1px solid rgba(239, 68, 68, 0.22);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 500;
 }
 
 .cs-tag-stance {
-  color: #cbd5e1;
-  font-size: 0.7rem;
+  color: #94a3b8;
+  font-size: 0.72rem;
   font-family: var(--font-mono);
-  opacity: 0.85;
+  padding-left: 2px;
 }
 
 /* Terrain Grid */
 .cs-terrain-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
+  gap: 12px;
 }
 
 @media (max-width: 640px) {
@@ -4574,18 +4583,19 @@ select.diesel-hidden-select {
 }
 
 .cs-terrain-card {
-  background: rgba(15, 23, 42, 0.65);
-  border: 1px solid var(--border-medium);
-  border-radius: var(--r-sm);
-  padding: 10px 12px;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(71, 85, 105, 0.45);
+  border-radius: 6px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 .cs-terrain-card.hazard-card {
   border-left: 3px solid #f59e0b;
-  background: rgba(30, 24, 15, 0.7);
+  background: rgba(30, 24, 15, 0.75);
 }
 
 .cs-terrain-title-row {
@@ -4596,42 +4606,42 @@ select.diesel-hidden-select {
 
 .cs-terrain-name {
   font-family: var(--font-display);
-  font-size: 0.88rem;
+  font-size: 0.92rem;
   font-weight: 700;
   color: var(--gold-300);
 }
 
 .cs-sightline-badge {
   font-family: var(--font-mono);
-  font-size: 0.65rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  padding: 2px 6px;
+  padding: 2px 7px;
   border-radius: 3px;
 }
 
 .cs-sightline-open {
   background: rgba(59, 130, 246, 0.15);
   color: #60a5fa;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  border: 1px solid rgba(59, 130, 246, 0.35);
 }
 
 .cs-sightline-blocked {
   background: rgba(239, 68, 68, 0.15);
   color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  border: 1px solid rgba(239, 68, 68, 0.35);
 }
 
 .cs-terrain-body {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  line-height: 1.4;
+  font-size: 0.78rem;
+  color: #cbd5e1;
+  line-height: 1.5;
 }
 
 /* Stances & Abilities */
 .cs-two-col-layout {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 14px;
 }
 
 @media (max-width: 640px) {
@@ -4641,22 +4651,23 @@ select.diesel-hidden-select {
 }
 
 .cs-section-box {
-  background: rgba(15, 23, 42, 0.65);
-  border: 1px solid var(--border-medium);
-  border-radius: var(--r-sm);
-  padding: 12px;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(71, 85, 105, 0.45);
+  border-radius: 6px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 .cs-section-header {
   font-family: var(--font-display);
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   font-weight: 700;
   color: var(--gold-400);
-  border-bottom: 1px solid var(--border-subtle);
-  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(71, 85, 105, 0.35);
+  padding-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -4664,35 +4675,35 @@ select.diesel-hidden-select {
 .cs-item-row {
   background: rgba(0, 0, 0, 0.25);
   border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
-  padding: 8px 10px;
+  border-radius: 5px;
+  padding: 10px 12px;
 }
 
 .cs-item-title-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 3px;
+  margin-bottom: 4px;
 }
 
 .cs-item-title {
   font-family: var(--font-display);
-  font-size: 0.8rem;
+  font-size: 0.84rem;
   font-weight: 700;
   color: #ffffff;
 }
 
 .cs-item-desc {
-  font-size: 0.73rem;
-  color: var(--text-secondary);
-  line-height: 1.35;
+  font-size: 0.76rem;
+  color: #cbd5e1;
+  line-height: 1.45;
 }
 
 /* Hotkey Grid */
 .cs-hotkey-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
+  gap: 10px;
 }
 
 @media (max-width: 640px) {
@@ -4702,19 +4713,20 @@ select.diesel-hidden-select {
 }
 
 .cs-hotkey-item {
-  background: rgba(15, 23, 42, 0.65);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--r-sm);
-  padding: 8px 10px;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(71, 85, 105, 0.4);
+  border-radius: 6px;
+  padding: 10px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 .cs-hotkey-label {
-  font-size: 0.75rem;
-  color: var(--text-primary);
+  font-size: 0.78rem;
+  color: #f1f5f9;
   font-weight: 500;
 }
 
@@ -4729,13 +4741,13 @@ select.diesel-hidden-select {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-subtle);
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(71, 85, 105, 0.35);
 }
 
 .cs-footer-hint {
-  font-size: 0.74rem;
-  color: var(--text-muted);
+  font-size: 0.76rem;
+  color: #94a3b8;
 }
 
