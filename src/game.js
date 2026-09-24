@@ -3886,6 +3886,10 @@ class UIManager {
 
     document.getElementById('btn-end-turn')?.addEventListener('click', (e) => {
       e.preventDefault();
+      if (this.app.engine && this.app.engine.isReconPhase) {
+        if (window.skipReconPhase) window.skipReconPhase();
+        return;
+      }
       if (this.app.engine && this.app.engine.phase === 'PLANNING') {
         this.app.engine.endPlanningPhase();
       }
@@ -4086,19 +4090,37 @@ class UIManager {
     this.renderInspector(engine);
     this.updateActionLogs(engine);
 
-    // In GAME_OVER: lock all action controls. Otherwise always make sure they're unlocked.
+    // In GAME_OVER: lock all action controls. In RECON: enable Deploy Now button, disable abilities.
     const actionBtnIds = ['btn-end-turn', 'btn-halt-all', 'btn-cancel-abilities', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery'];
     if (engine.phase === 'GAME_OVER') {
       actionBtnIds.forEach(id => {
         const el = document.getElementById(id);
         if (el) { el.disabled = true; el.style.opacity = '0.3'; el.style.pointerEvents = 'none'; }
       });
+    } else if (engine.isReconPhase) {
+      ['btn-halt-all', 'btn-cancel-abilities', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.disabled = true; el.style.opacity = '0.4'; el.style.pointerEvents = 'none'; }
+      });
+      const endTurnBtn = document.getElementById('btn-end-turn');
+      if (endTurnBtn) {
+        endTurnBtn.innerHTML = 'DEPLOY NOW [SPACE]';
+        endTurnBtn.classList.add('btn-accent');
+        endTurnBtn.disabled = false;
+        endTurnBtn.style.opacity = '1';
+        endTurnBtn.style.pointerEvents = 'auto';
+      }
     } else {
-      // Always re-enable on PLANNING or PLAYBACK so a new game resets the buttons
+      // Normal PLANNING or PLAYBACK phase
       actionBtnIds.forEach(id => {
         const el = document.getElementById(id);
         if (el) { el.disabled = false; el.style.opacity = ''; el.style.pointerEvents = ''; }
       });
+      const endTurnBtn = document.getElementById('btn-end-turn');
+      if (endTurnBtn) {
+        endTurnBtn.innerHTML = 'END PHASE &#9654;&#9654;';
+        endTurnBtn.classList.remove('btn-accent');
+      }
     }
 
     const cancelAbilitiesBtn = document.getElementById('btn-cancel-abilities');
@@ -5663,16 +5685,10 @@ class App {
     const mapSelect = document.getElementById('select-map');
     const mapName = mapSelect && mapSelect.selectedOptions && mapSelect.selectedOptions[0] ? mapSelect.selectedOptions[0].text : 'THE IRON BASIN';
 
-    if (titleEl) titleEl.textContent = `SURVEYING SECTOR: ${mapName.toUpperCase()}`;
-    if (badge) badge.textContent = `DEPLOYING IN ${Math.ceil(durationMs / 1000)}s`;
+    if (titleEl) titleEl.textContent = `MAP: ${mapName.toUpperCase()}`;
+    if (badge) badge.textContent = `${Math.ceil(durationMs / 1000)}s`;
     if (progressFill) progressFill.style.width = '0%';
     if (overlay) overlay.style.display = 'flex';
-
-    // Lock HUD buttons during recon survey
-    ['btn-end-turn', 'btn-halt-all', 'btn-cancel-abilities', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) { el.disabled = true; el.style.opacity = '0.5'; }
-    });
 
     const startTime = Date.now();
 
@@ -5690,7 +5706,7 @@ class App {
         } catch(err){}
         ['btn-end-turn', 'btn-halt-all', 'btn-cancel-abilities', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery'].forEach(id => {
           const el = document.getElementById(id);
-          if (el) { el.disabled = false; el.style.opacity = ''; }
+          if (el) { el.disabled = false; el.style.opacity = ''; el.style.pointerEvents = ''; }
         });
         if (this.ui) this.ui.updateHUD(this.engine);
         if (this.renderer) this.renderer.render(this.engine);
@@ -5702,7 +5718,7 @@ class App {
       const remainingMs = Math.max(0, durationMs - elapsed);
       const secsRemaining = Math.max(1, Math.ceil(remainingMs / 1000));
 
-      if (badge) badge.textContent = `DEPLOYING IN ${secsRemaining}s`;
+      if (badge) badge.textContent = `${secsRemaining}s`;
       if (progressFill) {
         const pct = Math.min(100, (elapsed / durationMs) * 100);
         progressFill.style.width = `${pct}%`;
