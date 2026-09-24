@@ -71,6 +71,7 @@ export class GameEngine {
     this.timerInterval = setInterval(() => {
       if (this.isStopped || this.phase === GAME_PHASES.GAME_OVER || this.phase === 'MENU') {
         this.pauseTimer();
+        this.notifyStateChange();
         return;
       }
       if (this.phase === GAME_PHASES.PLANNING) {
@@ -80,6 +81,11 @@ export class GameEngine {
         }
       } else if (this.phase === GAME_PHASES.PLAYBACK) {
         this.playbackTimeRemaining--;
+        if (this.phase === GAME_PHASES.GAME_OVER || this.winner) {
+          this.pauseTimer();
+          this.notifyStateChange();
+          return;
+        }
         if (this.playbackTimeRemaining <= 0) {
           this.endPlaybackPhase();
         }
@@ -109,6 +115,7 @@ export class GameEngine {
 
     // Execute playback simulation step by step
     this.runPlaybackSimulation();
+    this.notifyStateChange();
   }
 
   endPlaybackPhase() {
@@ -116,6 +123,7 @@ export class GameEngine {
     if (this.winner) {
       this.phase = GAME_PHASES.GAME_OVER;
       this.pauseTimer();
+      this.notifyStateChange();
       return;
     }
 
@@ -276,10 +284,19 @@ export class GameEngine {
           tile.owner = unit.owner;
         } else if (tile.id === 'MAIN_BASE' && tile.owner !== unit.owner) {
           // WIN CONDITION TRIGGERED! Main base captured!
+          tile.owner = unit.owner;
           this.winner = unit.owner;
+          this.winReason = 'BASE_CAPTURE';
           this.phase = GAME_PHASES.GAME_OVER;
         }
       });
+
+      if (this.winner) {
+        this.phase = GAME_PHASES.GAME_OVER;
+        this.pauseTimer();
+        this.notifyStateChange();
+        break;
+      }
     }
   }
 

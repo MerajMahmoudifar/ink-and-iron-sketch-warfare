@@ -929,6 +929,7 @@ class GameEngine {
     this.timerInterval = setInterval(() => {
       if (this.isStopped || this.phase === GAME_PHASES.GAME_OVER || this.phase === 'MENU') {
         this.pauseTimer();
+        this.notifyStateChange();
         return;
       }
       if (this.phase === GAME_PHASES.PLANNING) {
@@ -947,6 +948,12 @@ class GameEngine {
         if (expectedStep > this.currentPlaybackStep) {
           this.currentPlaybackStep = expectedStep;
           this.executeSinglePlaybackStep(this.currentPlaybackStep);
+        }
+
+        if (this.phase === GAME_PHASES.GAME_OVER || this.winner) {
+          this.pauseTimer();
+          this.notifyStateChange();
+          return;
         }
 
         if (this.playbackTimeRemaining <= 0) this.endPlaybackPhase();
@@ -986,6 +993,7 @@ class GameEngine {
     });
 
     this.executeSinglePlaybackStep(0);
+    this.notifyStateChange();
   }
 
   endPlaybackPhase() {
@@ -993,6 +1001,7 @@ class GameEngine {
     if (this.winner) {
       this.phase = GAME_PHASES.GAME_OVER;
       this.pauseTimer();
+      this.notifyStateChange();
       return;
     }
     this.turnNumber++;
@@ -1555,32 +1564,58 @@ class GameEngine {
           }
           return;
         }
+        tile.owner = unit.owner;
         this.winner = unit.owner;
         this.winReason = 'BASE_CAPTURE';
         this.phase = GAME_PHASES.GAME_OVER;
+        if (this.audio) this.audio.playCaptureZone();
+        this.actionLogs.push({
+          type: 'BASE_CAPTURE',
+          turn: this.turnNumber,
+          playerOwner: unit.owner,
+          playerName: this.players[unit.owner].name,
+          unitName: unit.name,
+          unitIcon: unit.icon,
+          x: unit.x,
+          y: unit.y,
+          message: `${this.players[unit.owner].name} captured enemy Headquarters!`
+        });
       }
     });
 
     this.checkWinConditions();
+
+    if (this.winner) {
+      this.phase = GAME_PHASES.GAME_OVER;
+      this.pauseTimer();
+      this.notifyStateChange();
+    }
   }
 
   checkWinConditions() {
     if (this.winner) return;
 
-    const p1Base = this.players[1].basePos ? this.grid[this.players[1].basePos.y]?.[this.players[1].basePos.x] : null;
-    const p2Base = this.players[2].basePos ? this.grid[this.players[2].basePos.y]?.[this.players[2].basePos.x] : null;
+    const p1BasePos = this.players[1].basePos;
+    const p2BasePos = this.players[2].basePos;
+    const p1Base = p1BasePos ? this.grid[p1BasePos.y]?.[p1BasePos.x] : null;
+    const p2Base = p2BasePos ? this.grid[p2BasePos.y]?.[p2BasePos.x] : null;
 
-    if (p1Base && p1Base.id === 'MAIN_BASE' && p1Base.owner === 2) {
+    const p2UnitOnP1Base = this.getAllUnits().find(u => u.isAlive() && u.owner === 2 && p1BasePos && u.x === p1BasePos.x && u.y === p1BasePos.y);
+    if ((p1Base && p1Base.id === 'MAIN_BASE' && p1Base.owner === 2) || p2UnitOnP1Base) {
       this.winner = 2;
       this.winReason = 'BASE_CAPTURE';
       this.phase = GAME_PHASES.GAME_OVER;
+      if (p1Base) p1Base.owner = 2;
       return;
     }
-    if (p2Base && p2Base.id === 'MAIN_BASE' && p2Base.owner === 1) {
+
+    const p1UnitOnP2Base = this.getAllUnits().find(u => u.isAlive() && u.owner === 1 && p2BasePos && u.x === p2BasePos.x && u.y === p2BasePos.y);
+    if ((p2Base && p2Base.id === 'MAIN_BASE' && p2Base.owner === 1) || p1UnitOnP2Base) {
       if (this.bootcampLesson && this.bootcampLesson < 8) return;
       this.winner = 1;
       this.winReason = 'BASE_CAPTURE';
       this.phase = GAME_PHASES.GAME_OVER;
+      if (p2Base) p2Base.owner = 1;
       return;
     }
 
