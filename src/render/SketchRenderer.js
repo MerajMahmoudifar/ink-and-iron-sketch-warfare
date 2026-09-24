@@ -256,8 +256,9 @@ export class SketchRenderer {
 
     // Ambush indicator icon if hidden in forest
     if (unit.isAmbusherHidden) {
-      this.ctx.font = '12px sans-serif';
-      this.ctx.fillText('🥷', cx + 18, cy - 16);
+      this.ctx.font = 'bold 12px sans-serif';
+      this.ctx.fillStyle = '#16a34a';
+      this.ctx.fillText('◆', cx + 18, cy - 16);
     }
 
     this.ctx.restore();

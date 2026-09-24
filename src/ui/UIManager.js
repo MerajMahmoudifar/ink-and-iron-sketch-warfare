@@ -459,24 +459,24 @@ export class UIManager {
     this.turnCounter.textContent = `Turn ${engine.turnNumber}`;
 
     if (engine.phase === 'PLANNING') {
-      this.phaseBadge.textContent = `📝 Planning Phase (${engine.planningTimeRemaining}s)`;
+      this.phaseBadge.textContent = `Planning Phase (${engine.planningTimeRemaining}s)`;
       this.phaseBadge.style.background = '#fef3c7';
       const maxPlanning = engine.planningDurationConfig || 40;
       const pct = Math.min(100, Math.max(0, (engine.planningTimeRemaining / maxPlanning) * 100));
       this.timerBarFill.style.width = `${pct}%`;
     } else if (engine.phase === 'PLAYBACK') {
-      this.phaseBadge.textContent = `⚔️ Playback Phase (${engine.playbackTimeRemaining}s)`;
+      this.phaseBadge.textContent = `Playback Phase (${engine.playbackTimeRemaining}s)`;
       this.phaseBadge.style.background = '#fed7aa';
       const maxPlayback = engine.playbackDurationConfig || 3;
       const pct = Math.min(100, Math.max(0, (engine.playbackTimeRemaining / maxPlayback) * 100));
       this.timerBarFill.style.width = `${pct}%`;
     } else {
-      this.phaseBadge.textContent = `🏆 Match Finished`;
+      this.phaseBadge.textContent = `Match Finished`;
       this.timerBarFill.style.width = '0%';
     }
 
-    this.p1InkDisplay.textContent = `P1 Ink: ✒️ ${engine.players[1].ink}`;
-    this.p2InkDisplay.textContent = `${engine.players[2].name}: ✒️ ${engine.players[2].ink}`;
+    this.p1InkDisplay.textContent = `P1 Ink: ${engine.players[1].ink}`;
+    this.p2InkDisplay.textContent = `${engine.players[2].name}: ${engine.players[2].ink}`;
 
     this.renderUnitStore(engine);
     this.renderInspector(engine);
@@ -580,7 +580,7 @@ export class UIManager {
               <button id="stance-def" class="btn-sketch ${unitOnTile.stance === 'DEFEND' ? 'active' : ''}">Defend</button>
               <button id="stance-amb" class="btn-sketch ${unitOnTile.stance === 'AMBUSH' ? 'active' : ''}">Ambush</button>
             </div>
-            <button id="btn-clear-path" class="btn-sketch" style="margin-top:4px;">❌ Clear Path Waypoints</button>
+            <button id="btn-clear-path" class="btn-sketch" style="margin-top:4px;">Clear Path Waypoints</button>
           </div>
         `;
       }
@@ -610,7 +610,7 @@ export class UIManager {
       engine.combatLogs.forEach(log => {
         const div = document.createElement('div');
         div.className = 'log-entry';
-        div.innerHTML = `⚔️ <b>${log.attackerId}</b> struck <b>${log.defenderId}</b> for <span style="color:#dc2626; font-weight:bold;">${log.damageDealt} HP</span>${log.isAmbushStrike ? ' (AMBUSH STRIKE!)' : ''}`;
+        div.innerHTML = `[COMBAT] <b>${log.attackerId}</b> struck <b>${log.defenderId}</b> for <span style="color:#dc2626; font-weight:bold;">${log.damageDealt} HP</span>${log.isAmbushStrike ? ' (AMBUSH STRIKE!)' : ''}`;
         this.actionLogBox.appendChild(div);
       });
     }
@@ -620,7 +620,7 @@ export class UIManager {
     if (!this.actionLogBox) return;
     const div = document.createElement('div');
     div.className = 'log-entry';
-    div.innerHTML = `📜 ${msg}`;
+    div.innerHTML = `[LOG] ${msg}`;
     this.actionLogBox.prepend(div);
   }
 
@@ -629,7 +629,7 @@ export class UIManager {
     if (overlay) {
       overlay.style.display = 'flex';
       const winnerName = engine.players[winnerId].name;
-      document.getElementById('victory-title').textContent = `🎉 ${winnerName} Victorious!`;
+      document.getElementById('victory-title').textContent = `${winnerName} Victorious!`;
       document.getElementById('victory-sub').textContent = `The enemy Main Base has been captured in Turn ${engine.turnNumber}!`;
       if (winnerId === 1) {
         d1Service.syncSettings({ wins: (d1Service.user.wins || 0) + 1 });

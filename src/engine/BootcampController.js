@@ -44,7 +44,7 @@ export const BOOTCAMP_LESSONS = {
     steps: [
       {
         stepIndex: 1,
-        instruction: 'Click your Rifle Squad hidden in the Forest corridor (🌲).',
+        instruction: 'Click your Rifle Squad hidden in the Forest corridor.',
         requiredAction: 'SELECT_UNIT',
         targetPos: { x: 2, y: 3 },
         pointerPos: { x: 2, y: 3 },
@@ -52,7 +52,7 @@ export const BOOTCAMP_LESSONS = {
       },
       {
         stepIndex: 2,
-        instruction: 'In the right Inspector panel, verify your squad is in AMBUSH stance (🛡️ 50% cover defense).',
+        instruction: 'In the right Inspector panel, verify your squad is in AMBUSH stance (50% cover defense).',
         requiredAction: 'CHECK_STANCE',
         targetPos: { x: 2, y: 3 },
         pointerLabel: '2. Verify Stance'
@@ -75,7 +75,7 @@ export const BOOTCAMP_LESSONS = {
     steps: [
       {
         stepIndex: 1,
-        instruction: 'Select your fast Scout (⚡) at your Base.',
+        instruction: 'Select your fast Scout at your Base.',
         requiredAction: 'SELECT_UNIT',
         targetPos: { x: 1, y: 3 },
         pointerPos: { x: 1, y: 3 },

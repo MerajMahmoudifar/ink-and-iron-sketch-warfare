@@ -135,7 +135,7 @@ const UNIT_TYPES = {
     factionLock: 'VANGUARD_LEGION',
     description: 'Vanguard Exclusive. Rapid hit-and-run raider with extreme mobility. Impassable to mud, swamps, ponds & water.',
     icon: 'RECON',
-    symbol: '🗲'
+    symbol: '◆'
   }
 };
 
@@ -4271,7 +4271,7 @@ class UIManager {
     // Explainer Callout: Teaches all players that depots must be empty
     const infoNotice = document.createElement('div');
     infoNotice.style.cssText = 'font-size:0.78rem; color:#cbd5e1; margin-bottom:10px; padding:6px 10px; background:rgba(30,41,59,0.85); border-radius:4px; border-left:3px solid #f59e0b; line-height:1.35;';
-    infoNotice.innerHTML = `💡 <b>Deployment Rule:</b> Bases and captured Depots can spawn units, but <b>the tile must be completely EMPTY</b> (unoccupied).`;
+    infoNotice.innerHTML = `<b>[DEPLOYMENT DIRECTIVE]</b> Bases and captured Depots can spawn units, but <b>the tile must be completely EMPTY</b> (unoccupied).`;
     listEl.appendChild(infoNotice);
 
     spawnPoints.forEach((sp, idx) => {
@@ -4284,7 +4284,7 @@ class UIManager {
         btn.innerHTML = `
           <div style="display:flex; flex-direction:column; text-align:left;">
             <span style="font-weight:700;">${sp.name} ${formatCoord(sp.x, sp.y)}</span>
-            <span style="font-size:0.72rem; color:#f87171; font-weight:600;">⚠️ UNDER SIEGE &mdash; Enemy adjacent!</span>
+            <span style="font-size:0.72rem; color:#f87171; font-weight:700; letter-spacing:0.04em;">[UNDER SIEGE] &mdash; Enemy adjacent!</span>
           </div>
           <span style="font-size:0.75rem; color:#ef4444; border:1px solid rgba(239,68,68,0.5); padding:2px 6px; border-radius:3px; background:rgba(239,68,68,0.1);">BLOCKED</span>
         `;
@@ -4300,7 +4300,7 @@ class UIManager {
         btn.innerHTML = `
           <div style="display:flex; flex-direction:column; text-align:left;">
             <span style="font-weight:700; color:#e2e8f0;">${sp.name} ${formatCoord(sp.x, sp.y)}</span>
-            <span style="font-size:0.72rem; color:#f59e0b; font-weight:600;">⚠️ OCCUPIED by ${occupyingUnit.name} &mdash; Tile must be empty!</span>
+            <span style="font-size:0.72rem; color:#f59e0b; font-weight:700; letter-spacing:0.04em;">[OCCUPIED] by ${occupyingUnit.name} &mdash; Tile must be empty!</span>
           </div>
           <span style="font-size:0.75rem; color:#ef4444; border:1px solid rgba(239,68,68,0.5); padding:2px 6px; border-radius:3px; background:rgba(239,68,68,0.1);">BLOCKED</span>
         `;
@@ -4312,7 +4312,7 @@ class UIManager {
         btn.innerHTML = `
           <div style="display:flex; flex-direction:column; text-align:left;">
             <span style="font-weight:700; color:#ffffff;">${sp.name} ${formatCoord(sp.x, sp.y)}</span>
-            <span style="font-size:0.72rem; color:#4ade80; font-weight:600;">✅ EMPTY &mdash; Ready for deployment</span>
+            <span style="font-size:0.72rem; color:#4ade80; font-weight:700; letter-spacing:0.04em;">[CLEAR] &mdash; Ready for deployment</span>
           </div>
           <span style="font-size:0.75rem; color:#60a5fa; border:1px solid rgba(96,165,250,0.5); padding:2px 8px; border-radius:3px; background:rgba(59,130,246,0.15); font-weight:700;">DEPLOY HERE</span>
         `;
@@ -4381,13 +4381,13 @@ class UIManager {
       if (tile.id === 'SWAMP') {
         badgesHtml = `
           <span class="dossier-pill dossier-pill-block" title="Hazardous Defense Penalty">DEF -10%</span>
-          <span class="dossier-pill dossier-pill-hazard" title="Infantry halts immediately for 1 turn upon entry">&#x1F6B6; INFANTRY: MIRED 1T (SLOW)</span>
-          <span class="dossier-pill dossier-pill-block" title="Vehicles are completely impassable">&#x1F6AB; VEHICLES: IMPASSABLE</span>
+          <span class="dossier-pill dossier-pill-hazard" title="Infantry halts immediately for 1 turn upon entry">INFANTRY: MIRED 1T (SLOW)</span>
+          <span class="dossier-pill dossier-pill-block" title="Vehicles are completely impassable">VEHICLES: IMPASSABLE</span>
           <span class="dossier-pill dossier-pill-los" title="Tactical Sightlines">VISION OPEN</span>
         `;
         terrainIntelHtml = `
           <div class="dossier-terrain-intel dossier-intel-hazard">
-            <strong>⚠️ HAZARD INTEL:</strong> Heavy mud, swamp &amp; pond mire. Infantry entering this sector are mired and forced to stay for 1 turn. Subsequent mud &amp; pond traversal is slowed to 1 tile/turn. <strong>Completely impassable to vehicles.</strong>
+            <strong>[HAZARD INTEL]</strong> Heavy mud, swamp &amp; pond mire. Infantry entering this sector are mired and forced to stay for 1 turn. Subsequent mud &amp; pond traversal is slowed to 1 tile/turn. <strong>Completely impassable to vehicles.</strong>
           </div>
         `;
       } else {
@@ -4409,9 +4409,9 @@ class UIManager {
       let spawnStatusHtml = '';
       if ((tile.id === 'CAPTURE_ZONE' || tile.id === 'MAIN_BASE') && tile.owner === 1) {
         if (unitOnTile) {
-          spawnStatusHtml = `<div class="dossier-spawn-status occupied">&#x26A0;&#xFE0F; DEPLOY POINT OCCUPIED</div>`;
+          spawnStatusHtml = `<div class="dossier-spawn-status occupied">[OCCUPIED] DEPLOY POINT OCCUPIED</div>`;
         } else {
-          spawnStatusHtml = `<div class="dossier-spawn-status ready">&#x2713; DEPLOY POINT READY</div>`;
+          spawnStatusHtml = `<div class="dossier-spawn-status ready">[READY] DEPLOY POINT READY</div>`;
         }
       }
 
@@ -4473,7 +4473,7 @@ class UIManager {
             <span>VIS <strong>${unitOnTile.visionRange || 2}</strong></span>
           </div>
 
-          ${(tile.id === 'SWAMP' && unitOnTile.category === 'INFANTRY') ? `<div class="dossier-mired-tag" style="background:rgba(217,119,6,0.25); color:#fde68a; border:1px solid #d97706; padding:3px 6px; font-size:0.7rem; font-family:var(--font-mono); border-radius:3px; margin-top:6px; font-weight:700; text-align:center;">⚠️ MIRED IN MUD / POND (SLOWED TO 1 TILE/TURN)</div>` : ''}
+          ${(tile.id === 'SWAMP' && unitOnTile.category === 'INFANTRY') ? `<div class="dossier-mired-tag" style="background:rgba(217,119,6,0.25); color:#fde68a; border:1px solid #d97706; padding:3px 6px; font-size:0.7rem; font-family:var(--font-mono); border-radius:3px; margin-top:6px; font-weight:700; text-align:center;">[MIRED IN MUD / POND] (SLOWED TO 1 TILE/TURN)</div>` : ''}
           ${(isFriendly && waypointsCount > 0) ? `<div class="dossier-orders-tag">ORDERS: ${waypointsCount} WAYPOINTS QUEUED</div>` : ''}
       `;
 
@@ -4575,7 +4575,7 @@ class UIManager {
         }
         if (noteEl) {
           if (forecast.counterNote) {
-            noteEl.textContent = `⚠️ ${forecast.counterNote}`;
+            noteEl.textContent = `[INTEL] ${forecast.counterNote}`;
             noteEl.style.display = 'block';
           } else {
             noteEl.style.display = 'none';
@@ -4796,7 +4796,7 @@ class BootcampManager {
     }
 
     if (this.app.ui) {
-      this.app.ui.showToast('🥚 General Crow Intercept', customQuip);
+      this.app.ui.showToast('General Crow Intercept', customQuip);
     }
   }
 
@@ -4858,7 +4858,7 @@ class BootcampManager {
     }
 
     if (this.app.ui) {
-      this.app.ui.showToast('🥚 Rogue Cadet Detected', 'General Crow caught you trying to cheese the exam!');
+      this.app.ui.showToast('Rogue Cadet Detected', 'General Crow caught you trying to cheese the exam!');
     }
   }
 
