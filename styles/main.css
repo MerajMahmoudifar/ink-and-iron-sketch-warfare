@@ -730,7 +730,7 @@ header.hud-header {
 .accordion-arrow {
   font-size: 0.55rem;
   color: var(--gold-400);
-  transition: transform var(--t-fast);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
   display: inline-block;
 }
 
@@ -739,18 +739,32 @@ header.hud-header {
 }
 
 .sidebar-accordion-section.collapsed .accordion-header {
-  border-bottom: none;
-}
-
-.sidebar-accordion-section.collapsed .accordion-body {
-  display: none;
+  border-bottom: 1px solid transparent;
 }
 
 .accordion-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease-out, padding 0.28s cubic-bezier(0.16, 1, 0.3, 1);
   padding: 8px;
+  opacity: 1;
+  box-sizing: border-box;
+}
+
+.accordion-body-inner {
+  overflow: hidden;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.sidebar-accordion-section.collapsed .accordion-body {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  pointer-events: none;
 }
 
 .accordion-badge {
