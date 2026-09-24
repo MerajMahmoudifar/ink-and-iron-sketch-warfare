@@ -3711,13 +3711,13 @@ class UIManager {
     document.getElementById('btn-open-menu')?.addEventListener('click', (e) => {
       e.preventDefault();
       this.openInGameMenu();
-      try { this.app.audio.playPaper(); } catch(err){}
+      try { this.app.audio.playClick(); } catch(err){}
     });
 
     document.getElementById('btn-resume-game')?.addEventListener('click', (e) => {
       e.preventDefault();
       this.closeInGameMenu();
-      try { this.app.audio.playPaper(); } catch(err){}
+      try { this.app.audio.playClick(); } catch(err){}
     });
 
     document.getElementById('btn-exit-to-main')?.addEventListener('click', (e) => {
@@ -3726,7 +3726,7 @@ class UIManager {
         this.app.exitToMainMenu();
       }
       try {
-        this.app.audio.playPaper();
+        this.app.audio.playClick();
       } catch(err){}
     });
 
@@ -3753,7 +3753,6 @@ class UIManager {
       if (this.app.engine && this.app.engine.phase === 'PLANNING') {
         this.app.engine.endPlanningPhase();
       }
-      try { this.app.audio.playActionWhistle(); } catch(err){}
     });
 
     document.getElementById('btn-halt-all')?.addEventListener('click', (e) => {
@@ -3793,7 +3792,7 @@ class UIManager {
         this.app.exitToMainMenu();
       }
       try {
-        this.app.audio.playPaper();
+        this.app.audio.playClick();
       } catch(err){}
     });
 
@@ -3882,7 +3881,7 @@ class UIManager {
             if (this.app && this.app.bootcampManager) this.app.bootcampManager.updateMenuUI();
           }
           try {
-            this.app.audio.playPaper();
+            this.app.audio.playClick();
             if (!this.app.audio.currentMusicTrack || !this.app.audio.currentMusicSource) {
               this.app.audio.startMenuMusic(1.5);
             }
@@ -4055,12 +4054,11 @@ class UIManager {
         <div class="unit-card-desc">${u.description}</div>`;
       
       btn.addEventListener('click', () => {
-        this.app.audio.playPencilScratch();
-        
         const availableSpawns = engine.getOwnedSpawnPoints(1);
         const unContestedSpawns = availableSpawns.filter(sp => !sp.isContested && !engine.getAllUnits().some(u => u.x === sp.x && u.y === sp.y && u.isAlive()));
 
         if (unContestedSpawns.length === 0) {
+          try { this.app.audio.playDenied(); } catch(err){}
           this.showToast('Deployment Failed', 'All your Base & Supply Zone tiles are UNDER SIEGE or occupied!');
           return;
         }
@@ -4071,8 +4069,9 @@ class UIManager {
           if (isSelectedValid) {
             const res = engine.buyUnit(1, key, selTile.x, selTile.y);
             if (res.success) {
-              this.app.audio.playSpawnSound();
+              try { this.app.audio.playSpawnSound(); } catch(err){}
             } else {
+              try { this.app.audio.playDenied(); } catch(err){}
               this.showToast('Deployment Error', res.reason);
             }
             return;
@@ -4081,13 +4080,14 @@ class UIManager {
             if (isOwnedSpawn) {
               const occ = engine.getAllUnits().find(u => u.x === selTile.x && u.y === selTile.y && u.isAlive());
               if (occ) {
+                try { this.app.audio.playDenied(); } catch(err){}
                 this.showToast('Tile Occupied', `Cannot deploy at ${formatCoord(selTile.x, selTile.y)}! Depots & Bases must be completely EMPTY to spawn new units.`);
               }
             }
           }
         }
 
-        try { this.app.audio.playPencilScratch(); } catch(err){}
+        try { this.app.audio.playClick(); } catch(err){}
         this.openDeploymentPicker(engine, key, u);
       });
       this.storeContainer.appendChild(btn);
@@ -4157,12 +4157,12 @@ class UIManager {
           <span style="font-size:0.75rem; color:#60a5fa; border:1px solid rgba(96,165,250,0.5); padding:2px 8px; border-radius:3px; background:rgba(59,130,246,0.15); font-weight:700;">DEPLOY HERE</span>
         `;
         btn.addEventListener('click', () => {
-          try { this.app.audio.playPencilScratch(); } catch(err){}
           if (this.deployPickerModal) this.deployPickerModal.style.display = 'none';
           const res = engine.buyUnit(1, unitTypeKey, sp.x, sp.y);
           if (res.success) {
             try { this.app.audio.playSpawnSound(); } catch(err){}
           } else {
+            try { this.app.audio.playDenied(); } catch(err){}
             this.showToast('Deployment Error', res.reason);
           }
         });
@@ -4343,13 +4343,13 @@ class UIManager {
       const btnAmb = document.getElementById('stance-amb');
       const btnCancelUnit = document.getElementById('btn-cancel-unit-plan');
 
-      if (btnAdv) btnAdv.addEventListener('click', () => { engine.setUnitStance(unitOnTile.id, 'ADVANCE'); this.updateHUD(engine); });
-      if (btnDef) btnDef.addEventListener('click', () => { engine.setUnitStance(unitOnTile.id, 'DEFEND'); this.updateHUD(engine); });
-      if (btnAmb) btnAmb.addEventListener('click', () => { engine.setUnitStance(unitOnTile.id, 'AMBUSH'); this.updateHUD(engine); });
+      if (btnAdv) btnAdv.addEventListener('click', () => { try { this.app.audio.playClick(); } catch(e){} engine.setUnitStance(unitOnTile.id, 'ADVANCE'); this.updateHUD(engine); });
+      if (btnDef) btnDef.addEventListener('click', () => { try { this.app.audio.playClick(); } catch(e){} engine.setUnitStance(unitOnTile.id, 'DEFEND'); this.updateHUD(engine); });
+      if (btnAmb) btnAmb.addEventListener('click', () => { try { this.app.audio.playClick(); } catch(e){} engine.setUnitStance(unitOnTile.id, 'AMBUSH'); this.updateHUD(engine); });
       
       if (btnCancelUnit) {
         btnCancelUnit.addEventListener('click', () => {
-          this.app.audio.playPencilScratch();
+          try { this.app.audio.playEraserSmudge(); } catch(e){}
           engine.setUnitWaypoints(unitOnTile.id, []);
           this.updateHUD(engine);
         });
@@ -4618,9 +4618,6 @@ class BootcampManager {
     try {
       if (this.app.audio) {
         this.app.audio.playAlarmSound();
-        setTimeout(() => {
-          try { this.app.audio.playPencilScratch(); } catch(e){}
-        }, 250);
       }
     } catch(e) {}
 
@@ -4655,9 +4652,6 @@ class BootcampManager {
     try {
       if (this.app.audio) {
         this.app.audio.playAlarmSound();
-        setTimeout(() => {
-          try { this.app.audio.playPencilScratch(); } catch(e){}
-        }, 250);
       }
     } catch(e) {}
 
@@ -5144,7 +5138,7 @@ window.switchMenuTab = function(btnId, paneId) {
   }
   try {
     if (window.gApp && window.gApp.audio) {
-      window.gApp.audio.playPencilScratch();
+      window.gApp.audio.playClick();
       if (!window.gApp.audio.currentMusicTrack || !window.gApp.audio.currentMusicSource) {
         window.gApp.audio.startMenuMusic(1.5);
       }
@@ -5162,7 +5156,6 @@ window.deployGameFromMenu = function() {
   if (menu) menu.style.display = 'none';
   if (gameContainer) gameContainer.classList.remove('game-blurred');
   if (window.gApp) window.gApp.launchMatchFromMenu();
-  try { if (window.gApp && window.gApp.audio) window.gApp.audio.playPencilScratch(); } catch(e){}
 };
 
 window.enterTerrainView = function() {
@@ -5504,11 +5497,10 @@ class App {
         }
       }
 
-      try { this.audio.playPencilScratch(); } catch(err){}
-
       // In GAME_OVER terrain view: only allow tile selection for unit inspection
       if (this.engine.phase === 'GAME_OVER') {
         this.renderer.selectedTile = gridCoords;
+        try { this.audio.playClick(); } catch(err){}
         this.ui.renderInspector(this.engine);
         return;
       }
@@ -5527,6 +5519,7 @@ class App {
           this.ui.showToast('Ability Deployed', `${ability.name} targeted at ${formatCoord(gridCoords.x, gridCoords.y)}!`);
           this.ui.pendingAbilityKey = null;
         } else {
+          try { this.audio.playDenied(); } catch(err){}
           this.ui.showToast('Ability Error', res.reason);
         }
         this.renderer.selectedTile = gridCoords;
@@ -5545,6 +5538,7 @@ class App {
       }
 
       this.renderer.selectedTile = gridCoords;
+      let playedSound = false;
 
       if (this.engine.phase === 'PLANNING' && prevSelected) {
         const unit = this.engine.getAllUnits().find(u => u.x === prevSelected.x && u.y === prevSelected.y && u.owner === 1);
@@ -5552,6 +5546,7 @@ class App {
           if (unit.category === 'VEHICLE' && this.engine.grid[gridCoords.y][gridCoords.x].id === 'SWAMP') {
             this.ui.showToast('Terrain Blocked', 'Mud, Swamp & Pond terrain is completely impassable to vehicles and tanks!');
             if (this.audio) this.audio.playEraserSmudge();
+            playedSound = true;
             if (this.engine.bootcampLesson === 5 && this.bootcampManager) {
               this.bootcampManager.triggerLessonEasterEgg(5, "Nice try, Mario Andretti! Tanks sink in the bog like lead weights. Did you skip the terrain briefing?!");
             }
@@ -5571,10 +5566,22 @@ class App {
               // Append to existing waypoints (multi-leg journey)
               const combined = [...(unit.waypoints || []), ...extension];
               this.engine.setUnitWaypoints(unit.id, combined);
+              try { this.audio.playPencilScratch(); } catch(err){}
+              playedSound = true;
             }
           }
         }
       }
+
+      if (!playedSound) {
+        const clickedUnit = this.engine.getAllUnits().find(u => u.x === gridCoords.x && u.y === gridCoords.y && u.isAlive());
+        if (clickedUnit && clickedUnit.owner === 1) {
+          try { this.audio.playUnitSelect(); } catch(err){}
+        } else {
+          try { this.audio.playClick(); } catch(err){}
+        }
+      }
+
       this.ui.updateHUD(this.engine);
     });
 
@@ -5898,13 +5905,13 @@ window.updateMusicVolume = function(val) {
 window.openCheatSheetModal = function() {
   const modal = document.getElementById('cheatsheet-modal');
   if (modal) modal.style.display = 'flex';
-  try { if (window.gApp && window.gApp.audio) window.gApp.audio.playPencilScratch(); } catch(e){}
+  try { if (window.gApp && window.gApp.audio) window.gApp.audio.playPaper(); } catch(e){}
 };
 
 window.closeCheatSheetModal = function() {
   const modal = document.getElementById('cheatsheet-modal');
   if (modal) modal.style.display = 'none';
-  try { if (window.gApp && window.gApp.audio) window.gApp.audio.playPencilScratch(); } catch(e){}
+  try { if (window.gApp && window.gApp.audio) window.gApp.audio.playClick(); } catch(e){}
 };
 
 window.toggleMapLegend = function() {
@@ -5921,7 +5928,7 @@ window.toggleMapLegend = function() {
     content.classList.add('legend-hidden');
     if (arrow) arrow.textContent = '▸';
   }
-  try { if (window.gApp && window.gApp.audio) window.gApp.audio.playPencilScratch(); } catch(e){}
+  try { if (window.gApp && window.gApp.audio) window.gApp.audio.playClick(); } catch(e){}
 };
 
 window.switchCodexSubtab = function(subtabKey, btnEl) {
@@ -5937,7 +5944,7 @@ window.switchCodexSubtab = function(subtabKey, btnEl) {
   if (typeof UnitIcons !== 'undefined' && targetPane) {
     UnitIcons.renderStaticBadges(targetPane);
   }
-  try { if (window.gApp && window.gApp.audio) window.gApp.audio.playPencilScratch(); } catch(e){}
+  try { if (window.gApp && window.gApp.audio) window.gApp.audio.playClick(); } catch(e){}
 };
 
 // ==========================================

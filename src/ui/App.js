@@ -94,9 +94,9 @@ export class App {
       const gridCoords = this.renderer.getGridCoords(clickX, clickY);
       if (!gridCoords) return;
 
-      this.audio.playPencilScratch();
       const prevSelected = this.renderer.selectedTile;
       this.renderer.selectedTile = gridCoords;
+      let playedSound = false;
 
       // Handle Unit Movement Path Drawing during 20s planning phase
       if (this.engine.phase === 'PLANNING') {
@@ -106,9 +106,20 @@ export class App {
           // Calculate valid path to newly clicked tile
           const path = this.engine.findValidPath(unitOnPrevTile, gridCoords.x, gridCoords.y);
           if (path.length > 0) {
+            try { this.audio.playPencilScratch(); } catch(e){}
+            playedSound = true;
             const colLetter = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][gridCoords.x] || gridCoords.x;
             this.ui.log(`Added waypoint path for ${unitOnPrevTile.name} to (${colLetter}, ${gridCoords.y + 1})`);
           }
+        }
+      }
+
+      if (!playedSound) {
+        const clickedUnit = this.engine.getAllUnits().find(u => u.x === gridCoords.x && u.y === gridCoords.y && u.isAlive());
+        if (clickedUnit && clickedUnit.owner === 1) {
+          try { this.audio.playUnitSelect(); } catch(e){}
+        } else {
+          try { this.audio.playClick(); } catch(e){}
         }
       }
 

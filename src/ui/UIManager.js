@@ -283,7 +283,7 @@ export class UIManager {
     const startBtn = document.getElementById('btn-start-game');
     if (startBtn) {
       startBtn.addEventListener('click', () => {
-        this.app.audio.playPencilScratch();
+        try { this.app.audio.playStamp(); } catch(e){}
         this.mainMenuOverlay.style.display = 'none';
         this.gameContainer.classList.remove('game-blurred');
         this.app.launchMatchFromMenu();
@@ -294,7 +294,7 @@ export class UIManager {
     const openMenuBtn = document.getElementById('btn-open-menu');
     if (openMenuBtn) {
       openMenuBtn.addEventListener('click', () => {
-        this.app.audio.playPencilScratch();
+        try { this.app.audio.playClick(); } catch(e){}
         this.openInGameMenu();
       });
     }
@@ -303,7 +303,7 @@ export class UIManager {
     const resumeBtn = document.getElementById('btn-resume-game');
     if (resumeBtn) {
       resumeBtn.addEventListener('click', () => {
-        this.app.audio.playPencilScratch();
+        try { this.app.audio.playClick(); } catch(e){}
         this.closeInGameMenu();
       });
     }
@@ -312,7 +312,7 @@ export class UIManager {
     const exitBtn = document.getElementById('btn-exit-to-main');
     if (exitBtn) {
       exitBtn.addEventListener('click', () => {
-        this.app.audio.playPencilScratch();
+        try { this.app.audio.playClick(); } catch(e){}
         if (this.app) {
           this.app.exitToMainMenu();
         }
@@ -323,7 +323,7 @@ export class UIManager {
     const restartPauseBtn = document.getElementById('btn-pause-restart');
     if (restartPauseBtn) {
       restartPauseBtn.addEventListener('click', () => {
-        this.app.audio.playPencilScratch();
+        try { this.app.audio.playClick(); } catch(e){}
         this.closeInGameMenu();
         this.app.launchMatchFromMenu();
       });
@@ -333,7 +333,6 @@ export class UIManager {
     const endTurnBtn = document.getElementById('btn-end-turn');
     if (endTurnBtn) {
       endTurnBtn.addEventListener('click', () => {
-        this.app.audio.playPencilScratch();
         if (this.app.engine && this.app.engine.phase === 'PLANNING') {
           this.app.engine.endPlanningPhase();
         }
@@ -348,7 +347,7 @@ export class UIManager {
         w.querySelector('.diesel-select-trigger')?.setAttribute('aria-expanded', 'false');
       });
       try {
-        this.app.audio.playPencilScratch();
+        this.app.audio.playClick();
         if (!this.app.audio.currentMusicTrack || !this.app.audio.currentMusicSource) {
           this.app.audio.startMenuMusic(1.5);
         }
@@ -449,17 +448,17 @@ export class UIManager {
       `;
 
       btn.addEventListener('click', () => {
-        this.app.audio.playPencilScratch();
         const sel = this.app.renderer.selectedTile;
         const targetX = sel ? sel.x : engine.p1Base.x;
         const targetY = sel ? sel.y : engine.p1Base.y;
 
         const res = engine.buyUnit(1, key, targetX, targetY);
         if (res.success) {
-          this.app.audio.playSpawnSound();
+          try { this.app.audio.playSpawnSound(); } catch(e){}
           const colLetter = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][targetX] || targetX;
           this.log(`Recruited ${uType.name} at (${colLetter}, ${targetY + 1})`);
         } else {
+          try { this.app.audio.playDenied(); } catch(e){}
           alert(`Cannot recruit: ${res.reason}`);
         }
       });
