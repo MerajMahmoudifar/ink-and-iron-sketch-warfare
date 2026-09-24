@@ -643,6 +643,9 @@
           <div class="player-ink-badge cp-badge">
             <span id="p1-cp">CP: 0/10</span>
           </div>
+          <button id="btn-open-cheatsheet" class="btn-sketch menu-btn-hud" onclick="window.openCheatSheetModal()" title="Tactical Field Manual &amp; Unit Counters [F1]" style="margin-right: 4px;">
+            Intel [F1]
+          </button>
           <button id="btn-open-menu" class="btn-sketch menu-btn-hud">
             Menu
           </button>
@@ -1141,7 +1144,7 @@
             Resume Battle
           </button>
           <button id="btn-pause-cheatsheet" class="btn-sketch btn-sketch-lg victory-btn-terrain" onclick="window.openCheatSheetModal()">
-            Tactical Cheat-Sheet
+            Tactical Field Intelligence [F1]
           </button>
 
           <!-- IN-GAME AUDIO CONTROLS -->
@@ -1195,119 +1198,421 @@
       </div>
     </div>
 
-    <!-- DEDICATED TACTICAL CHEAT-SHEET MODAL -->
-    <div id="cheatsheet-modal" class="modal-overlay" style="display: none;" onclick="if(event.target === this) window.closeCheatSheetModal()">
-      <div class="modal-card" style="max-width: 620px;">
-        <button class="modal-close-btn" onclick="window.closeCheatSheetModal()" title="Close">&times;</button>
-        <h2 class="modal-title">Tactical Cheat-Sheet</h2>
-        <p class="modal-subtitle">Unit Counters, Combat Multipliers &amp; Auto-Stance Matrix</p>
+    <!-- DEDICATED TACTICAL FIELD CHEAT-SHEET / INTELLIGENCE DOCKET -->
+    <div id="cheatsheet-modal" class="modal-overlay" style="display: none; z-index: 100010;" onclick="if(event.target === this) window.closeCheatSheetModal()">
+      <div class="modal-card tactical-cheatsheet-card">
+        <button class="modal-close-btn" onclick="window.closeCheatSheetModal()" title="Close [Esc]">&times;</button>
         
-        <div class="codex-matrix-card" style="margin-top: 14px;">
-          <table class="codex-table">
-            <thead>
-              <tr>
-                <th>Unit Type</th>
-                <th>Category</th>
-                <th>Best Counter Target</th>
-                <th>Auto-Stance</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><b>✕ Rifle Squad</b></td>
-                <td>Infantry</td>
-                <td>AT Crews (1.5x Dmg) | 50% Armor Penalty</td>
-                <td>DEFEND / ADVANCE</td>
-              </tr>
-              <tr>
-                <td><b>⧟ Scout Infantry</b></td>
-                <td>Infantry</td>
-                <td>Recon &amp; Forest Ambush (1.5x Dmg)</td>
-                <td>AMBUSH / ADVANCE</td>
-              </tr>
-              <tr>
-                <td><b>⌖ Anti-Tank Squad</b></td>
-                <td>Infantry</td>
-                <td>Tanks &amp; Armored Cars (2.5x Penetration)</td>
-                <td>DEFEND</td>
-              </tr>
-              <tr>
-                <td><b>⬭ Armored Car</b></td>
-                <td>Vehicle</td>
-                <td>Infantry &amp; AT Crews (1.5x Crush)</td>
-                <td>ADVANCE</td>
-              </tr>
-              <tr>
-                <td><b>⬚ Heavy Siege Tank</b></td>
-                <td>Vehicle (Iron Corps)</td>
-                <td>Infantry &amp; Chokes (1.5x Crush)</td>
-                <td>DEFEND</td>
-              </tr>
-              <tr>
-                <td><b>◆ Blitz Recon Car</b></td>
-                <td>Vehicle (Vanguard)</td>
-                <td>Infantry Flanking (4 Move / 1.5x Crush)</td>
-                <td>ADVANCE</td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="cheatsheet-header">
+          <div class="cheatsheet-badge-row">
+            <span class="menu-logo-badge">TACTICAL FIELD DOSSIER</span>
+            <span class="cheatsheet-doc-stamp">DOC-SEC // DIESELPUNK DOCTRINES</span>
+          </div>
+          <h2 class="cheatsheet-title">Tactical Field Intelligence</h2>
+          <p class="cheatsheet-subtitle">Unit Counter Multipliers, Armor Penetration, Terrain Rules &amp; Operational Hotkeys</p>
         </div>
 
-        <h3 class="modal-subtitle" style="margin-top: 18px; margin-bottom: 6px; font-weight: 700; color: #f59e0b; text-align: left;">Terrain Intelligence &amp; Movement Matrix</h3>
-        <div class="codex-matrix-card">
-          <table class="codex-table">
-            <thead>
-              <tr>
-                <th>Terrain</th>
-                <th>Infantry Movement &amp; Cover</th>
-                <th>Vehicle / Armor Rules</th>
-                <th>Sightline</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><b>Plains</b></td>
-                <td>Standard MOV 1.0x | DEF +0%</td>
-                <td>Standard MOV 1.0x</td>
-                <td><span style="color:#60a5fa;">OPEN</span></td>
-              </tr>
-              <tr>
-                <td><b>Forest</b></td>
-                <td>MOV 1.5x | DEF +30% | Ambush Stance</td>
-                <td>Heavy MOV 2.0x | DEF +30%</td>
-                <td><span style="color:#f87171;">BLOCKED</span></td>
-              </tr>
-              <tr style="background: rgba(180, 83, 9, 0.15);">
-                <td><b style="color: #fbbf24;">Mud / Swamp / Pond</b></td>
-                <td><b style="color: #fbbf24;">MIRED: Halts 1 Full Turn on Entry</b><br><small>Traversing mud, swamps &amp; ponds slowed to 1 tile/turn | DEF -10%</small></td>
-                <td><b style="color: #ef4444;">100% IMPASSABLE (MUD &amp; POND SINK HAZARD)</b><br><small>All tanks &amp; armored cars strictly blocked</small></td>
-                <td><span style="color:#60a5fa;">OPEN</span></td>
-              </tr>
-              <tr>
-                <td><b>Mountains</b></td>
-                <td><span style="color:#ef4444;">Impassable (Blocked)</span></td>
-                <td><span style="color:#ef4444;">Impassable (Blocked)</span></td>
-                <td><span style="color:#f87171;">BLOCKED</span></td>
-              </tr>
-              <tr>
-                <td><b>Water</b></td>
-                <td><span style="color:#ef4444;">Impassable Hazard</span></td>
-                <td><span style="color:#ef4444;">Impassable Hazard</span></td>
-                <td><span style="color:#60a5fa;">OPEN</span></td>
-              </tr>
-              <tr>
-                <td><b>Supply Depot / Base</b></td>
-                <td>Standard MOV 1.0x | DEF +15% / +25%</td>
-                <td>Standard MOV 1.0x</td>
-                <td><span style="color:#60a5fa;">OPEN</span></td>
-              </tr>
-            </tbody>
-          </table>
+        <!-- CHEAT-SHEET SUB-TABS -->
+        <div class="cheatsheet-tab-bar">
+          <button id="cs-tab-btn-matrix" class="cs-tab-btn active" onclick="window.switchCheatSheetTab('matrix', this)">
+            <span class="cs-tab-num">01</span> Combat Matrix
+          </button>
+          <button id="cs-tab-btn-terrain" class="cs-tab-btn" onclick="window.switchCheatSheetTab('terrain', this)">
+            <span class="cs-tab-num">02</span> Terrain Intel
+          </button>
+          <button id="cs-tab-btn-stances" class="cs-tab-btn" onclick="window.switchCheatSheetTab('stances', this)">
+            <span class="cs-tab-num">03</span> Stances &amp; Abilities
+          </button>
+          <button id="cs-tab-btn-hotkeys" class="cs-tab-btn" onclick="window.switchCheatSheetTab('hotkeys', this)">
+            <span class="cs-tab-num">04</span> Command Hotkeys
+          </button>
         </div>
 
-        <button class="btn-sketch victory-btn-menu" style="margin-top: 14px;" onclick="window.closeCheatSheetModal()">
-          Back to Battle
-        </button>
+        <!-- TAB 1: COMBAT MATRIX & COUNTERS -->
+        <div id="cs-pane-matrix" class="cs-pane" style="display: block;">
+          <div class="cs-directive-banner">
+            <b>[HIGH COMMAND COMBAT DIRECTIVE]</b> Real-time rock-paper-scissors resolution: Anti-Tank shreds vehicles (<b>2.5x penetration</b>), Armored vehicles crush infantry (<b>1.5x crush</b>), Riflemen flank slow AT crews (<b>1.5x flank</b>), and small-arms bullets deflect off armor plating (<b>50% damage penalty</b>).
+          </div>
+
+          <div class="cs-matrix-grid">
+            <!-- 1. Rifle Squad -->
+            <div class="cs-unit-card">
+              <div class="cs-unit-header">
+                <div class="cs-unit-badge-title">
+                  <span data-unit-badge="RIFLEMAN" data-badge-size="sm"></span>
+                  <span class="cs-unit-name">Rifle Squad</span>
+                </div>
+                <span class="cs-role-pill cs-role-infantry">Infantry • 100 Ink</span>
+              </div>
+              <div class="cs-stats-strip">
+                <span>ATK <strong>20</strong></span>
+                <span>RNG <strong>1</strong></span>
+                <span>MOV <strong>2</strong></span>
+                <span>VIS <strong>2</strong></span>
+                <span>HP <strong>50</strong></span>
+              </div>
+              <div class="cs-counter-tags">
+                <span class="cs-tag-bonus">+50% (1.5x) vs Anti-Tank Squads (Flanking Mobility)</span>
+                <span class="cs-tag-penalty">-50% Dmg vs Vehicles (Small-Arms Deflection)</span>
+                <span class="cs-tag-stance">Auto-Stance: DEFEND (on base/depot) / ADVANCE</span>
+              </div>
+            </div>
+
+            <!-- 2. Scout Infantry -->
+            <div class="cs-unit-card">
+              <div class="cs-unit-header">
+                <div class="cs-unit-badge-title">
+                  <span data-unit-badge="SCOUT" data-badge-size="sm"></span>
+                  <span class="cs-unit-name">Scout Infantry</span>
+                </div>
+                <span class="cs-role-pill cs-role-infantry">Infantry • 120 Ink</span>
+              </div>
+              <div class="cs-stats-strip">
+                <span>ATK <strong>15</strong></span>
+                <span>RNG <strong>1</strong></span>
+                <span>MOV <strong>3</strong></span>
+                <span>VIS <strong>3</strong></span>
+                <span>HP <strong>30</strong></span>
+              </div>
+              <div class="cs-counter-tags">
+                <span class="cs-tag-bonus">+50% (1.5x) Stealth Ambush Strike (from Forests)</span>
+                <span class="cs-tag-bonus">Extended Vision (3 Tiles) through Fog of War</span>
+                <span class="cs-tag-stance">Auto-Stance: AMBUSH (in forest) / ADVANCE</span>
+              </div>
+            </div>
+
+            <!-- 3. Anti-Tank Crew -->
+            <div class="cs-unit-card">
+              <div class="cs-unit-header">
+                <div class="cs-unit-badge-title">
+                  <span data-unit-badge="ANTI_TANK" data-badge-size="sm"></span>
+                  <span class="cs-unit-name">Anti-Tank Crew</span>
+                </div>
+                <span class="cs-role-pill cs-role-infantry">Infantry • 150 Ink</span>
+              </div>
+              <div class="cs-stats-strip">
+                <span>ATK <strong>35</strong></span>
+                <span>RNG <strong>2</strong></span>
+                <span>MOV <strong>1</strong></span>
+                <span>VIS <strong>2</strong></span>
+                <span>HP <strong>40</strong></span>
+              </div>
+              <div class="cs-counter-tags">
+                <span class="cs-tag-bonus">+150% (2.5x) Heavy Armor Penetration vs All Vehicles</span>
+                <span class="cs-tag-penalty">Slow MOV (1 tile) &amp; vulnerable to Riflemen flank</span>
+                <span class="cs-tag-stance">Auto-Stance: DEFEND (+25% Defense)</span>
+              </div>
+            </div>
+
+            <!-- 4. Light Armored Car -->
+            <div class="cs-unit-card">
+              <div class="cs-unit-header">
+                <div class="cs-unit-badge-title">
+                  <span data-unit-badge="LIGHT_VEHICLE" data-badge-size="sm"></span>
+                  <span class="cs-unit-name">Light Armored Car</span>
+                </div>
+                <span class="cs-role-pill cs-role-vehicle">Vehicle • 200 Ink</span>
+              </div>
+              <div class="cs-stats-strip">
+                <span>ATK <strong>30</strong></span>
+                <span>RNG <strong>1</strong></span>
+                <span>MOV <strong>3</strong></span>
+                <span>VIS <strong>2</strong></span>
+                <span>HP <strong>75</strong></span>
+              </div>
+              <div class="cs-counter-tags">
+                <span class="cs-tag-bonus">+50% (1.5x) Anti-Infantry Crush vs Squads &amp; AT Crews</span>
+                <span class="cs-tag-bonus">Armor Plating: 50% damage reduction vs Small-Arms</span>
+                <span class="cs-tag-penalty">Impassable in Mud / Swamp / Pond (Sinking Hazard)</span>
+              </div>
+            </div>
+
+            <!-- 5. Heavy Siege Tank -->
+            <div class="cs-unit-card">
+              <div class="cs-unit-header">
+                <div class="cs-unit-badge-title">
+                  <span data-unit-badge="HEAVY_SIEGE_TANK" data-badge-size="sm"></span>
+                  <span class="cs-unit-name">Heavy Siege Tank</span>
+                </div>
+                <span class="cs-role-pill cs-role-vehicle">Iron Corps • 300 Ink</span>
+              </div>
+              <div class="cs-stats-strip">
+                <span>ATK <strong>50</strong></span>
+                <span>RNG <strong>2</strong></span>
+                <span>MOV <strong>2</strong></span>
+                <span>VIS <strong>2</strong></span>
+                <span>HP <strong>120</strong></span>
+              </div>
+              <div class="cs-counter-tags">
+                <span class="cs-tag-bonus">Devastating High-Explosive Cannon (RNG 2)</span>
+                <span class="cs-tag-bonus">Heavy Armor Plating + Iron Corps Fortification Bonus</span>
+                <span class="cs-tag-penalty">Strictly blocked by Mud, Swamps, Ponds &amp; Mountains</span>
+              </div>
+            </div>
+
+            <!-- 6. Blitz Recon Car -->
+            <div class="cs-unit-card">
+              <div class="cs-unit-header">
+                <div class="cs-unit-badge-title">
+                  <span data-unit-badge="BLITZ_RECON" data-badge-size="sm"></span>
+                  <span class="cs-unit-name">Blitz Recon Car</span>
+                </div>
+                <span class="cs-role-pill cs-role-vehicle">Vanguard • 220 Ink</span>
+              </div>
+              <div class="cs-stats-strip">
+                <span>ATK <strong>28</strong></span>
+                <span>RNG <strong>1</strong></span>
+                <span>MOV <strong>4</strong></span>
+                <span>VIS <strong>3</strong></span>
+                <span>HP <strong>65</strong></span>
+              </div>
+              <div class="cs-counter-tags">
+                <span class="cs-tag-bonus">High Mobility (4 MOV) for rapid sector captures &amp; flanking</span>
+                <span class="cs-tag-bonus">+50% (1.5x) Anti-Infantry Crush on open ground</span>
+                <span class="cs-tag-penalty">Fragile chassis vs Anti-Tank &amp; blocked by Mud</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: TERRAIN INTEL -->
+        <div id="cs-pane-terrain" class="cs-pane" style="display: none;">
+          <div class="cs-directive-banner">
+            <b>[TACTICAL RECON SURVEY]</b> Terrain dictates mobility and line of sight. Forest tiles provide crucial ambush cover and defense, while Mud and Swamps sink all vehicles and halt infantry.
+          </div>
+
+          <div class="cs-terrain-grid">
+            <div class="cs-terrain-card">
+              <div class="cs-terrain-title-row">
+                <span class="cs-terrain-name">Plains (Open Ground)</span>
+                <span class="cs-sightline-badge cs-sightline-open">OPEN LOS</span>
+              </div>
+              <div class="cs-terrain-body">
+                <b>Infantry:</b> Standard MOV 1.0x | DEF +0%<br>
+                <b>Vehicles:</b> Standard MOV 1.0x | Ideal for armored breakthroughs &amp; flanking runs.
+              </div>
+            </div>
+
+            <div class="cs-terrain-card">
+              <div class="cs-terrain-title-row">
+                <span class="cs-terrain-name">Forest (Dense Canopy)</span>
+                <span class="cs-sightline-badge cs-sightline-blocked">BLOCKED LOS</span>
+              </div>
+              <div class="cs-terrain-body">
+                <b>Infantry:</b> MOV 1.5x | <b>DEF +30%</b> | Enables <b>Stealth Ambush Stance</b> (1.5x first strike, denies retaliation if lethal).<br>
+                <b>Vehicles:</b> Heavy MOV 2.0x | DEF +30% | Blocks direct fire and sightline through tile.
+              </div>
+            </div>
+
+            <div class="cs-terrain-card hazard-card">
+              <div class="cs-terrain-title-row">
+                <span class="cs-terrain-name" style="color: #fbbf24;">Mud / Swamp / Pond (Sink Hazard)</span>
+                <span class="cs-sightline-badge cs-sightline-open">OPEN LOS</span>
+              </div>
+              <div class="cs-terrain-body">
+                <b style="color: #fbbf24;">Infantry:</b> <b>MIRED: Halts 1 Full Turn on Entry</b>. Subsequent movement sluggish (1 tile/turn) | DEF -10%.<br>
+                <b style="color: #ef4444;">Vehicles / Armor:</b> <b>100% IMPASSABLE</b>. Tanks and armored cars cannot traverse or enter mud/pond tiles!
+              </div>
+            </div>
+
+            <div class="cs-terrain-card">
+              <div class="cs-terrain-title-row">
+                <span class="cs-terrain-name">Mountains (High Ridges)</span>
+                <span class="cs-sightline-badge cs-sightline-blocked">BLOCKED LOS</span>
+              </div>
+              <div class="cs-terrain-body">
+                <b style="color: #ef4444;">100% Impassable Barrier</b> for all ground units.<br>
+                <b>Sight &amp; Ballistics:</b> Completely blocks direct fire trajectories and vision behind the ridge.
+              </div>
+            </div>
+
+            <div class="cs-terrain-card">
+              <div class="cs-terrain-title-row">
+                <span class="cs-terrain-name">Water / River</span>
+                <span class="cs-sightline-badge cs-sightline-open">OPEN LOS</span>
+              </div>
+              <div class="cs-terrain-body">
+                <b style="color: #ef4444;">100% Impassable Natural Hazard</b> for all ground forces.<br>
+                <b>Reconnaissance:</b> Open line of sight allows scouting and spotting hostile forces across the water.
+              </div>
+            </div>
+
+            <div class="cs-terrain-card">
+              <div class="cs-terrain-title-row">
+                <span class="cs-terrain-name">Supply Depot &amp; Base (Fortified)</span>
+                <span class="cs-sightline-badge cs-sightline-open">OPEN LOS</span>
+              </div>
+              <div class="cs-terrain-body">
+                <b>Economic Yield:</b> Depots grant <b>+10 Ink/turn</b> | Bases grant <b>+50 Ink/turn</b>.<br>
+                <b>Fortification:</b> +15% / +25% DEF bonus. Serves as active deployment spawn point when unoccupied.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: STANCES & ABILITIES -->
+        <div id="cs-pane-stances" class="cs-pane" style="display: none;">
+          <div class="cs-two-col-layout">
+            <!-- Stances -->
+            <div class="cs-section-box">
+              <div class="cs-section-header">Tactical Auto-Stances</div>
+              
+              <div class="cs-item-row">
+                <div class="cs-item-title-row">
+                  <span class="cs-item-title">ADVANCE</span>
+                  <span class="cs-role-pill cs-role-infantry">Max Mobility</span>
+                </div>
+                <div class="cs-item-desc">
+                  Standard offensive posture when troops have active queued waypoints. Moves at full speed along path.
+                </div>
+              </div>
+
+              <div class="cs-item-row">
+                <div class="cs-item-title-row">
+                  <span class="cs-item-title">DEFEND</span>
+                  <span class="cs-role-pill cs-role-vehicle">+25% Defense</span>
+                </div>
+                <div class="cs-item-desc">
+                  Stationary defensive brace. Auto-activates on Command Bases, Supply Depots, or when holding position without movement orders.
+                </div>
+              </div>
+
+              <div class="cs-item-row">
+                <div class="cs-item-title-row">
+                  <span class="cs-item-title">AMBUSH</span>
+                  <span class="cs-role-pill" style="background: rgba(74,222,128,0.15); color: #4ade80; border: 1px solid rgba(74,222,128,0.35);">Stealth Strike</span>
+                </div>
+                <div class="cs-item-desc">
+                  Conceals unit in fog of war until triggered. Delivers <b>+50% (1.5x) first-strike lethal damage</b>, denying hostile retaliation if fatal. <i>Strictly infantry concealed inside Forests.</i>
+                </div>
+              </div>
+            </div>
+
+            <!-- Command Abilities -->
+            <div class="cs-section-box">
+              <div class="cs-section-header">Command Power Deck [CP]</div>
+
+              <div class="cs-item-row">
+                <div class="cs-item-title-row">
+                  <span class="cs-item-title">RECON FLARE</span>
+                  <span class="cs-role-pill cs-role-infantry">2 CP • 1 Turn</span>
+                </div>
+                <div class="cs-item-desc">
+                  Fires an illuminating parachute flare over a target <b>3&times;3 sector</b>, lifting Fog of War and exposing hostile ambushes for 1 turn.
+                </div>
+              </div>
+
+              <div class="cs-item-row">
+                <div class="cs-item-title-row">
+                  <span class="cs-item-title">SMOKE SCREEN</span>
+                  <span class="cs-role-pill cs-role-vehicle">3 CP • 2 Turns</span>
+                </div>
+                <div class="cs-item-desc">
+                  Deploys a dense physical smoke cloud over a <b>3&times;3 area</b> for 2 turns. Blocks line of sight and prevents all direct ballistic combat into or out of the smoke.
+                </div>
+              </div>
+
+              <div class="cs-item-row">
+                <div class="cs-item-title-row">
+                  <span class="cs-item-title">ARTILLERY STRIKE</span>
+                  <span class="cs-role-pill" style="background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.35);">4 CP • 35 Splash</span>
+                </div>
+                <div class="cs-item-desc">
+                  Coordinates heavy indirect battery fire. Bombards a targeted <b>3&times;3 grid</b> with <b>35 HP explosive splash damage</b> at the start of combat playback.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 4: COMMAND HOTKEYS -->
+        <div id="cs-pane-hotkeys" class="cs-pane" style="display: none;">
+          <div class="cs-directive-banner">
+            <b>[QUICK COMMAND HOTKEYS]</b> Master these keybindings for fluid, high-speed tactical orchestration during the planning phase.
+          </div>
+
+          <div class="cs-hotkey-grid">
+            <div class="cs-hotkey-item">
+              <span class="cs-hotkey-label">End Planning Phase / Deploy Turn</span>
+              <div class="cs-hotkey-pills">
+                <span class="hotkey-pill hotkey-pill-light">Space</span>
+                <span class="hotkey-pill hotkey-pill-light">E</span>
+              </div>
+            </div>
+
+            <div class="cs-hotkey-item">
+              <span class="cs-hotkey-label">Draw Unit Waypoint Movement Path</span>
+              <div class="cs-hotkey-pills">
+                <span class="hotkey-pill hotkey-pill-light">Click Unit &rarr; Adjacent</span>
+              </div>
+            </div>
+
+            <div class="cs-hotkey-item">
+              <span class="cs-hotkey-label">Launch Recon Flare Ability (2 CP)</span>
+              <div class="cs-hotkey-pills">
+                <span class="hotkey-pill hotkey-pill-light">1</span>
+              </div>
+            </div>
+
+            <div class="cs-hotkey-item">
+              <span class="cs-hotkey-label">Deploy Smoke Screen Ability (3 CP)</span>
+              <div class="cs-hotkey-pills">
+                <span class="hotkey-pill hotkey-pill-light">2</span>
+              </div>
+            </div>
+
+            <div class="cs-hotkey-item">
+              <span class="cs-hotkey-label">Call Artillery Strike Ability (4 CP)</span>
+              <div class="cs-hotkey-pills">
+                <span class="hotkey-pill hotkey-pill-light">3</span>
+              </div>
+            </div>
+
+            <div class="cs-hotkey-item">
+              <span class="cs-hotkey-label">Cancel Queued Abilities &amp; Refund CP</span>
+              <div class="cs-hotkey-pills">
+                <span class="hotkey-pill hotkey-pill-light">C</span>
+              </div>
+            </div>
+
+            <div class="cs-hotkey-item">
+              <span class="cs-hotkey-label">Halt All Friendly Units (Clear Waypoints)</span>
+              <div class="cs-hotkey-pills">
+                <span class="hotkey-pill hotkey-pill-light">H</span>
+              </div>
+            </div>
+
+            <div class="cs-hotkey-item">
+              <span class="cs-hotkey-label">Toggle Tactical Field Manual / Cheat-Sheet</span>
+              <div class="cs-hotkey-pills">
+                <span class="hotkey-pill hotkey-pill-light">F1</span>
+              </div>
+            </div>
+
+            <div class="cs-hotkey-item">
+              <span class="cs-hotkey-label">Deselect Sector / Close Modals / Pause</span>
+              <div class="cs-hotkey-pills">
+                <span class="hotkey-pill hotkey-pill-light">Esc</span>
+              </div>
+            </div>
+
+            <div class="cs-hotkey-item">
+              <span class="cs-hotkey-label">Mute / Unmute Tactical Audio Master</span>
+              <div class="cs-hotkey-pills">
+                <span class="hotkey-pill hotkey-pill-light">M</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cheatsheet-footer">
+          <div class="cs-footer-hint">
+            <span class="hotkey-pill hotkey-pill-light">Esc</span> or <span class="hotkey-pill hotkey-pill-light">F1</span> to dismiss &bull; Accessible anytime from pause menu
+          </div>
+          <button class="btn-sketch btn-accent victory-btn-menu" style="min-width: 140px;" onclick="window.closeCheatSheetModal()">
+            Return to Battle
+          </button>
+        </div>
       </div>
     </div>
 

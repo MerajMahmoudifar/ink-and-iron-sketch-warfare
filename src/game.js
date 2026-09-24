@@ -6424,15 +6424,40 @@ window.updateMusicVolume = function(val) {
   }
 };
 
-window.openCheatSheetModal = function() {
+window.openCheatSheetModal = function(initialTab = 'matrix') {
   const modal = document.getElementById('cheatsheet-modal');
-  if (modal) modal.style.display = 'flex';
+  if (modal) {
+    modal.style.display = 'flex';
+    if (typeof UnitIcons !== 'undefined') {
+      UnitIcons.renderStaticBadges(modal);
+    }
+    const targetBtn = document.getElementById(`cs-tab-btn-${initialTab}`);
+    if (targetBtn && window.switchCheatSheetTab) {
+      window.switchCheatSheetTab(initialTab, targetBtn);
+    }
+  }
   try { if (window.gApp && window.gApp.audio) window.gApp.audio.playPaper(); } catch(e){}
 };
 
 window.closeCheatSheetModal = function() {
   const modal = document.getElementById('cheatsheet-modal');
   if (modal) modal.style.display = 'none';
+  try { if (window.gApp && window.gApp.audio) window.gApp.audio.playClick(); } catch(e){}
+};
+
+window.switchCheatSheetTab = function(subtabKey, btnEl) {
+  const subpanes = ['matrix', 'terrain', 'stances', 'hotkeys'];
+  subpanes.forEach(key => {
+    const pane = document.getElementById(`cs-pane-${key}`);
+    if (pane) pane.style.display = key === subtabKey ? 'block' : 'none';
+  });
+  const btns = document.querySelectorAll('.cheatsheet-tab-bar .cs-tab-btn');
+  btns.forEach(b => b.classList.remove('active'));
+  if (btnEl) btnEl.classList.add('active');
+  const targetPane = document.getElementById(`cs-pane-${subtabKey}`);
+  if (typeof UnitIcons !== 'undefined' && targetPane) {
+    UnitIcons.renderStaticBadges(targetPane);
+  }
   try { if (window.gApp && window.gApp.audio) window.gApp.audio.playClick(); } catch(e){}
 };
 
@@ -7423,7 +7448,25 @@ document.addEventListener('keydown', (e) => {
     }
   }
 
+  // Hotkey F1: Toggle Tactical Field Manual & Cheat-Sheet
+  if (e.key === 'F1') {
+    e.preventDefault();
+    const csModal = document.getElementById('cheatsheet-modal');
+    if (csModal && csModal.style.display !== 'none') {
+      window.closeCheatSheetModal();
+    } else {
+      window.openCheatSheetModal();
+    }
+    return;
+  }
+
   if (e.key === 'Escape') {
+    const csModal = document.getElementById('cheatsheet-modal');
+    if (csModal && csModal.style.display !== 'none') {
+      window.closeCheatSheetModal();
+      return;
+    }
+
     document.querySelectorAll('.diesel-select-wrapper.open').forEach(w => {
       w.classList.remove('open');
       w.querySelector('.diesel-select-trigger')?.setAttribute('aria-expanded', 'false');

@@ -4292,3 +4292,450 @@ select.diesel-hidden-select {
   line-height: 1.35;
   margin-top: 2px;
 }
+
+/* ============================================
+   TACTICAL INTELLIGENCE FIELD CHEAT-SHEET MODAL
+   ============================================ */
+.tactical-cheatsheet-card {
+  max-width: 860px;
+  width: 95%;
+  max-height: 88vh;
+  padding: 22px 26px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: rgba(13, 19, 33, 0.98);
+  border: 1px solid var(--border-medium);
+  border-top: 4px solid var(--gold-400);
+  border-radius: var(--r-md);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85), inset 0 0 40px rgba(0, 0, 0, 0.5);
+  text-align: left;
+  position: relative;
+  animation: modalFadeIn 0.22s ease-out;
+}
+
+.cheatsheet-header {
+  margin-bottom: 6px;
+}
+
+.cheatsheet-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.cheatsheet-doc-stamp {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--gold-400);
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px dashed rgba(245, 158, 11, 0.35);
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+
+.cheatsheet-title {
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: #ffffff;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.cheatsheet-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin: 3px 0 0 0;
+  letter-spacing: 0.02em;
+}
+
+/* Tab Navigation Bar */
+.cheatsheet-tab-bar {
+  display: flex;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  padding: 4px;
+  margin: 12px 0 14px 0;
+  flex-wrap: wrap;
+}
+
+.cs-tab-btn {
+  font-family: var(--font-display);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 7px 14px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--r-sm);
+  transition: all var(--t-fast);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cs-tab-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.cs-tab-btn.active {
+  color: var(--gold-300);
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.4);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.12);
+}
+
+.cs-tab-num {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  opacity: 0.65;
+  color: var(--gold-400);
+}
+
+/* Content Panes */
+.cs-pane {
+  overflow-y: auto;
+  max-height: 52vh;
+  padding-right: 6px;
+  animation: modalFadeIn 0.18s ease-out;
+}
+
+.cs-pane::-webkit-scrollbar {
+  width: 5px;
+}
+.cs-pane::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 3px;
+}
+.cs-pane::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.5);
+  border-radius: 3px;
+}
+.cs-pane::-webkit-scrollbar-thumb:hover {
+  background: var(--gold-400);
+}
+
+/* High Command Directive Banner */
+.cs-directive-banner {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-left: 4px solid var(--gold-400);
+  border-radius: var(--r-sm);
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.cs-directive-banner b {
+  color: var(--gold-300);
+}
+
+/* Unit Cards Grid */
+.cs-matrix-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .cs-matrix-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cs-unit-card {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color var(--t-fast);
+}
+
+.cs-unit-card:hover {
+  border-color: var(--border-glow);
+  background: rgba(22, 33, 58, 0.7);
+}
+
+.cs-unit-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cs-unit-badge-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cs-unit-name {
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.cs-role-pill {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+.cs-role-infantry {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+.cs-role-vehicle {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.cs-stats-strip {
+  display: flex;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: #94a3b8;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 4px 8px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.cs-stats-strip span strong {
+  color: #f1f5f9;
+}
+
+.cs-counter-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.73rem;
+  line-height: 1.35;
+}
+
+.cs-tag-bonus {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.1);
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.cs-tag-penalty {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.cs-tag-stance {
+  color: #cbd5e1;
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  opacity: 0.85;
+}
+
+/* Terrain Grid */
+.cs-terrain-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .cs-terrain-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cs-terrain-card {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.cs-terrain-card.hazard-card {
+  border-left: 3px solid #f59e0b;
+  background: rgba(30, 24, 15, 0.7);
+}
+
+.cs-terrain-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cs-terrain-name {
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--gold-300);
+}
+
+.cs-sightline-badge {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.cs-sightline-open {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.cs-sightline-blocked {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.cs-terrain-body {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* Stances & Abilities */
+.cs-two-col-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .cs-two-col-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cs-section-box {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--r-sm);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cs-section-header {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--gold-400);
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cs-item-row {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  padding: 8px 10px;
+}
+
+.cs-item-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+
+.cs-item-title {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.cs-item-desc {
+  font-size: 0.73rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+/* Hotkey Grid */
+.cs-hotkey-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .cs-hotkey-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cs-hotkey-item {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cs-hotkey-label {
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.cs-hotkey-pills {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* Footer */
+.cheatsheet-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.cs-footer-hint {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
