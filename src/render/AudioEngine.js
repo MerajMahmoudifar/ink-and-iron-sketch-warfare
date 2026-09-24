@@ -188,15 +188,15 @@ export class AudioEngine {
       case 'ui_paper': {
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(450, now);
-        osc.frequency.exponentialRampToValueAtTime(180, now + 0.08);
-        gain.gain.setValueAtTime(vol * 0.4, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(480, now);
+        osc.frequency.exponentialRampToValueAtTime(130, now + 0.12);
+        gain.gain.setValueAtTime(vol * 0.75, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         osc.start(now);
-        osc.stop(now + 0.08);
+        osc.stop(now + 0.12);
         break;
       }
       case 'ui_stamp': {
