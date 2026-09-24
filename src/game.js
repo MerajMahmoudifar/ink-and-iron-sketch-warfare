@@ -4167,7 +4167,7 @@ class UIManager {
       cancelAbilitiesBtn.style.opacity = hasRefundable ? '1' : '0.45';
       cancelAbilitiesBtn.style.pointerEvents = hasRefundable ? 'auto' : 'none';
       cancelAbilitiesBtn.title = hasRefundable
-        ? 'Cancel queued artillery strikes and smoke screens deployed this turn & refund Command Points [Esc]'
+        ? 'Cancel queued artillery strikes and smoke screens deployed this turn & refund Command Points [C]'
         : 'No pending abilities deployed this turn to cancel';
     }
 
@@ -7351,6 +7351,24 @@ document.addEventListener('keydown', (e) => {
           ui.updateHUD(eng);
         }
         try { window.gApp.audio.playEraserSmudge(); } catch(err){}
+        return;
+      }
+      // Hotkey C: Cancel Queued Strikes & Refund CP
+      if (e.key === 'c' || e.key === 'C') {
+        e.preventDefault();
+        const res = eng.cancelPlayerAbilities(1);
+        if (res.success) {
+          if (ui) {
+            ui.showToast('Abilities Cancelled', `Cancelled ${res.artCount + res.smokeCount} ability(s). Refunded ${res.refundedCP} CP! [C]`);
+            ui.updateHUD(eng);
+          }
+          try { window.gApp.audio.playEraserSmudge(); } catch(err){}
+        } else {
+          if (ui) {
+            ui.showToast('Cannot Cancel', res.reason || 'No abilities to cancel.');
+          }
+          try { window.gApp.audio.playDenied(); } catch(err){}
+        }
         return;
       }
       // Hotkey E: End Planning Phase
