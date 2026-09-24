@@ -4495,6 +4495,8 @@ class UIManager {
 
     if (!sel) {
       if (statusBadge) statusBadge.textContent = 'SECTOR INTEL';
+      // Auto-collapse Tactical Inspector when no grid sector is selected
+      if (secInspector && !engine?.isReconPhase) secInspector.classList.add('collapsed');
       if (secRecruit) secRecruit.classList.remove('collapsed');
 
       if (engine && engine.isReconPhase) {
@@ -6000,6 +6002,9 @@ class App {
               this.engine.setUnitWaypoints(unit.id, combined);
               try { this.audio.playPencilScratch(); } catch(err){}
               playedSound = true;
+
+              // AUTO-DESELECT: After plotting destination path, automatically deselect the grid
+              this.renderer.selectedTile = null;
             }
           }
         }
