@@ -377,14 +377,20 @@ export class AudioEngine {
   }
 
   playVictorySound() {
+    this.stopAmbient(0.3);
+    this.stopMusic(0.3);
     this.playSfx('victory_fanfare', { volume: 0.95, pitchVar: 0.0 });
   }
 
   playTutorialVictorySound() {
+    this.stopAmbient(0.3);
+    this.stopMusic(0.3);
     this.playSfx('tutorial_victory', { volume: 0.9, pitchVar: 0.0 });
   }
 
   playDefeatSound() {
+    this.stopAmbient(0.3);
+    this.stopMusic(0.3);
     this.playSfx('defeat_dirge', { volume: 0.9, pitchVar: 0.0 });
   }
 
@@ -491,8 +497,8 @@ export class AudioEngine {
     } catch (e) {}
   }
 
-  stopAmbient() {
-    this.stopMusic();
+  stopAmbient(fade = 0.8) {
+    this.stopMusic(fade);
   }
 
   // ─── SETTINGS & VOLUME CONTROLS ─────────────────────────────────────────────

@@ -717,7 +717,7 @@ class Combat {
     const armorMitigationPercent = Math.max(0, Math.round((1 - defenderDefenseMod) * 100));
 
     // Retaliation calculation (if defender has range to hit attacker)
-    const dist = CombatSystem.getDistance(attacker, defender);
+    const dist = Combat.getDistance(attacker, defender);
     const canRetaliate = dist <= defender.attackRange;
     let retMinDmg = 0;
     let retMaxDmg = 0;
@@ -746,6 +746,8 @@ class Combat {
     };
   }
 }
+
+const CombatSystem = Combat;
 
 // ==========================================
 // 4. GAME ENGINE (WITH FOG OF WAR & ABILITIES)
@@ -2547,14 +2549,20 @@ class AudioEngine {
   }
 
   playVictorySound() {
+    this.stopAmbient(0.3);
+    this.stopMusic(0.3);
     this.playSfx('victory_fanfare', { volume: 0.95, pitchVar: 0.0 });
   }
 
   playTutorialVictorySound() {
+    this.stopAmbient(0.3);
+    this.stopMusic(0.3);
     this.playSfx('tutorial_victory', { volume: 0.9, pitchVar: 0.0 });
   }
 
   playDefeatSound() {
+    this.stopAmbient(0.3);
+    this.stopMusic(0.3);
     this.playSfx('defeat_dirge', { volume: 0.9, pitchVar: 0.0 });
   }
 
@@ -2661,8 +2669,8 @@ class AudioEngine {
     } catch (e) {}
   }
 
-  stopAmbient() {
-    this.stopMusic();
+  stopAmbient(fade = 0.8) {
+    this.stopMusic(fade);
   }
 
   // ─── SETTINGS & VOLUME CONTROLS ─────────────────────────────────────────────
@@ -4091,9 +4099,9 @@ class UIManager {
     if (this.p1CpDisplay) this.p1CpDisplay.textContent = `CP: ${engine.players[1].cp}/10`;
     if (this.p2InkDisplay) this.p2InkDisplay.textContent = `${engine.players[2].name}: ${engine.players[2].ink}`;
 
-    this.renderUnitStore(engine);
-    this.renderInspector(engine);
-    this.updateActionLogs(engine);
+    try { this.renderUnitStore(engine); } catch(e){ console.error('Error rendering unit store:', e); }
+    try { this.renderInspector(engine); } catch(e){ console.error('Error rendering inspector:', e); }
+    try { this.updateActionLogs(engine); } catch(e){ console.error('Error updating action logs:', e); }
 
     // Update accordion status badges
     const cpBadge = document.getElementById('abilities-cp-badge');
@@ -4178,148 +4186,171 @@ class UIManager {
 
     if (engine.winner && !engine.victoryShown) {
       engine.victoryShown = true;
-      const pointer = document.getElementById('bootcamp-pointer-hint');
-      if (pointer) {
-        pointer.style.display = 'none';
-        pointer.classList.remove('pointer-below');
-      }
-      const dialog = document.getElementById('bootcamp-instructor-dialog');
-      if (dialog) dialog.style.display = 'none';
-      if (engine.bootcampLesson && engine.bootcampManager) {
-        if (engine.winner === 1) {
-          engine.bootcampManager.onLessonVictory(engine);
-        } else {
-          engine.bootcampManager.onLessonDefeat(engine);
+      try {
+        const pointer = document.getElementById('bootcamp-pointer-hint');
+        if (pointer) {
+          pointer.style.display = 'none';
+          pointer.classList.remove('pointer-below');
         }
-        return;
-      }
-      if (window.gAuthManager) {
-        window.gAuthManager.recordMatchResult(engine.winner === 1);
-      }
-      const modal = document.getElementById('victory-modal');
-      const cardEl = document.getElementById('victory-card-element');
-      const badge = document.getElementById('victory-badge');
-      const turnStamp = document.getElementById('victory-turn-stamp');
-      const title = document.getElementById('victory-title');
-      const sub = document.getElementById('victory-sub');
-      const gradeStamp = document.getElementById('victory-grade-stamp');
-      const evalTitle = document.getElementById('victory-eval-title');
-      const evalSub = document.getElementById('victory-eval-sub');
-      const debriefBox = document.getElementById('victory-debrief-box');
-      const debriefSender = document.getElementById('victory-debrief-sender');
-      const debriefText = document.getElementById('victory-debrief-text');
-      const statKills = document.getElementById('stat-hostiles-killed');
-      const statLosses = document.getElementById('stat-allied-losses');
-      const statSectors = document.getElementById('stat-sectors-captured');
-      const statEfficiency = document.getElementById('stat-efficiency-rating');
-
-      if (modal && title && sub) {
-        modal.style.display = 'flex';
-        const isVictory = (engine.winner === 1);
-        const turns = engine.turnNumber || 1;
-
-        // Calculate Battle Stats
-        const p1Alive = engine.players[1].units.filter(u => u.isAlive()).length;
-        const p2Alive = engine.players[2].units.filter(u => u.isAlive()).length;
-        const p1Deploys = Math.max(2, engine.actionLogs.filter(l => l.type === 'DEPLOY' && l.playerOwner === 1).length);
-        const p2Deploys = Math.max(2, engine.actionLogs.filter(l => l.type === 'DEPLOY' && l.playerOwner === 2).length);
-        const p1Losses = Math.max(0, p1Deploys - p1Alive);
-        const p2Losses = Math.max(0, p2Deploys - p2Alive);
-        
-        let p1Zones = 0;
-        for (let r = 0; r < 8; r++) {
-          for (let c = 0; c < 8; c++) {
-            if (engine.grid[r][c].id === 'CAPTURE_ZONE' && engine.grid[r][c].owner === 1) p1Zones++;
-          }
-        }
-
-        if (turnStamp) turnStamp.textContent = `TURN ${turns}`;
-        if (statKills) statKills.textContent = `${p2Losses}`;
-        if (statLosses) statLosses.textContent = `${p1Losses}`;
-        if (statSectors) statSectors.textContent = `${p1Zones}`;
-
-        if (cardEl) {
-          cardEl.classList.remove('victory-mode', 'defeat-mode');
-          cardEl.classList.add(isVictory ? 'victory-mode' : 'defeat-mode');
-        }
-
-        if (gradeStamp) {
-          gradeStamp.className = 'victory-grade-stamp';
-        }
-
-        if (isVictory) {
-          if (this.app && this.app.audio) this.app.audio.playVictorySound();
-          if (badge) {
-            badge.textContent = 'MISSION ACCOMPLISHED';
-            badge.style.background = 'rgba(74, 222, 128, 0.15)';
-            badge.style.color = '#4ade80';
-            badge.style.borderColor = 'rgba(74, 222, 128, 0.4)';
-          }
-          title.textContent = engine.winReason === 'BASE_CAPTURE' ? 'DECISIVE BREAKTHROUGH' : 'TOTAL ANNIHILATION';
-          title.style.color = '#4ade80';
-          sub.textContent = engine.winReason === 'BASE_CAPTURE'
-            ? 'Enemy Command Headquarters successfully captured!'
-            : 'All hostile combat battalions eliminated from the sector!';
-
-          if (debriefBox) debriefBox.className = 'victory-debrief-quote';
-          if (debriefSender) debriefSender.textContent = 'HIGH COMMAND DISPATCH';
-
-          // Grade logic for Victory
-          if (p1Losses === 0) {
-            if (gradeStamp) { gradeStamp.textContent = 'S'; gradeStamp.classList.add('grade-s'); }
-            if (evalTitle) evalTitle.textContent = 'RANK S — MASTER STRATEGIST';
-            if (evalSub) evalSub.textContent = 'Flawless offensive — Zero allied casualties recorded!';
-            if (debriefText) debriefText.textContent = '"An exceptional tactical masterclass. You preserved every single chassis and squad under your command. High Command salutes your discipline."';
-            if (statEfficiency) statEfficiency.textContent = '100% (FLAWLESS)';
-          } else if (p1Losses <= 1 && turns <= 6) {
-            if (gradeStamp) { gradeStamp.textContent = 'A'; gradeStamp.classList.add('grade-a'); }
-            if (evalTitle) evalTitle.textContent = 'RANK A — BLITZKRIEG VANGUARD';
-            if (evalSub) evalSub.textContent = `Rapid breakthrough in ${turns} turns with minimal casualties.`;
-            if (debriefText) debriefText.textContent = '"Swift, surgical, and overwhelming. The enemy front collapsed before they could coordinate an effective counter-offensive."';
-            if (statEfficiency) statEfficiency.textContent = '92% (SUPERIOR)';
-          } else if (p1Losses <= 3 || turns <= 10) {
-            if (gradeStamp) { gradeStamp.textContent = 'B'; gradeStamp.classList.add('grade-b'); }
-            if (evalTitle) evalTitle.textContent = 'RANK B — VETERAN TACTICIAN';
-            if (evalSub) evalSub.textContent = 'Sector secured through sustained fire superiority and zone control.';
-            if (debriefText) debriefText.textContent = '"Solid execution across all sectors. Hostile positions dismantled with textbook dieselpunk grit. Commendable work, Commander!"';
-            if (statEfficiency) statEfficiency.textContent = '78% (COMMENDED)';
+        const dialog = document.getElementById('bootcamp-instructor-dialog');
+        if (dialog) dialog.style.display = 'none';
+        if (engine.bootcampLesson && engine.bootcampManager) {
+          if (engine.winner === 1) {
+            engine.bootcampManager.onLessonVictory(engine);
           } else {
-            if (gradeStamp) { gradeStamp.textContent = 'C'; gradeStamp.classList.add('grade-c'); }
-            if (evalTitle) evalTitle.textContent = 'RANK C — PYRRHIC VICTORY';
-            if (evalSub) evalSub.textContent = 'Objective secured at steep material and squad attrition.';
-            if (debriefText) debriefText.textContent = '"We hold the ground, but our scrap yards are overflowing with shattered armor. A victory nonetheless, but tighten your recon doctrines."';
-            if (statEfficiency) statEfficiency.textContent = '60% (COSTLY)';
+            engine.bootcampManager.onLessonDefeat(engine);
           }
-        } else {
-          if (this.app && this.app.audio) this.app.audio.playDefeatSound();
-          if (badge) {
-            badge.textContent = 'SECTOR OVERRUN';
-            badge.style.background = 'rgba(239, 68, 68, 0.15)';
-            badge.style.color = '#f87171';
-            badge.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+          return;
+        }
+        if (window.gAuthManager) {
+          window.gAuthManager.recordMatchResult(engine.winner === 1);
+        }
+        const modal = document.getElementById('victory-modal');
+        const cardEl = document.getElementById('victory-card-element');
+        const badge = document.getElementById('victory-badge');
+        const turnStamp = document.getElementById('victory-turn-stamp');
+        const title = document.getElementById('victory-title');
+        const sub = document.getElementById('victory-sub');
+        const gradeStamp = document.getElementById('victory-grade-stamp');
+        const evalTitle = document.getElementById('victory-eval-title');
+        const evalSub = document.getElementById('victory-eval-sub');
+        const debriefBox = document.getElementById('victory-debrief-box');
+        const debriefSender = document.getElementById('victory-debrief-sender');
+        const debriefText = document.getElementById('victory-debrief-text');
+        const statKills = document.getElementById('stat-hostiles-killed');
+        const statLosses = document.getElementById('stat-allied-losses');
+        const statSectors = document.getElementById('stat-sectors-captured');
+        const statEfficiency = document.getElementById('stat-efficiency-rating');
+
+        if (modal) {
+          modal.style.display = 'flex';
+          const isVictory = (engine.winner === 1);
+          const turns = engine.turnNumber || 1;
+
+          if (this.app && this.app.audio) {
+            if (isVictory) this.app.audio.playVictorySound();
+            else this.app.audio.playDefeatSound();
           }
-          title.textContent = engine.winReason === 'BASE_CAPTURE' ? 'HEADQUARTERS LOST' : 'SQUADRON WIPED OUT';
-          title.style.color = '#f87171';
-          sub.textContent = engine.winReason === 'BASE_CAPTURE'
-            ? 'Hostile forces broke through our perimeter and captured Command HQ.'
-            : 'All friendly battalions were neutralized in the field.';
 
-          if (debriefBox) debriefBox.className = 'victory-debrief-quote defeat';
-          if (debriefSender) debriefSender.textContent = 'CASUALTY REPORT • FIELD DISPATCH';
+          // Calculate Battle Stats
+          const p1Alive = engine.players[1] ? engine.players[1].units.filter(u => u.isAlive()).length : 0;
+          const p2Alive = engine.players[2] ? engine.players[2].units.filter(u => u.isAlive()).length : 0;
+          const p1Deploys = Math.max(2, (engine.actionLogs || []).filter(l => l.type === 'DEPLOY' && l.playerOwner === 1).length);
+          const p2Deploys = Math.max(2, (engine.actionLogs || []).filter(l => l.type === 'DEPLOY' && l.playerOwner === 2).length);
+          const p1Losses = Math.max(0, p1Deploys - p1Alive);
+          const p2Losses = Math.max(0, p2Deploys - p2Alive);
+          
+          let p1Zones = 0;
+          if (engine.grid) {
+            for (let r = 0; r < 8; r++) {
+              for (let c = 0; c < 8; c++) {
+                if (engine.grid[r] && engine.grid[r][c] && engine.grid[r][c].id === 'CAPTURE_ZONE' && engine.grid[r][c].owner === 1) p1Zones++;
+              }
+            }
+          }
 
-          if (p2Losses >= 2 || turns >= 5) {
-            if (gradeStamp) { gradeStamp.textContent = 'D'; gradeStamp.classList.add('grade-defeat'); }
-            if (evalTitle) evalTitle.textContent = 'VALIANT LAST STAND';
-            if (evalSub) evalSub.textContent = `Held the line for ${turns} turns, neutralizing ${p2Losses} hostile units.`;
-            if (debriefText) debriefText.textContent = '"Our frontline was overwhelmed, but your troops fought with iron resolve until the last cartridge. Regroup and rethink your defensive stance."';
-            if (statEfficiency) statEfficiency.textContent = '42% (VALIANT)';
+          if (turnStamp) turnStamp.textContent = `TURN ${turns}`;
+          if (statKills) statKills.textContent = `${p2Losses}`;
+          if (statLosses) statLosses.textContent = `${p1Losses}`;
+          if (statSectors) statSectors.textContent = `${p1Zones}`;
+
+          if (cardEl) {
+            cardEl.classList.remove('victory-mode', 'defeat-mode');
+            cardEl.classList.add(isVictory ? 'victory-mode' : 'defeat-mode');
+          }
+
+          if (gradeStamp) {
+            gradeStamp.className = 'victory-grade-stamp';
+          }
+
+          if (isVictory) {
+            if (badge) {
+              badge.textContent = 'MISSION ACCOMPLISHED';
+              badge.style.background = 'rgba(74, 222, 128, 0.15)';
+              badge.style.color = '#4ade80';
+              badge.style.borderColor = 'rgba(74, 222, 128, 0.4)';
+            }
+            if (title) {
+              title.textContent = engine.winReason === 'BASE_CAPTURE' ? 'DECISIVE BREAKTHROUGH' : 'TOTAL ANNIHILATION';
+              title.style.color = '#4ade80';
+            }
+            if (sub) {
+              sub.textContent = engine.winReason === 'BASE_CAPTURE'
+                ? 'Enemy Command Headquarters successfully captured!'
+                : 'All hostile combat battalions eliminated from the sector!';
+            }
+
+            if (debriefBox) debriefBox.className = 'victory-debrief-quote';
+            if (debriefSender) debriefSender.textContent = 'HIGH COMMAND DISPATCH';
+
+            // Grade logic for Victory
+            if (p1Losses === 0) {
+              if (gradeStamp) { gradeStamp.textContent = 'S'; gradeStamp.classList.add('grade-s'); }
+              if (evalTitle) evalTitle.textContent = 'RANK S — MASTER STRATEGIST';
+              if (evalSub) evalSub.textContent = 'Flawless offensive — Zero allied casualties recorded!';
+              if (debriefText) debriefText.textContent = '"An exceptional tactical masterclass. You preserved every single chassis and squad under your command. High Command salutes your discipline."';
+              if (statEfficiency) statEfficiency.textContent = '100% (FLAWLESS)';
+            } else if (p1Losses <= 1 && turns <= 6) {
+              if (gradeStamp) { gradeStamp.textContent = 'A'; gradeStamp.classList.add('grade-a'); }
+              if (evalTitle) evalTitle.textContent = 'RANK A — BLITZKRIEG VANGUARD';
+              if (evalSub) evalSub.textContent = `Rapid breakthrough in ${turns} turns with minimal casualties.`;
+              if (debriefText) debriefText.textContent = '"Swift, surgical, and overwhelming. The enemy front collapsed before they could coordinate an effective counter-offensive."';
+              if (statEfficiency) statEfficiency.textContent = '92% (SUPERIOR)';
+            } else if (p1Losses <= 3 || turns <= 10) {
+              if (gradeStamp) { gradeStamp.textContent = 'B'; gradeStamp.classList.add('grade-b'); }
+              if (evalTitle) evalTitle.textContent = 'RANK B — VETERAN TACTICIAN';
+              if (evalSub) evalSub.textContent = 'Sector secured through sustained fire superiority and zone control.';
+              if (debriefText) debriefText.textContent = '"Solid execution across all sectors. Hostile positions dismantled with textbook dieselpunk grit. Commendable work, Commander!"';
+              if (statEfficiency) statEfficiency.textContent = '78% (COMMENDED)';
+            } else {
+              if (gradeStamp) { gradeStamp.textContent = 'C'; gradeStamp.classList.add('grade-c'); }
+              if (evalTitle) evalTitle.textContent = 'RANK C — PYRRHIC VICTORY';
+              if (evalSub) evalSub.textContent = 'Objective secured at steep material and squad attrition.';
+              if (debriefText) debriefText.textContent = '"We hold the ground, but our scrap yards are overflowing with shattered armor. A victory nonetheless, but tighten your recon doctrines."';
+              if (statEfficiency) statEfficiency.textContent = '60% (COSTLY)';
+            }
           } else {
-            if (gradeStamp) { gradeStamp.textContent = 'F'; gradeStamp.classList.add('grade-defeat'); }
-            if (evalTitle) evalTitle.textContent = 'TACTICAL COLLAPSE';
-            if (evalSub) evalSub.textContent = 'Perimeter breached rapidly before defensive lines could stabilize.';
-            if (debriefText) debriefText.textContent = '"Hostile forces outmaneuvered our line and seized the objective before reinforcements could deploy. Study your scouting manual and redeploy!"';
-            if (statEfficiency) statEfficiency.textContent = '15% (OVERRUN)';
+            if (badge) {
+              badge.textContent = 'SECTOR OVERRUN';
+              badge.style.background = 'rgba(239, 68, 68, 0.15)';
+              badge.style.color = '#f87171';
+              badge.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+            }
+            if (title) {
+              title.textContent = engine.winReason === 'BASE_CAPTURE' ? 'HEADQUARTERS LOST' : 'SQUADRON WIPED OUT';
+              title.style.color = '#f87171';
+            }
+            if (sub) {
+              sub.textContent = engine.winReason === 'BASE_CAPTURE'
+                ? 'Hostile forces broke through our perimeter and captured Command HQ.'
+                : 'All friendly battalions were neutralized in the field.';
+            }
+
+            if (debriefBox) debriefBox.className = 'victory-debrief-quote defeat';
+            if (debriefSender) debriefSender.textContent = 'CASUALTY REPORT • FIELD DISPATCH';
+
+            if (p2Losses >= 2 || turns >= 5) {
+              if (gradeStamp) { gradeStamp.textContent = 'D'; gradeStamp.classList.add('grade-defeat'); }
+              if (evalTitle) evalTitle.textContent = 'VALIANT LAST STAND';
+              if (evalSub) evalSub.textContent = `Held the line for ${turns} turns, neutralizing ${p2Losses} hostile units.`;
+              if (debriefText) debriefText.textContent = '"Our frontline was overwhelmed, but your troops fought with iron resolve until the last cartridge. Regroup and rethink your defensive stance."';
+              if (statEfficiency) statEfficiency.textContent = '42% (VALIANT)';
+            } else {
+              if (gradeStamp) { gradeStamp.textContent = 'F'; gradeStamp.classList.add('grade-defeat'); }
+              if (evalTitle) evalTitle.textContent = 'TACTICAL COLLAPSE';
+              if (evalSub) evalSub.textContent = 'Perimeter breached rapidly before defensive lines could stabilize.';
+              if (debriefText) debriefText.textContent = '"Hostile forces outmaneuvered our line and seized the objective before reinforcements could deploy. Study your scouting manual and redeploy!"';
+              if (statEfficiency) statEfficiency.textContent = '15% (OVERRUN)';
+            }
           }
+        }
+      } catch (err) {
+        console.error('Error displaying victory modal:', err);
+        const modal = document.getElementById('victory-modal');
+        if (modal) modal.style.display = 'flex';
+        if (this.app && this.app.audio) {
+          if (engine.winner === 1) this.app.audio.playVictorySound();
+          else this.app.audio.playDefeatSound();
         }
       }
     }
@@ -4734,32 +4765,32 @@ class UIManager {
           const friendlyUnits = engine.players[1].units.filter(u => u.isAlive());
           let bestAttacker = friendlyUnits.find(u => {
             const lastWp = u.waypoints.length > 0 ? u.waypoints[u.waypoints.length - 1] : { x: u.x, y: u.y };
-            return CombatSystem.getDistance(lastWp, unitOnTile) <= u.attackRange;
-          }) || friendlyUnits.find(u => CombatSystem.getDistance(u, unitOnTile) <= u.attackRange);
+            return Combat.getDistance(lastWp, unitOnTile) <= u.attackRange;
+          }) || friendlyUnits.find(u => Combat.getDistance(u, unitOnTile) <= u.attackRange);
 
           if (!bestAttacker && friendlyUnits.length > 0) {
             bestAttacker = friendlyUnits.reduce((closest, cur) => {
-              const dCur = CombatSystem.getDistance(cur, unitOnTile);
-              const dClo = CombatSystem.getDistance(closest, unitOnTile);
+              const dCur = Combat.getDistance(cur, unitOnTile);
+              const dClo = Combat.getDistance(closest, unitOnTile);
               return dCur < dClo ? cur : closest;
             }, friendlyUnits[0]);
           }
 
           if (bestAttacker) {
-            forecast = CombatSystem.getForecast(bestAttacker, unitOnTile, engine.grid, factionsMap);
+            forecast = Combat.getForecast(bestAttacker, unitOnTile, engine.grid, factionsMap);
           }
         } else if (unitOnTile.owner === 1) {
           // Player is inspecting friendly unit! Find visible enemy targets in range
           const enemyUnits = engine.players[2].units.filter(u => u.isAlive() && p1Vision[u.y][u.x]);
-          const targetEnemy = enemyUnits.find(e => CombatSystem.getDistance(unitOnTile, e) <= unitOnTile.attackRange) ||
+          const targetEnemy = enemyUnits.find(e => Combat.getDistance(unitOnTile, e) <= unitOnTile.attackRange) ||
                               (enemyUnits.length > 0 ? enemyUnits.reduce((closest, cur) => {
-                                const dCur = CombatSystem.getDistance(unitOnTile, cur);
-                                const dClo = CombatSystem.getDistance(unitOnTile, closest);
+                                const dCur = Combat.getDistance(unitOnTile, cur);
+                                const dClo = Combat.getDistance(unitOnTile, closest);
                                 return dCur < dClo ? cur : closest;
                               }, enemyUnits[0]) : null);
 
           if (targetEnemy) {
-            forecast = CombatSystem.getForecast(unitOnTile, targetEnemy, engine.grid, factionsMap);
+            forecast = Combat.getForecast(unitOnTile, targetEnemy, engine.grid, factionsMap);
           }
         }
       }
@@ -5536,6 +5567,13 @@ window.enterTerrainView = function() {
     const el = document.getElementById(id);
     if (el) { el.disabled = true; el.style.opacity = '0.4'; }
   });
+};
+
+window.showVictoryReport = function() {
+  const modal = document.getElementById('victory-modal');
+  if (modal) modal.style.display = 'flex';
+  const banner = document.getElementById('terrain-view-banner');
+  if (banner) banner.style.display = 'none';
 };
 
 window.returnToMainMenu = function() {
