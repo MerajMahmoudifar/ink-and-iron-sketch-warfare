@@ -84,6 +84,11 @@ The following features, modules, and bug fixes are complete, syntax-validated, c
     * Custom Speed Modal (`#custom-speed-modal`): `z-index: 10000`
     * Banned Account Modal (`#banned-account-modal`): `z-index: 100000`
     * Active Dropdown Menus (`.diesel-select-menu`): `z-index: 999999`
+* **Strict UI & Aesthetic Directive — Zero Emojis Policy:**
+  * *Rule:* Never use unicode pictographic emojis anywhere in the codebase (HTML, CSS, JS, UI buttons, toasts, HUD, ledger logs, inspection dossiers, canvas rendering, modals, easter eggs, or error messages).
+  * *Design Replacement Standard:* Use authentic dieselpunk military terminology and technical drafting elements:
+    * Bracketed tactical tags: `[INTEL]`, `[COMBAT]`, `[LOG]`, `[DEPLOYMENT DIRECTIVE]`, `[UNDER SIEGE]`, `[CLEAR]`, `[OCCUPIED]`, `[MIRED IN MUD / POND]`, `[TACTICAL NOTICE]`.
+    * Geometric blueprint drafting & NATO symbols: `★` (Stars/Chevrons), `◆` (Diamonds/Recon), `▲` (Vanguard/Markers), `✕` (Infantry Crossed Rifles), `⌖` (Anti-Tank Crosshairs), `⬭` (Armored Hull), `⬚` (Heavy Armor Bastion).
 
 ---
 
