@@ -182,22 +182,17 @@ export class AudioEngine {
         break;
       }
       case 'ui_paper': {
-        const len = Math.floor(sr * 0.12);
-        const buf = this.ctx.createBuffer(1, len, sr);
-        const data = buf.getChannelData(0);
-        for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * (i / len));
-        const src = this.ctx.createBufferSource();
-        src.buffer = buf;
-        const filter = this.ctx.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.value = 1800;
+        const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(450, now);
+        osc.frequency.exponentialRampToValueAtTime(180, now + 0.08);
         gain.gain.setValueAtTime(vol * 0.4, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-        src.connect(filter);
-        filter.connect(gain);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        osc.connect(gain);
         gain.connect(this.ctx.destination);
-        src.start(now);
+        osc.start(now);
+        osc.stop(now + 0.08);
         break;
       }
       case 'ui_stamp': {
