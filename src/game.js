@@ -3732,12 +3732,29 @@ class UIManager {
 
     document.getElementById('btn-exit-to-main')?.addEventListener('click', (e) => {
       e.preventDefault();
+      try { this.app.audio.playPaper(); } catch(err){}
+      const confirmModal = document.getElementById('modal-confirm-surrender');
+      if (confirmModal) confirmModal.style.display = 'flex';
+    });
+
+    document.getElementById('btn-cancel-surrender')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      const confirmModal = document.getElementById('modal-confirm-surrender');
+      if (confirmModal) confirmModal.style.display = 'none';
+      this.closeInGameMenu();
+      try { this.app.audio.playStamp(); } catch(err){}
+      this.showToast('Stand Fast!', 'Order acknowledged: Fighting until the last drop of ink!');
+    });
+
+    document.getElementById('btn-confirm-surrender')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      const confirmModal = document.getElementById('modal-confirm-surrender');
+      if (confirmModal) confirmModal.style.display = 'none';
+      this.closeInGameMenu();
       if (this.app) {
         this.app.exitToMainMenu();
       }
-      try {
-        this.app.audio.playClick();
-      } catch(err){}
+      try { this.app.audio.playEraserSmudge(); } catch(err){}
     });
 
     document.getElementById('btn-menu-open-auth')?.addEventListener('click', (e) => {

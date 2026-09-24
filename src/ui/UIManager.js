@@ -354,14 +354,36 @@ export class UIManager {
       });
     }
 
-    // 4. Exit to Main Menu
+    // 4. Exit to Main Menu with Retreat Confirmation
     const exitBtn = document.getElementById('btn-exit-to-main');
     if (exitBtn) {
       exitBtn.addEventListener('click', () => {
-        try { this.app.audio.playClick(); } catch(e){}
+        try { this.app.audio.playPaper(); } catch(e){}
+        const confirmModal = document.getElementById('modal-confirm-surrender');
+        if (confirmModal) confirmModal.style.display = 'flex';
+      });
+    }
+
+    const cancelSurrenderBtn = document.getElementById('btn-cancel-surrender');
+    if (cancelSurrenderBtn) {
+      cancelSurrenderBtn.addEventListener('click', () => {
+        const confirmModal = document.getElementById('modal-confirm-surrender');
+        if (confirmModal) confirmModal.style.display = 'none';
+        this.closeInGameMenu();
+        try { this.app.audio.playStamp(); } catch(e){}
+      });
+    }
+
+    const confirmSurrenderBtn = document.getElementById('btn-confirm-surrender');
+    if (confirmSurrenderBtn) {
+      confirmSurrenderBtn.addEventListener('click', () => {
+        const confirmModal = document.getElementById('modal-confirm-surrender');
+        if (confirmModal) confirmModal.style.display = 'none';
+        this.closeInGameMenu();
         if (this.app) {
           this.app.exitToMainMenu();
         }
+        try { this.app.audio.playEraserSmudge(); } catch(e){}
       });
     }
 
