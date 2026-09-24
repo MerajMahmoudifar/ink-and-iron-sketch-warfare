@@ -1546,11 +1546,247 @@ select.diesel-hidden-select {
   box-shadow: 0 0 8px rgba(245, 158, 11, 0.25);
 }
 
+/* ============================================
+   VICTORY / DEFEAT AFTER-ACTION REPORT MODAL
+   ============================================ */
+.victory-report-card {
+  max-width: 520px;
+  width: 92%;
+  padding: 24px 28px;
+  text-align: center;
+  position: relative;
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--r-md);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8), inset 0 0 30px rgba(0, 0, 0, 0.5);
+  animation: modalFadeIn 0.25s ease-out;
+}
+
+.victory-report-card.victory-mode {
+  border-top: 4px solid var(--green-400);
+}
+
+.victory-report-card.defeat-mode {
+  border-top: 4px solid var(--red-400);
+}
+
+.victory-header-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.victory-header-badge {
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 3px 10px;
+  border-radius: var(--r-sm);
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--gold-400);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  text-transform: uppercase;
+}
+
+.victory-turn-stamp {
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}
+
+.victory-main-title {
+  font-family: var(--font-display);
+  font-size: 1.85rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  margin: 2px 0 4px 0;
+  text-transform: uppercase;
+}
+
+.victory-subtitle {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+  margin-bottom: 14px;
+}
+
+/* Evaluation Grade Box */
+.victory-eval-container {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(2, 6, 23, 0.65);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  text-align: left;
+}
+
+.victory-grade-stamp {
+  width: 50px;
+  height: 50px;
+  min-width: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 1.85rem;
+  font-weight: 900;
+  border: 2px solid var(--gold-400);
+  border-radius: var(--r-sm);
+  color: var(--gold-300);
+  background: rgba(245, 158, 11, 0.12);
+  transform: rotate(-3deg);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.2);
+}
+
+.victory-grade-stamp.grade-s {
+  border-color: #fbbf24;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.15);
+  box-shadow: 0 0 15px rgba(251, 191, 36, 0.35);
+}
+
+.victory-grade-stamp.grade-a {
+  border-color: #4ade80;
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.15);
+  box-shadow: 0 0 15px rgba(74, 222, 128, 0.3);
+}
+
+.victory-grade-stamp.grade-b {
+  border-color: #60a5fa;
+  color: #60a5fa;
+  background: rgba(96, 165, 250, 0.15);
+}
+
+.victory-grade-stamp.grade-c {
+  border-color: #fb923c;
+  color: #fb923c;
+  background: rgba(251, 146, 60, 0.15);
+}
+
+.victory-grade-stamp.grade-defeat {
+  border-color: #f87171;
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.15);
+  box-shadow: 0 0 15px rgba(248, 113, 113, 0.3);
+}
+
+.victory-eval-text-group {
+  flex: 1;
+}
+
+.victory-eval-title {
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--text-primary);
+}
+
+.victory-eval-sub {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-top: 3px;
+  line-height: 1.35;
+}
+
+/* Field Dispatch Debrief Quote */
+.victory-debrief-quote {
+  padding: 10px 14px;
+  background: rgba(30, 41, 59, 0.45);
+  border-radius: var(--r-sm);
+  border-left: 3px solid var(--gold-400);
+  text-align: left;
+  margin-bottom: 14px;
+}
+
+.victory-debrief-quote.defeat {
+  border-left-color: var(--red-400);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.victory-debrief-sender {
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--gold-400);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.victory-debrief-quote.defeat .victory-debrief-sender {
+  color: var(--red-400);
+}
+
+.victory-debrief-text {
+  font-size: 0.84rem;
+  color: var(--text-primary);
+  font-style: italic;
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* Battlefield Stats Grid */
+.victory-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+@media (max-width: 500px) {
+  .victory-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.victory-stat-item {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  padding: 8px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.victory-stat-label {
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+.victory-stat-value {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.stat-val-kills { color: #f87171; }
+.stat-val-losses { color: #cbd5e1; }
+.stat-val-sectors { color: #60a5fa; }
+.stat-val-efficiency { color: var(--gold-300); }
+
 /* Victory Buttons */
 .victory-btn-row {
   display: flex;
   gap: 10px;
-  margin-top: 20px;
+  margin-top: 14px;
   justify-content: center;
 }
 

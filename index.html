@@ -1250,17 +1250,57 @@
       </div>
     </div>
 
-    <!-- VICTORY / DEFEAT MODAL -->
-    <div id="victory-modal" class="modal-overlay" style="display: none;">
-      <div class="modal-card">
-        <h2 id="victory-title" class="modal-title">Victory</h2>
-        <p id="victory-sub" class="modal-subtitle">You captured the enemy Main Base.</p>
+    <!-- VICTORY / DEFEAT AFTER-ACTION REPORT MODAL -->
+    <div id="victory-modal" class="modal-overlay" style="display: none; z-index: 100020;">
+      <div class="modal-card victory-report-card" id="victory-card-element">
+        <div class="victory-header-badge-row">
+          <span id="victory-badge" class="victory-header-badge">AFTER-ACTION REPORT</span>
+          <span id="victory-turn-stamp" class="victory-turn-stamp">TURN 1</span>
+        </div>
+        
+        <h2 id="victory-title" class="victory-main-title">DECISIVE VICTORY</h2>
+        <p id="victory-sub" class="victory-subtitle">You captured the enemy Headquarters.</p>
+        
+        <div class="victory-eval-container" id="victory-eval-box">
+          <div class="victory-grade-stamp" id="victory-grade-stamp">S</div>
+          <div class="victory-eval-text-group">
+            <div class="victory-eval-title" id="victory-eval-title">MASTER STRATEGIST</div>
+            <div class="victory-eval-sub" id="victory-eval-sub">Flawless tactical breakthrough with zero allied casualties.</div>
+          </div>
+        </div>
+
+        <div class="victory-debrief-quote" id="victory-debrief-box">
+          <div class="victory-debrief-sender" id="victory-debrief-sender">HIGH COMMAND DISPATCH</div>
+          <p id="victory-debrief-text" class="victory-debrief-text">
+            "An exceptional tactical masterclass. You preserved every single chassis and battalion under your command."
+          </p>
+        </div>
+
+        <div class="victory-stats-grid">
+          <div class="victory-stat-item">
+            <span class="victory-stat-label">HOSTILES ELIMINATED</span>
+            <span class="victory-stat-value stat-val-kills" id="stat-hostiles-killed">0</span>
+          </div>
+          <div class="victory-stat-item">
+            <span class="victory-stat-label">ALLIED LOSSES</span>
+            <span class="victory-stat-value stat-val-losses" id="stat-allied-losses">0</span>
+          </div>
+          <div class="victory-stat-item">
+            <span class="victory-stat-label">SECTORS SECURED</span>
+            <span class="victory-stat-value stat-val-sectors" id="stat-sectors-captured">1</span>
+          </div>
+          <div class="victory-stat-item">
+            <span class="victory-stat-label">EFFICIENCY</span>
+            <span class="victory-stat-value stat-val-efficiency" id="stat-efficiency-rating">100%</span>
+          </div>
+        </div>
+
         <div class="victory-btn-row">
           <button id="btn-victory-see-terrain" class="btn-sketch btn-sketch-lg victory-btn-terrain" onclick="window.enterTerrainView()">
-            View Terrain
+            🗺️ View Map
           </button>
           <button id="btn-victory-main-menu" class="btn-sketch btn-sketch-lg victory-btn-menu" onclick="window.returnToMainMenu()">
-            Return to Menu
+            🎖️ Return to Menu
           </button>
         </div>
       </div>
