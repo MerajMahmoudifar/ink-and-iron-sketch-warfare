@@ -76,7 +76,7 @@ export class AudioEngine {
   setupUnlockListeners() {
     const unlock = () => {
       this.init();
-      if (!this.currentMusicTrack) {
+      if (!this.currentMusicTrack || !this.currentMusicSource) {
         this.startMenuMusic(1.5);
       }
       ['click', 'keydown', 'touchstart', 'pointerdown'].forEach(ev => {
@@ -107,6 +107,10 @@ export class AudioEngine {
     await Promise.allSettled(loadPromises);
     this.isPreloaded = true;
     this.isPreloading = false;
+
+    if (this.desiredMusicTrack && (!this.currentMusicTrack || !this.currentMusicSource)) {
+      this.playMusic(this.desiredMusicTrack, 1.5);
+    }
   }
 
   getEffectiveGain(baseGain = 1.0) {
@@ -381,17 +385,35 @@ export class AudioEngine {
 
   // ─── DYNAMIC MUSIC & AMBIENT CROSS-FADER ────────────────────────────────────
 
-  playMusic(trackKey, fadeDuration = 1.2) {
+  async playMusic(trackKey, fadeDuration = 1.2) {
     try {
       this.init();
       if (!this.ctx) return;
+
+      this.desiredMusicTrack = trackKey;
 
       if (this.currentMusicTrack === trackKey && this.currentMusicSource) {
         return; // Already playing this track
       }
 
-      const buffer = this.buffers.get(trackKey);
+      let buffer = this.buffers.get(trackKey);
+      if (!buffer) {
+        const url = this.audioManifest[trackKey];
+        if (url) {
+          try {
+            const res = await fetch(url);
+            if (res.ok) {
+              const arrayBuffer = await res.arrayBuffer();
+              buffer = await this.ctx.decodeAudioData(arrayBuffer);
+              this.buffers.set(trackKey, buffer);
+            }
+          } catch(err){}
+        }
+      }
+
       if (!buffer) return;
+      if (this.desiredMusicTrack !== trackKey) return;
+      if (this.currentMusicTrack === trackKey && this.currentMusicSource) return;
 
       const now = this.ctx.currentTime;
       const targetGain = this.isMuted ? 0 : (this.masterVolume * this.musicVolume);

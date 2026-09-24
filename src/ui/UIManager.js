@@ -347,7 +347,12 @@ export class UIManager {
         w.classList.remove('open');
         w.querySelector('.diesel-select-trigger')?.setAttribute('aria-expanded', 'false');
       });
-      try { this.app.audio.playPencilScratch(); } catch(e){}
+      try {
+        this.app.audio.playPencilScratch();
+        if (!this.app.audio.currentMusicTrack || !this.app.audio.currentMusicSource) {
+          this.app.audio.startMenuMusic(1.5);
+        }
+      } catch(e){}
       document.querySelectorAll('.menu-tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
 
