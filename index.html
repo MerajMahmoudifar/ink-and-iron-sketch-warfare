@@ -725,80 +725,112 @@
 
         <!-- Right Sidebar: Controls, Inspector, Abilities, Recruitment -->
         <aside class="panel-card sidebar-panel sidebar-panel-right">
-          <div class="turn-control-bar">
-            <div class="turn-status-header">
-              <span class="turn-status-title">Command Phase</span>
+
+          <!-- Accordion 1: Command Phase & Phase Actions -->
+          <div class="sidebar-accordion-section" id="sec-turn-controls">
+            <div class="accordion-header" onclick="window.toggleSidebarAccordion('sec-turn-controls')">
+              <span class="accordion-title"><span class="accordion-arrow">&#x25BC;</span> Command Controls</span>
               <span id="turn-counter" class="turn-counter-badge">Turn 1</span>
             </div>
-            <div class="turn-action-buttons">
-              <div class="turn-halt-row">
-                <button id="btn-halt-all" class="btn-sketch btn-halt" title="Cancel movement paths for all friendly units">
-                  HALT ALL
+            <div class="accordion-body" id="body-turn-controls">
+              <div class="turn-action-buttons">
+                <div class="turn-halt-row">
+                  <button id="btn-halt-all" class="btn-sketch btn-halt" title="Cancel movement paths for all friendly units [H]">
+                    <span class="hotkey-pill">H</span> HALT ALL
+                  </button>
+                  <button id="btn-cancel-abilities" class="btn-sketch btn-halt" title="Cancel queued strikes &amp; refund CP [Esc]" disabled style="opacity: 0.45; pointer-events: none;">
+                    <span class="hotkey-pill">Esc</span> HALT ABILITY
+                  </button>
+                </div>
+                <button id="btn-end-turn" class="btn-sketch btn-end-phase">
+                  <span class="btn-end-title">END PHASE &#9654;&#9654;</span>
+                  <span class="hotkey-pill hotkey-pill-light">Space / E</span>
                 </button>
-                <button id="btn-cancel-abilities" class="btn-sketch btn-halt" title="Cancel queued strikes &amp; refund CP" disabled style="opacity: 0.45; pointer-events: none;">
-                  HALT ABILITY
+              </div>
+            </div>
+          </div>
+
+          <!-- Accordion 2: Tactical Inspector & Engagement Forecast -->
+          <div class="sidebar-accordion-section" id="sec-inspector">
+            <div class="accordion-header" onclick="window.toggleSidebarAccordion('sec-inspector')">
+              <span class="accordion-title"><span class="accordion-arrow">&#x25BC;</span> Tactical Inspector</span>
+              <span id="inspector-status-badge" class="accordion-badge">SECTOR INTEL</span>
+            </div>
+            <div class="accordion-body" id="body-inspector">
+              <!-- Unit / Terrain Inspector -->
+              <div id="inspector-card" class="inspector-card">
+                <div id="inspector-content">
+                  <p class="inspector-placeholder">Click any grid square to inspect terrain or issue unit orders.</p>
+                </div>
+              </div>
+
+              <!-- Tactical Engagement Forecast (Zero-Hidden-Math Combat Predictor) -->
+              <div id="combat-forecast-card" class="combat-forecast-card" style="display: none; margin-top: 6px;">
+                <div class="forecast-header">
+                  <span class="forecast-badge">TARGET ENGAGEMENT FORECAST</span>
+                  <span id="forecast-target-name" class="forecast-target-name">Enemy Target</span>
+                </div>
+                <div class="forecast-body">
+                  <div class="forecast-stat-col">
+                    <span class="forecast-stat-label">Projected Damage</span>
+                    <span id="forecast-damage-val" class="forecast-stat-val text-dmg">--</span>
+                  </div>
+                  <div class="forecast-stat-divider"></div>
+                  <div class="forecast-stat-col">
+                    <span class="forecast-stat-label">Armor Mitigation</span>
+                    <span id="forecast-armor-val" class="forecast-stat-val text-armor">--</span>
+                  </div>
+                  <div class="forecast-stat-divider"></div>
+                  <div class="forecast-stat-col">
+                    <span class="forecast-stat-label">Retaliation</span>
+                    <span id="forecast-retaliation-val" class="forecast-stat-val text-risk">--</span>
+                  </div>
+                </div>
+                <div id="forecast-note" class="forecast-note" style="display: none;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Accordion 3: Command Abilities Deck -->
+          <div class="sidebar-accordion-section" id="sec-abilities">
+            <div class="accordion-header" onclick="window.toggleSidebarAccordion('sec-abilities')">
+              <span class="accordion-title"><span class="accordion-arrow">&#x25BC;</span> Command Abilities</span>
+              <span id="abilities-cp-badge" class="accordion-badge cp-badge-pill">CP: 0/10</span>
+            </div>
+            <div class="accordion-body" id="body-abilities">
+              <div class="ability-deck-grid">
+                <button id="btn-ability-flare" class="ability-btn flare-btn" title="Reveals a 3x3 fog area for 1 turn [1]">
+                  <span class="hotkey-pill">1</span>
+                  <span class="ability-title">Flare</span>
+                  <span class="ability-cost">2 CP</span>
+                </button>
+                <button id="btn-ability-smoke" class="ability-btn smoke-btn" title="Neutral cloud: Blocks line-of-sight &amp; direct attacks for 2 turns [2]">
+                  <span class="hotkey-pill">2</span>
+                  <span class="ability-title">Smoke</span>
+                  <span class="ability-cost">3 CP</span>
+                </button>
+                <button id="btn-ability-artillery" class="ability-btn strike-btn" title="Target 3x3 area for 35 splash damage [3]">
+                  <span class="hotkey-pill">3</span>
+                  <span class="ability-title">Artillery</span>
+                  <span class="ability-cost">4 CP</span>
                 </button>
               </div>
-              <button id="btn-end-turn" class="btn-sketch btn-end-phase">
-                END PHASE &#9654;&#9654;
-              </button>
             </div>
           </div>
 
-          <!-- Unit / Terrain Inspector -->
-          <div id="inspector-card" class="inspector-card">
-            <div id="inspector-content">
-              <p class="inspector-placeholder">Click any grid square to inspect terrain or issue unit orders.</p>
+          <!-- Accordion 4: Recruitment Depot Store -->
+          <div class="sidebar-accordion-section" id="sec-recruitment">
+            <div class="accordion-header" onclick="window.toggleSidebarAccordion('sec-recruitment')">
+              <span class="accordion-title"><span class="accordion-arrow">&#x25BC;</span> Recruit Troops</span>
+              <span id="recruitment-count-badge" class="accordion-badge">DEPOT READY</span>
             </div>
-          </div>
-
-          <!-- Tactical Engagement Forecast (Zero-Hidden-Math Combat Predictor) -->
-          <div id="combat-forecast-card" class="combat-forecast-card" style="display: none;">
-            <div class="forecast-header">
-              <span class="forecast-badge">TARGET ENGAGEMENT FORECAST</span>
-              <span id="forecast-target-name" class="forecast-target-name">Enemy Target</span>
-            </div>
-            <div class="forecast-body">
-              <div class="forecast-stat-col">
-                <span class="forecast-stat-label">Projected Damage</span>
-                <span id="forecast-damage-val" class="forecast-stat-val text-dmg">--</span>
-              </div>
-              <div class="forecast-stat-divider"></div>
-              <div class="forecast-stat-col">
-                <span class="forecast-stat-label">Armor Mitigation</span>
-                <span id="forecast-armor-val" class="forecast-stat-val text-armor">--</span>
-              </div>
-              <div class="forecast-stat-divider"></div>
-              <div class="forecast-stat-col">
-                <span class="forecast-stat-label">Retaliation</span>
-                <span id="forecast-retaliation-val" class="forecast-stat-val text-risk">--</span>
+            <div class="accordion-body" id="body-recruitment">
+              <div id="unit-store-container" class="store-grid">
+                <!-- Populated dynamically with stat chips and affordability badges -->
               </div>
             </div>
-            <div id="forecast-note" class="forecast-note" style="display: none;"></div>
           </div>
 
-          <!-- Special Abilities Deck -->
-          <h3 class="section-subheading">Command Abilities</h3>
-          <div class="ability-deck-grid">
-            <button id="btn-ability-flare" class="ability-btn flare-btn" title="Reveals a 3x3 fog area for 1 turn">
-              <span class="ability-title">Flare</span>
-              <span class="ability-cost">2 CP</span>
-            </button>
-            <button id="btn-ability-smoke" class="ability-btn smoke-btn" title="Neutral physical cloud: Blocks line-of-sight &amp; direct attacks for ALL units inside 3x3 area for 2 turns">
-              <span class="ability-title">Smoke</span>
-              <span class="ability-cost">3 CP</span>
-            </button>
-            <button id="btn-ability-artillery" class="ability-btn strike-btn" title="Target 3x3 area for 35 splash damage">
-              <span class="ability-title">Artillery</span>
-              <span class="ability-cost">4 CP</span>
-            </button>
-          </div>
-
-          <!-- Recruitment Store -->
-          <h3 class="section-subheading">Recruit Troops</h3>
-          <div id="unit-store-container" class="store-grid">
-            <!-- Populated dynamically -->
-          </div>
         </aside>
 
       </main>

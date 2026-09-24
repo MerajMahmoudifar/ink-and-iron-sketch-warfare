@@ -4090,6 +4090,16 @@ class UIManager {
     this.renderInspector(engine);
     this.updateActionLogs(engine);
 
+    // Update accordion status badges
+    const cpBadge = document.getElementById('abilities-cp-badge');
+    if (cpBadge && engine.players[1]) {
+      cpBadge.textContent = `CP: ${engine.players[1].cp}/10`;
+    }
+    const recruitCountBadge = document.getElementById('recruitment-count-badge');
+    if (recruitCountBadge && engine.players[1]) {
+      recruitCountBadge.textContent = `${engine.players[1].ink} INK`;
+    }
+
     // In GAME_OVER: lock all action controls. In RECON: enable Deploy Now button, disable abilities.
     const actionBtnIds = ['btn-end-turn', 'btn-halt-all', 'btn-cancel-abilities', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery'];
     if (engine.phase === 'GAME_OVER') {
@@ -4104,7 +4114,7 @@ class UIManager {
       });
       const endTurnBtn = document.getElementById('btn-end-turn');
       if (endTurnBtn) {
-        endTurnBtn.innerHTML = 'DEPLOY NOW [SPACE]';
+        endTurnBtn.innerHTML = '<span class="btn-end-title">DEPLOY NOW</span> <span class="hotkey-pill hotkey-pill-light">Space / E</span>';
         endTurnBtn.classList.add('btn-accent');
         endTurnBtn.disabled = false;
         endTurnBtn.style.opacity = '1';
@@ -4118,10 +4128,37 @@ class UIManager {
       });
       const endTurnBtn = document.getElementById('btn-end-turn');
       if (endTurnBtn) {
-        endTurnBtn.innerHTML = 'END PHASE &#9654;&#9654;';
+        endTurnBtn.innerHTML = '<span class="btn-end-title">END PHASE &#9654;&#9654;</span> <span class="hotkey-pill hotkey-pill-light">Space / E</span>';
         endTurnBtn.classList.remove('btn-accent');
       }
     }
+
+    // Update active ability targeting indicators & affordability
+    const p1 = engine.players[1];
+    [
+      { id: 'btn-ability-flare', key: 'RECON_FLARE' },
+      { id: 'btn-ability-smoke', key: 'SMOKE_SCREEN' },
+      { id: 'btn-ability-artillery', key: 'ARTILLERY_STRIKE' }
+    ].forEach(ab => {
+      const btn = document.getElementById(ab.id);
+      if (btn) {
+        const config = (typeof ABILITIES !== 'undefined') ? ABILITIES[ab.key] : null;
+        const canAfford = config && p1 ? p1.cp >= config.cpCost : true;
+        const isTargeting = this.pendingAbilityKey === ab.key;
+
+        if (isTargeting) {
+          btn.classList.add('active-targeting');
+        } else {
+          btn.classList.remove('active-targeting');
+        }
+
+        if (!canAfford && engine.phase === 'PLANNING' && !engine.isReconPhase) {
+          btn.style.opacity = '0.45';
+        } else if (!engine.isReconPhase && engine.phase === 'PLANNING') {
+          btn.style.opacity = '1';
+        }
+      }
+    });
 
     const cancelAbilitiesBtn = document.getElementById('btn-cancel-abilities');
     if (cancelAbilitiesBtn) {
@@ -4130,7 +4167,7 @@ class UIManager {
       cancelAbilitiesBtn.style.opacity = hasRefundable ? '1' : '0.45';
       cancelAbilitiesBtn.style.pointerEvents = hasRefundable ? 'auto' : 'none';
       cancelAbilitiesBtn.title = hasRefundable
-        ? 'Cancel queued artillery strikes and smoke screens deployed this turn & refund Command Points'
+        ? 'Cancel queued artillery strikes and smoke screens deployed this turn & refund Command Points [Esc]'
         : 'No pending abilities deployed this turn to cancel';
     }
 
@@ -4299,19 +4336,30 @@ class UIManager {
         ? UnitIcons.getBadgeHtml(key, { size: 'md', owner: 1 })
         : `<span class="unit-card-symbol">${u.symbol || '⬚'}</span>`;
 
+      const canAfford = p1.ink >= u.cost;
+      const neededInk = u.cost - p1.ink;
+
       btn.id = 'store-card-' + key;
-      btn.className = 'unit-card-btn';
+      btn.className = `unit-card-btn ${canAfford ? '' : 'unit-card-unaffordable'}`;
       btn.innerHTML = `
         <div class="unit-card-header">
           ${badgeHtml}
           <div class="unit-card-titles">
             <div class="unit-card-top-row">
               <span class="unit-card-title">${u.name}</span>
-              <span class="unit-card-cost">${u.cost} Ink</span>
+              <div style="display:flex; align-items:center; gap:4px;">
+                ${!canAfford ? `<span class="ink-needed-tag">Need +${neededInk}</span>` : ''}
+                <span class="unit-card-cost ${canAfford ? 'affordable' : 'unaffordable'}">${u.cost} Ink</span>
+              </div>
             </div>
             <div class="unit-card-sub-row">
               <span class="unit-role-tag ${roleClass}">${roleLabel}</span>
-              <span class="unit-card-meta">HP ${u.maxHp} &bull; ATK ${u.attack} &bull; MOV ${u.moveRange} &bull; RNG ${u.attackRange}</span>
+              <div class="stat-chip-row">
+                <span class="stat-chip stat-chip-hp" title="Maximum Hit Points">HP ${u.maxHp}</span>
+                <span class="stat-chip stat-chip-atk" title="Attack Firepower">ATK ${u.attack}</span>
+                <span class="stat-chip stat-chip-mov" title="Movement Speed">MOV ${u.moveRange}</span>
+                <span class="stat-chip stat-chip-rng" title="Attack Range">RNG ${u.attackRange}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -4441,7 +4489,14 @@ class UIManager {
   renderInspector(engine) {
     if (!this.inspectorContent) return;
     const sel = this.app.renderer.selectedTile;
+    const statusBadge = document.getElementById('inspector-status-badge');
+    const secInspector = document.getElementById('sec-inspector');
+    const secRecruit = document.getElementById('sec-recruitment');
+
     if (!sel) {
+      if (statusBadge) statusBadge.textContent = 'SECTOR INTEL';
+      if (secRecruit) secRecruit.classList.remove('collapsed');
+
       if (engine && engine.isReconPhase) {
         const mapSelect = document.getElementById('select-map');
         const mapName = mapSelect && mapSelect.selectedOptions && mapSelect.selectedOptions[0] ? mapSelect.selectedOptions[0].text : 'THE IRON BASIN';
@@ -4476,6 +4531,9 @@ class UIManager {
         </div>`;
       return;
     }
+
+    if (secInspector) secInspector.classList.remove('collapsed');
+
     const tile = engine.grid[sel.y][sel.x];
     const isTerrainView = engine.phase === 'GAME_OVER';
     const p1Vision = isTerrainView ? Array(8).fill(null).map(() => Array(8).fill(true)) : engine.calculateVision(1);
@@ -4488,6 +4546,16 @@ class UIManager {
     const colLetter = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][sel.x] || String(sel.x);
     const rowNum = sel.y + 1;
     const sectorCoord = `SECTOR [${colLetter}${rowNum}]`;
+
+    if (statusBadge) {
+      if (unitOnTile) {
+        statusBadge.textContent = unitOnTile.owner === 1 ? 'ALLIED SQUAD' : 'ENEMY CONTACT';
+        if (secRecruit) secRecruit.classList.add('collapsed');
+      } else {
+        statusBadge.textContent = `${colLetter}${rowNum} TERRAIN`;
+        if (secRecruit) secRecruit.classList.remove('collapsed');
+      }
+    }
 
     let html = '';
     if (!isTileVisible && !isTerrainView) {
@@ -7220,6 +7288,17 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// Accordion toggle helper for right sidebar panels
+window.toggleSidebarAccordion = function(sectionId) {
+  const sec = document.getElementById(sectionId);
+  if (sec) {
+    sec.classList.toggle('collapsed');
+    try {
+      if (window.gApp && window.gApp.audio) window.gApp.audio.playClick();
+    } catch(e){}
+  }
+};
+
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
   // Space or Enter: Skip reconnaissance survey and engage immediately
@@ -7228,6 +7307,53 @@ document.addEventListener('keydown', (e) => {
       e.preventDefault();
       window.skipReconPhase();
       return;
+    }
+  }
+
+  // Check if player is typing in an input/textarea
+  const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+  const isTyping = activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select';
+
+  if (!isTyping && window.gApp && window.gApp.engine) {
+    const eng = window.gApp.engine;
+    const ui = window.gApp.ui;
+
+    if (eng.phase === 'PLANNING' && !eng.isReconPhase) {
+      // Hotkey 1: Recon Flare
+      if (e.key === '1') {
+        e.preventDefault();
+        if (ui) ui.handleAbilityClick('RECON_FLARE');
+        return;
+      }
+      // Hotkey 2: Smoke Screen
+      if (e.key === '2') {
+        e.preventDefault();
+        if (ui) ui.handleAbilityClick('SMOKE_SCREEN');
+        return;
+      }
+      // Hotkey 3: Artillery Strike
+      if (e.key === '3') {
+        e.preventDefault();
+        if (ui) ui.handleAbilityClick('ARTILLERY_STRIKE');
+        return;
+      }
+      // Hotkey H: Halt All Friendly Troops
+      if (e.key === 'h' || e.key === 'H') {
+        e.preventDefault();
+        eng.players[1].units.forEach(u => u.setWaypoints([]));
+        if (ui) {
+          ui.showToast('Troops Halted', 'All unit movement plans canceled! [H]');
+          ui.updateHUD(eng);
+        }
+        try { window.gApp.audio.playEraserSmudge(); } catch(err){}
+        return;
+      }
+      // Hotkey E: End Planning Phase
+      if (e.key === 'e' || e.key === 'E') {
+        e.preventDefault();
+        eng.endPlanningPhase();
+        return;
+      }
     }
   }
 

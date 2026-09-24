@@ -664,6 +664,228 @@ header.hud-header {
 }
 
 /* ============================================
+   RIGHT SIDEBAR ACCORDION SECTIONS
+   ============================================ */
+.sidebar-panel-right {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245, 158, 11, 0.4) transparent;
+}
+
+.sidebar-panel-right::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar-panel-right::-webkit-scrollbar-thumb {
+  background: rgba(245, 158, 11, 0.35);
+  border-radius: 2px;
+}
+
+.sidebar-accordion-section {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: var(--r-sm);
+  background: #090e18;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 3px 10px rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+  transition: border-color var(--t-fast);
+}
+
+.sidebar-accordion-section:hover {
+  border-color: rgba(245, 158, 11, 0.55);
+}
+
+.accordion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  background: rgba(15, 23, 42, 0.7);
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+  transition: background var(--t-fast);
+}
+
+.accordion-header:hover {
+  background: rgba(30, 41, 59, 0.85);
+}
+
+.accordion-title {
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  color: #cbd5e1;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.accordion-arrow {
+  font-size: 0.55rem;
+  color: var(--gold-400);
+  transition: transform var(--t-fast);
+  display: inline-block;
+}
+
+.sidebar-accordion-section.collapsed .accordion-arrow {
+  transform: rotate(-90deg);
+}
+
+.sidebar-accordion-section.collapsed .accordion-header {
+  border-bottom: none;
+}
+
+.sidebar-accordion-section.collapsed .accordion-body {
+  display: none;
+}
+
+.accordion-body {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.accordion-badge {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(51, 65, 85, 0.6);
+  color: #94a3b8;
+  border: 1px solid rgba(71, 85, 105, 0.5);
+  text-transform: uppercase;
+}
+
+.cp-badge-pill {
+  background: rgba(245, 158, 11, 0.18);
+  color: var(--gold-400);
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+/* Hotkey Pills & Badges */
+.hotkey-pill {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(15, 23, 42, 0.9);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  flex-shrink: 0;
+}
+
+.hotkey-pill-light {
+  background: rgba(245, 158, 11, 0.25);
+  color: var(--gold-300);
+  border-color: rgba(245, 158, 11, 0.5);
+}
+
+.btn-end-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ability-btn.active-targeting {
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.65), inset 0 0 8px rgba(245, 158, 11, 0.3) !important;
+  animation: abilityTargetPulse 0.9s infinite alternate ease-in-out;
+}
+
+@keyframes abilityTargetPulse {
+  from { border-color: #f59e0b; box-shadow: 0 0 8px rgba(245, 158, 11, 0.4); }
+  to   { border-color: #fbbf24; box-shadow: 0 0 18px rgba(251, 191, 36, 0.8), inset 0 0 10px rgba(251, 191, 36, 0.35); }
+}
+
+/* ============================================
+   COLOR-CODED STAT CHIPS
+   ============================================ */
+.stat-chip-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin: 2px 0;
+}
+
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.stat-chip-hp {
+  background: rgba(34, 197, 94, 0.16);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.45);
+}
+
+.stat-chip-atk {
+  background: rgba(239, 68, 68, 0.16);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.45);
+}
+
+.stat-chip-mov {
+  background: rgba(56, 189, 248, 0.16);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+}
+
+.stat-chip-rng {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.45);
+}
+
+.unit-card-unaffordable {
+  opacity: 0.58;
+  filter: grayscale(30%);
+}
+
+.unit-card-unaffordable:hover {
+  opacity: 0.85;
+  filter: grayscale(10%);
+}
+
+.ink-needed-tag {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+/* ============================================
    TURN CONTROLS BAR
    ============================================ */
 .turn-control-bar {
@@ -671,11 +893,6 @@ header.hud-header {
   flex-direction: column;
   gap: 8px;
   flex-shrink: 0;
-  padding: 8px 10px;
-  border: 1px solid rgba(245, 158, 11, 0.35);
-  border-radius: var(--r-sm);
-  background: #090e18;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 3px 10px rgba(0, 0, 0, 0.4);
 }
 
 .turn-status-header {
