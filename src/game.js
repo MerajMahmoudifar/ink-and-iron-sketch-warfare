@@ -4395,6 +4395,14 @@ class UIManager {
       }
     }
 
+    // Top Bar In-Game Menu Button is always active & accessible during gameplay
+    const menuBtn = document.getElementById('btn-open-menu');
+    if (menuBtn) {
+      menuBtn.disabled = false;
+      menuBtn.style.opacity = '1';
+      menuBtn.style.pointerEvents = 'auto';
+    }
+
     // Update active ability targeting indicators & affordability
     const p1 = engine.players[1];
     [
@@ -5833,8 +5841,8 @@ window.startBattlefieldReplay = function() {
   const toolbar = document.getElementById('aar-replay-toolbar');
   if (toolbar) toolbar.style.display = 'flex';
 
-  // Lock in-game HUD action buttons
-  ['btn-end-turn', 'btn-halt-all', 'btn-cancel-abilities', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery', 'btn-open-menu'].forEach(id => {
+  // Lock in-game turn action buttons
+  ['btn-end-turn', 'btn-halt-all', 'btn-cancel-abilities', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery'].forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.disabled = true; el.style.opacity = '0.35'; el.style.pointerEvents = 'none'; }
   });
@@ -6359,9 +6367,17 @@ class App {
       this.renderer.selectedTile = null;
       if (this.audio) this.audio.startAmbient();
 
+      // Re-enable HUD action and menu buttons
+      ['btn-end-turn', 'btn-halt-all', 'btn-cancel-abilities', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery', 'btn-open-menu'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.disabled = false; el.style.opacity = ''; el.style.pointerEvents = ''; }
+      });
+
       // Reset terrain-view banner and any leftover game-over state
       const terrainBanner = document.getElementById('terrain-view-banner');
       if (terrainBanner) terrainBanner.style.display = 'none';
+      const replayToolbar = document.getElementById('aar-replay-toolbar');
+      if (replayToolbar) replayToolbar.style.display = 'none';
       const victoryModal = document.getElementById('victory-modal');
       if (victoryModal) victoryModal.style.display = 'none';
       const gameContainer = document.getElementById('game-container');
