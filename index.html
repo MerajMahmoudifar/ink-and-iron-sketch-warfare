@@ -32,11 +32,52 @@
       <div id="bootcamp-pointer-label" class="bootcamp-pointer-label">Click Here</div>
     </div>
 
-    <!-- Terrain View Banner -->
-    <div id="terrain-view-banner">
-      TERRAIN VIEW &mdash; GAME OVER &mdash; ALL UNITS REVEALED
-      <button onclick="window.showVictoryReport()" style="margin-left: 10px; margin-right: 8px;">Debrief Report</button>
-      <button onclick="window.returnToMainMenu()">Return to Menu</button>
+    <!-- Tactical Match Replay Toolbar (After-Action Turn-by-Turn Battlefield Review) -->
+    <div id="aar-replay-toolbar" class="aar-replay-bar" style="display: none;">
+      <div class="aar-replay-left">
+        <div class="aar-replay-badge-group">
+          <span class="aar-replay-dot"></span>
+          <span class="aar-replay-tag">BATTLE REPLAY</span>
+        </div>
+        <div class="aar-stepper-btn-group">
+          <button id="btn-replay-first" class="aar-btn-step" title="First Turn [Home]" onclick="window.stepReplayTo(0)">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+          </button>
+          <button id="btn-replay-prev" class="aar-btn-step" title="Previous Turn [Left Arrow]" onclick="window.stepReplayTurn(-1)">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+          </button>
+          <button id="btn-replay-play" class="aar-btn-step aar-btn-play" title="Play / Pause Auto-Advance [Space]" onclick="window.toggleReplayAutoPlay()">
+            <span id="replay-play-icon" style="display: flex; align-items: center; justify-content: center;">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            </span>
+          </button>
+          <button id="btn-replay-next" class="aar-btn-step" title="Next Turn [Right Arrow]" onclick="window.stepReplayTurn(1)">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+          </button>
+          <button id="btn-replay-last" class="aar-btn-step" title="Final Turn [End]" onclick="window.stepReplayToLast()">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="aar-replay-center">
+        <div class="aar-turn-meta-row">
+          <span id="replay-turn-indicator" class="aar-turn-pill">TURN 1 OF 1</span>
+          <span id="replay-unit-stats" class="aar-unit-stats-pill">Allied: 2 | Hostile: 2</span>
+        </div>
+        <div class="aar-slider-track">
+          <input type="range" id="slider-replay-turn" class="aar-turn-range" min="1" max="1" value="1" oninput="window.setReplayTurn(this.value)">
+        </div>
+      </div>
+
+      <div class="aar-replay-right">
+        <button id="btn-replay-debrief" class="btn-sketch btn-replay-action" onclick="window.showVictoryReport()">
+          Debrief Report [Esc]
+        </button>
+        <button id="btn-replay-menu" class="btn-sketch btn-replay-action btn-replay-exit" onclick="window.returnToMainMenu()">
+          Return to Menu
+        </button>
+      </div>
     </div>
 
     <!-- MAIN MENU OVERLAY -->
@@ -1660,7 +1701,7 @@
 
         <div class="victory-btn-row">
           <button id="btn-victory-see-terrain" class="btn-sketch btn-sketch-lg victory-btn-terrain" onclick="window.enterTerrainView()">
-            View Map
+            Review Battle Replay [R]
           </button>
           <button id="btn-victory-main-menu" class="btn-sketch btn-sketch-lg victory-btn-menu" onclick="window.returnToMainMenu()">
             Return to Menu

@@ -790,8 +790,71 @@ class GameEngine {
     this.actionLogs = [];
     this.listeners = [];
 
+    // AFTER-ACTION MATCH REPLAY RECORDER & STATE
+    this.turnHistory = [];
+    this.isReplayMode = false;
+    this.replayTurnIndex = 0;
+
     this.spawnInitialUnits();
     this.evaluateAutoStances();
+    this.recordTurnSnapshot('PLANNING');
+  }
+
+  recordTurnSnapshot(phaseLabel = 'PLANNING') {
+    if (!this.turnHistory) this.turnHistory = [];
+
+    const cloneUnit = (u) => ({
+      id: u.id,
+      typeKey: u.typeKey || u.id,
+      name: u.name,
+      owner: u.owner,
+      x: u.x,
+      y: u.y,
+      prevX: u.prevX !== undefined ? u.prevX : u.x,
+      prevY: u.prevY !== undefined ? u.prevY : u.y,
+      hp: u.hp,
+      maxHp: u.maxHp,
+      attack: u.attack,
+      moveRange: u.moveRange,
+      attackRange: u.attackRange,
+      visionRange: u.visionRange,
+      category: u.category,
+      stance: u.stance,
+      icon: u.icon,
+      symbol: u.symbol,
+      waypoints: (u.waypoints || []).map(wp => ({ x: wp.x, y: wp.y })),
+      isAlive: (typeof u.isAlive === 'function') ? u.isAlive() : (u.hp > 0),
+      isAmbusherHidden: !!u.isAmbusherHidden
+    });
+
+    const gridClone = this.grid.map(row => row.map(tile => ({
+      ...tile,
+      owner: tile.owner
+    })));
+
+    const snapshot = {
+      turnNumber: this.turnNumber,
+      phaseLabel: phaseLabel,
+      timestamp: Date.now(),
+      grid: gridClone,
+      p1Units: this.players[1] ? this.players[1].units.map(cloneUnit) : [],
+      p2Units: this.players[2] ? this.players[2].units.map(cloneUnit) : [],
+      p1Ink: this.players[1] ? this.players[1].ink : 0,
+      p1Cp: this.players[1] ? this.players[1].cp : 0,
+      p2Ink: this.players[2] ? this.players[2].ink : 0,
+      p2Cp: this.players[2] ? this.players[2].cp : 0,
+      activeFlares: (this.activeFlares || []).map(f => ({ ...f })),
+      activeSmokes: (this.activeSmokes || []).map(s => ({ ...s })),
+      activeArtilleryStrikes: (this.activeArtilleryStrikes || []).map(a => ({ ...a })),
+      actionLogs: JSON.parse(JSON.stringify(this.actionLogs || []))
+    };
+
+    const existingIdx = this.turnHistory.findIndex(s => s.turnNumber === this.turnNumber && s.phaseLabel === phaseLabel);
+    if (existingIdx !== -1) {
+      this.turnHistory[existingIdx] = snapshot;
+    } else {
+      this.turnHistory.push(snapshot);
+    }
   }
 
   spawnInitialUnits() {
@@ -994,6 +1057,9 @@ class GameEngine {
       u.miredThisTurn = false;
     });
 
+    // Record planned moves snapshot for this turn
+    this.recordTurnSnapshot('PLANNING');
+
     this.executeSinglePlaybackStep(0);
     this.notifyStateChange();
   }
@@ -1003,6 +1069,7 @@ class GameEngine {
     if (this.winner) {
       this.phase = GAME_PHASES.GAME_OVER;
       this.pauseTimer();
+      this.recordTurnSnapshot('GAME_OVER');
       this.notifyStateChange();
       return;
     }
@@ -1026,6 +1093,9 @@ class GameEngine {
       const terrainTile = this.grid[u.y][u.x];
       if (terrainTile.id === 'FOREST' && u.stance === STANCES.AMBUSH.id) u.isAmbusherHidden = true;
     });
+
+    // Record turn start snapshot
+    this.recordTurnSnapshot('PLANNING');
 
     this.notifyStateChange();
   }
@@ -1590,6 +1660,7 @@ class GameEngine {
     if (this.winner) {
       this.phase = GAME_PHASES.GAME_OVER;
       this.pauseTimer();
+      this.recordTurnSnapshot('GAME_OVER');
       this.notifyStateChange();
     }
   }
@@ -2735,6 +2806,14 @@ class SketchRenderer {
   render(engine) {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
+    // AFTER-ACTION MATCH REPLAY OVERLAY MODE
+    if (engine.isReplayMode && engine.turnHistory && engine.turnHistory.length > 0) {
+      const snapIndex = Math.max(0, Math.min(engine.turnHistory.length - 1, engine.replayTurnIndex || 0));
+      const snap = engine.turnHistory[snapIndex];
+      this.renderReplaySnapshot(snap, engine);
+      return;
+    }
+
     // 1. Background Military Drafting Vellum
     this.ctx.fillStyle = '#f3ede2';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -3097,6 +3176,176 @@ class SketchRenderer {
     });
 
     this.ctx.restore();
+  }
+
+  renderReplaySnapshot(snap, engine) {
+    if (!snap) return;
+
+    // 1. Background Military Drafting Vellum
+    this.ctx.fillStyle = '#f3ede2';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+    // 2. Fine Technical Subdivisions (Graph Paper Grid at 35px)
+    this.ctx.save();
+    this.ctx.strokeStyle = 'rgba(71, 85, 105, 0.08)';
+    this.ctx.lineWidth = 0.6;
+    for (let p = 35; p < 560; p += 35) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(this.offsetX + p, this.offsetY);
+      this.ctx.lineTo(this.offsetX + p, this.offsetY + 560);
+      this.ctx.stroke();
+      this.ctx.beginPath();
+      this.ctx.moveTo(this.offsetX, this.offsetY + p);
+      this.ctx.lineTo(this.offsetX + 560, this.offsetY + p);
+      this.ctx.stroke();
+    }
+    this.ctx.restore();
+
+    // 3. Terrain Tiles from snapshot
+    if (snap.grid) {
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const tile = snap.grid[r][c];
+          const pos = this.getScreenCoords(c, r);
+          this.drawTerrainTile(tile, pos.x, pos.y, engine);
+        }
+      }
+    }
+
+    // 4. Primary 70px Drafting Grid Lines & Precision Quadrant Crosses
+    this.ctx.save();
+    this.ctx.strokeStyle = 'rgba(71, 85, 105, 0.3)';
+    this.ctx.lineWidth = 1;
+    for (let i = 0; i <= 8; i++) {
+      const p = i * 70;
+      this.ctx.beginPath(); this.ctx.moveTo(this.offsetX + p, this.offsetY); this.ctx.lineTo(this.offsetX + p, this.offsetY + 560); this.ctx.stroke();
+      this.ctx.beginPath(); this.ctx.moveTo(this.offsetX, this.offsetY + p); this.ctx.lineTo(this.offsetX + 560, this.offsetY + p); this.ctx.stroke();
+    }
+
+    // Quadrant Registration Crosses (+) at tile junctions
+    this.ctx.strokeStyle = 'rgba(15, 23, 42, 0.45)';
+    this.ctx.lineWidth = 1;
+    for (let r = 0; r <= 8; r++) {
+      for (let c = 0; c <= 8; c++) {
+        const jx = this.offsetX + c * 70;
+        const jy = this.offsetY + r * 70;
+        this.ctx.beginPath();
+        this.ctx.moveTo(jx - 3.5, jy); this.ctx.lineTo(jx + 3.5, jy);
+        this.ctx.moveTo(jx, jy - 3.5); this.ctx.lineTo(jx, jy + 3.5);
+        this.ctx.stroke();
+      }
+    }
+    this.ctx.restore();
+
+    // 5. Precision Tactical Military Grid Coordinates (A-H top, 1-8 left)
+    this.ctx.save();
+    this.ctx.font = 'bold 9px "JetBrains Mono", Consolas, monospace';
+    this.ctx.fillStyle = '#475569';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    const colLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+    for (let c = 0; c < 8; c++) {
+      const x = this.offsetX + c * 70 + 35;
+      this.ctx.fillText(colLabels[c], x, 10);
+      this.ctx.strokeStyle = 'rgba(71, 85, 105, 0.5)';
+      this.ctx.lineWidth = 1;
+      this.ctx.beginPath();
+      this.ctx.moveTo(x, 15);
+      this.ctx.lineTo(x, 19);
+      this.ctx.stroke();
+      this.ctx.fillStyle = 'rgba(71, 85, 105, 0.4)';
+      this.ctx.fillRect(x - 1, 587, 2, 2);
+    }
+    for (let r = 0; r < 8; r++) {
+      const y = this.offsetY + r * 70 + 35;
+      this.ctx.fillStyle = '#475569';
+      this.ctx.fillText(String(r + 1), 10, y);
+      this.ctx.strokeStyle = 'rgba(71, 85, 105, 0.5)';
+      this.ctx.lineWidth = 1;
+      this.ctx.beginPath();
+      this.ctx.moveTo(15, y);
+      this.ctx.lineTo(19, y);
+      this.ctx.stroke();
+      this.ctx.fillStyle = 'rgba(71, 85, 105, 0.4)';
+      this.ctx.fillRect(587, y - 1, 2, 2);
+    }
+    this.ctx.strokeStyle = '#334155';
+    this.ctx.lineWidth = 1.5;
+    this.ctx.strokeRect(this.offsetX, this.offsetY, 560, 560);
+    this.ctx.restore();
+
+    // 6. Smoke Overlays from snapshot
+    (snap.activeSmokes || []).forEach(smoke => {
+      for (let r = smoke.y - 1; r <= smoke.y + 1; r++) {
+        for (let c = smoke.x - 1; c <= smoke.x + 1; c++) {
+          if (r >= 0 && r < 8 && c >= 0 && c < 8) {
+            const pos = this.getScreenCoords(c, r);
+            this.drawSmokeParticleCluster(pos.x, pos.y);
+          }
+        }
+      }
+    });
+
+    // 7. Render Waypoints for BOTH Allied (P1) and Hostile (P2) Units in Replay Mode
+    (snap.p1Units || []).forEach(u => {
+      if ((u.isAlive || u.hp > 0) && u.waypoints && u.waypoints.length > 0) {
+        this.drawMultiTurnWaypoints(u, engine);
+      }
+    });
+    (snap.p2Units || []).forEach(u => {
+      if ((u.isAlive || u.hp > 0) && u.waypoints && u.waypoints.length > 0) {
+        this.drawMultiTurnWaypoints(u, engine);
+      }
+    });
+
+    // 8. Render All Living Units (Zero Fog of War!)
+    const allLivingUnits = [...(snap.p1Units || []), ...(snap.p2Units || [])].filter(u => u.isAlive || u.hp > 0);
+    allLivingUnits.forEach(u => {
+      const pos = this.getScreenCoords(u.x, u.y);
+      this.drawUnit(u, pos.x, pos.y, engine);
+    });
+
+    // 9. Interactive Hover & Selection Reticles
+    if (this.hoveredTile) {
+      const pos = this.getScreenCoords(this.hoveredTile.x, this.hoveredTile.y);
+      const hx = pos.x; const hy = pos.y;
+      const bLen = 12;
+      this.ctx.save();
+      this.ctx.fillStyle = 'rgba(56, 189, 248, 0.09)';
+      this.ctx.fillRect(hx + 1, hy + 1, 68, 68);
+      this.ctx.strokeStyle = '#0284c7';
+      this.ctx.lineWidth = 2;
+      this.ctx.beginPath();
+      this.ctx.moveTo(hx + 3, hy + 3 + bLen); this.ctx.lineTo(hx + 3, hy + 3); this.ctx.lineTo(hx + 3 + bLen, hy + 3);
+      this.ctx.moveTo(hx + 67 - bLen, hy + 3); this.ctx.lineTo(hx + 67, hy + 3); this.ctx.lineTo(hx + 67, hy + 3 + bLen);
+      this.ctx.moveTo(hx + 3, hy + 67 - bLen); this.ctx.lineTo(hx + 3, hy + 67); this.ctx.lineTo(hx + 3 + bLen, hy + 67);
+      this.ctx.moveTo(hx + 67 - bLen, hy + 67); this.ctx.lineTo(hx + 67, hy + 67); this.ctx.lineTo(hx + 67, hy + 67 - bLen);
+      this.ctx.stroke();
+      this.ctx.restore();
+    }
+
+    if (this.selectedTile) {
+      const pos = this.getScreenCoords(this.selectedTile.x, this.selectedTile.y);
+      const sx = pos.x; const sy = pos.y;
+      const bLen = 14;
+      this.ctx.save();
+      this.ctx.fillStyle = 'rgba(217, 119, 6, 0.12)';
+      this.ctx.fillRect(sx + 1, sy + 1, 68, 68);
+      this.ctx.strokeStyle = 'rgba(245, 158, 11, 0.6)';
+      this.ctx.lineWidth = 1;
+      this.ctx.setLineDash([4, 3]);
+      this.ctx.strokeRect(sx + 4, sy + 4, 62, 62);
+      this.ctx.setLineDash([]);
+      this.ctx.strokeStyle = '#d97706';
+      this.ctx.lineWidth = 2.5;
+      this.ctx.beginPath();
+      this.ctx.moveTo(sx + 2, sy + 2 + bLen); this.ctx.lineTo(sx + 2, sy + 2); this.ctx.lineTo(sx + 2 + bLen, sy + 2);
+      this.ctx.moveTo(sx + 68 - bLen, sy + 2); this.ctx.lineTo(sx + 68, sy + 2); this.ctx.lineTo(sx + 68, sy + 2 + bLen);
+      this.ctx.moveTo(sx + 2, sy + 68 - bLen); this.ctx.lineTo(sx + 2, sy + 68); this.ctx.lineTo(sx + 2 + bLen, sy + 68);
+      this.ctx.moveTo(sx + 68 - bLen, sy + 68); this.ctx.lineTo(sx + 68, sy + 68); this.ctx.lineTo(sx + 68, sy + 68 - bLen);
+      this.ctx.stroke();
+      this.ctx.restore();
+    }
   }
 
   drawPencilHatching(x, y) {
@@ -4572,13 +4821,20 @@ class UIManager {
 
     if (secInspector) secInspector.classList.remove('collapsed');
 
-    const tile = engine.grid[sel.y][sel.x];
-    const isTerrainView = engine.phase === 'GAME_OVER';
+    const isReplay = engine.isReplayMode && engine.turnHistory && engine.turnHistory.length > 0;
+    const currentSnap = isReplay ? engine.turnHistory[Math.max(0, Math.min(engine.turnHistory.length - 1, engine.replayTurnIndex || 0))] : null;
+    const activeGrid = (currentSnap && currentSnap.grid) ? currentSnap.grid : engine.grid;
+
+    const tile = activeGrid[sel.y][sel.x];
+    const isTerrainView = engine.phase === 'GAME_OVER' || isReplay;
     const p1Vision = isTerrainView ? Array(8).fill(null).map(() => Array(8).fill(true)) : engine.calculateVision(1);
     const isTileVisible = p1Vision[sel.y][sel.x];
 
-    // Mask enemy units on tiles shrouded by Fog of War
-    const rawUnit = engine.getAllUnits().find(u => u.x === sel.x && u.y === sel.y && u.isAlive());
+    // Mask enemy units on tiles shrouded by Fog of War (revealed in replay mode)
+    const allUnitsInView = isReplay
+      ? [...(currentSnap.p1Units || []), ...(currentSnap.p2Units || [])]
+      : engine.getAllUnits();
+    const rawUnit = allUnitsInView.find(u => u.x === sel.x && u.y === sel.y && ((typeof u.isAlive === 'function' ? u.isAlive() : u.isAlive) || (u.hp > 0)));
     const unitOnTile = (rawUnit && (rawUnit.owner === 1 || isTileVisible)) ? rawUnit : null;
 
     const colLetter = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][sel.x] || String(sel.x);
@@ -4832,20 +5088,24 @@ class UIManager {
     this.actionLogBox.innerHTML = '';
     
     let currentRenderedTurn = 0;
-    const p1Vision = engine.calculateVision(1);
+    const isReplay = engine.isReplayMode;
+    const p1Vision = isReplay ? Array(8).fill(null).map(() => Array(8).fill(true)) : engine.calculateVision(1);
+    const currentSnap = (isReplay && engine.turnHistory) ? engine.turnHistory[engine.replayTurnIndex || 0] : null;
+    const logs = (currentSnap && currentSnap.actionLogs) ? currentSnap.actionLogs : (engine.actionLogs || []);
 
-    engine.actionLogs.forEach(log => {
+    logs.forEach(log => {
       if (['HALT', 'CANCEL_UNIT', 'CUSTOM'].includes(log.type)) return;
 
       if (this.currentLogFilter === 'COMBAT' && !['COMBAT', 'ARTILLERY_IMPACT', 'ARTILLERY_HIT'].includes(log.type)) return;
       if (this.currentLogFilter === 'DEPLOY' && !['DEPLOY', 'ABILITY', 'CAPTURE'].includes(log.type)) return;
 
-      // STRICT FOG OF WAR LOG FILTERING FOR PLAYER 1 VIEW:
-      // Completely suppress any AI action (deployment, zone capture, ability cast, artillery hit) on tiles hidden to P1!
-      if (log.playerOwner === 2 && log.x !== undefined && log.y !== undefined && !p1Vision[log.y][log.x]) return;
-      if (log.type === 'CAPTURE' && log.playerOwner === 2 && log.x !== undefined && log.y !== undefined && !p1Vision[log.y][log.x]) return;
-      if (log.type === 'ARTILLERY_IMPACT' && log.playerName !== 'Player 1' && log.x !== undefined && log.y !== undefined && !p1Vision[log.y][log.x]) return;
-      if (log.type === 'ARTILLERY_HIT' && log.ownerTag === 'AI' && log.x !== undefined && log.y !== undefined && !p1Vision[log.y][log.x]) return;
+      // STRICT FOG OF WAR LOG FILTERING FOR PLAYER 1 VIEW (bypassed in replay mode):
+      if (!isReplay) {
+        if (log.playerOwner === 2 && log.x !== undefined && log.y !== undefined && !p1Vision[log.y][log.x]) return;
+        if (log.type === 'CAPTURE' && log.playerOwner === 2 && log.x !== undefined && log.y !== undefined && !p1Vision[log.y][log.x]) return;
+        if (log.type === 'ARTILLERY_IMPACT' && log.playerName !== 'Player 1' && log.x !== undefined && log.y !== undefined && !p1Vision[log.y][log.x]) return;
+        if (log.type === 'ARTILLERY_HIT' && log.ownerTag === 'AI' && log.x !== undefined && log.y !== undefined && !p1Vision[log.y][log.x]) return;
+      }
 
       if (log.turn && log.turn !== currentRenderedTurn) {
         currentRenderedTurn = log.turn;
@@ -5555,42 +5815,203 @@ window.deployGameFromMenu = function() {
   if (window.gApp) window.gApp.launchMatchFromMenu();
 };
 
-window.enterTerrainView = function() {
+window.startBattlefieldReplay = function() {
+  if (!window.gApp || !window.gApp.engine) return;
+  const eng = window.gApp.engine;
+  eng.isReplayMode = true;
+  if (!eng.turnHistory || eng.turnHistory.length === 0) {
+    eng.recordTurnSnapshot('FINAL');
+  }
+  eng.replayTurnIndex = 0;
+  if (window.gApp.replayAutoTimer) {
+    clearInterval(window.gApp.replayAutoTimer);
+    window.gApp.replayAutoTimer = null;
+  }
+
   const modal = document.getElementById('victory-modal');
   if (modal) modal.style.display = 'none';
-  const banner = document.getElementById('terrain-view-banner');
-  if (banner) banner.style.display = 'block';
-  if (window.gApp && window.gApp.engine) {
-    window.gApp.engine.phase = 'GAME_OVER';
-  }
+  const toolbar = document.getElementById('aar-replay-toolbar');
+  if (toolbar) toolbar.style.display = 'flex';
+
+  // Lock in-game HUD action buttons
   ['btn-end-turn', 'btn-halt-all', 'btn-cancel-abilities', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery', 'btn-open-menu'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) { el.disabled = true; el.style.opacity = '0.4'; }
+    if (el) { el.disabled = true; el.style.opacity = '0.35'; el.style.pointerEvents = 'none'; }
   });
+
+  window.updateReplayToolbarUI();
+  if (window.gApp.ui) window.gApp.ui.updateHUD(eng);
+  try { if (window.gApp.audio) window.gApp.audio.playStamp(); } catch(e){}
+};
+
+window.enterTerrainView = window.startBattlefieldReplay;
+
+window.setReplayTurn = function(turnNumber) {
+  if (!window.gApp || !window.gApp.engine) return;
+  const eng = window.gApp.engine;
+  const snapshots = eng.turnHistory || [];
+  if (snapshots.length === 0) return;
+  const idx = Math.max(0, Math.min(snapshots.length - 1, parseInt(turnNumber, 10) - 1));
+  eng.replayTurnIndex = idx;
+  window.updateReplayToolbarUI();
+  if (window.gApp.ui) window.gApp.ui.updateHUD(eng);
+  try { if (window.gApp.audio) window.gApp.audio.playClick(); } catch(e){}
+};
+
+window.stepReplayTurn = function(delta) {
+  if (!window.gApp || !window.gApp.engine) return;
+  const eng = window.gApp.engine;
+  const snapshots = eng.turnHistory || [];
+  if (snapshots.length === 0) return;
+  const currentIdx = eng.replayTurnIndex !== undefined ? eng.replayTurnIndex : 0;
+  const newIdx = Math.max(0, Math.min(snapshots.length - 1, currentIdx + delta));
+  if (newIdx !== currentIdx) {
+    eng.replayTurnIndex = newIdx;
+    window.updateReplayToolbarUI();
+    if (window.gApp.ui) window.gApp.ui.updateHUD(eng);
+    try { if (window.gApp.audio) window.gApp.audio.playClick(); } catch(e){}
+  }
+};
+
+window.stepReplayTo = function(idx) {
+  if (!window.gApp || !window.gApp.engine) return;
+  const eng = window.gApp.engine;
+  const snapshots = eng.turnHistory || [];
+  if (snapshots.length === 0) return;
+  eng.replayTurnIndex = Math.max(0, Math.min(snapshots.length - 1, idx));
+  window.updateReplayToolbarUI();
+  if (window.gApp.ui) window.gApp.ui.updateHUD(eng);
+  try { if (window.gApp.audio) window.gApp.audio.playClick(); } catch(e){}
+};
+
+window.stepReplayToLast = function() {
+  if (!window.gApp || !window.gApp.engine) return;
+  const eng = window.gApp.engine;
+  const snapshots = eng.turnHistory || [];
+  if (snapshots.length === 0) return;
+  eng.replayTurnIndex = snapshots.length - 1;
+  window.updateReplayToolbarUI();
+  if (window.gApp.ui) window.gApp.ui.updateHUD(eng);
+  try { if (window.gApp.audio) window.gApp.audio.playClick(); } catch(e){}
+};
+
+window.toggleReplayAutoPlay = function() {
+  if (!window.gApp || !window.gApp.engine) return;
+  const eng = window.gApp.engine;
+  const snapshots = eng.turnHistory || [];
+  if (snapshots.length <= 1) return;
+
+  const playBtn = document.getElementById('btn-replay-play');
+  const playIcon = document.getElementById('replay-play-icon');
+
+  if (window.gApp.replayAutoTimer) {
+    clearInterval(window.gApp.replayAutoTimer);
+    window.gApp.replayAutoTimer = null;
+    if (playBtn) playBtn.classList.remove('playing');
+    if (playIcon) playIcon.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
+  } else {
+    // If currently at last turn, loop back to start
+    if (eng.replayTurnIndex >= snapshots.length - 1) {
+      eng.replayTurnIndex = 0;
+      window.updateReplayToolbarUI();
+      if (window.gApp.ui) window.gApp.ui.updateHUD(eng);
+    }
+    if (playBtn) playBtn.classList.add('playing');
+    if (playIcon) playIcon.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
+
+    window.gApp.replayAutoTimer = setInterval(() => {
+      if (!eng.isReplayMode || !window.gApp.replayAutoTimer) {
+        clearInterval(window.gApp.replayAutoTimer);
+        window.gApp.replayAutoTimer = null;
+        return;
+      }
+      if (eng.replayTurnIndex < snapshots.length - 1) {
+        eng.replayTurnIndex++;
+        window.updateReplayToolbarUI();
+        if (window.gApp.ui) window.gApp.ui.updateHUD(eng);
+        try { if (window.gApp.audio) window.gApp.audio.playClick(); } catch(e){}
+      } else {
+        // Finished replay
+        clearInterval(window.gApp.replayAutoTimer);
+        window.gApp.replayAutoTimer = null;
+        if (playBtn) playBtn.classList.remove('playing');
+        if (playIcon) playIcon.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
+      }
+    }, 1800);
+  }
+};
+
+window.updateReplayToolbarUI = function() {
+  if (!window.gApp || !window.gApp.engine) return;
+  const eng = window.gApp.engine;
+  const snapshots = eng.turnHistory || [];
+  const totalTurns = snapshots.length || 1;
+  const currentIdx = Math.max(0, Math.min(totalTurns - 1, eng.replayTurnIndex || 0));
+  const snap = snapshots[currentIdx];
+
+  const indicator = document.getElementById('replay-turn-indicator');
+  const unitStats = document.getElementById('replay-unit-stats');
+  const slider = document.getElementById('slider-replay-turn');
+  const btnFirst = document.getElementById('btn-replay-first');
+  const btnPrev = document.getElementById('btn-replay-prev');
+  const btnNext = document.getElementById('btn-replay-next');
+  const btnLast = document.getElementById('btn-replay-last');
+
+  const turnNumber = snap ? (snap.turnNumber || (currentIdx + 1)) : (currentIdx + 1);
+  const phaseText = snap && snap.phaseLabel === 'GAME_OVER' ? ' (FINAL)' : '';
+
+  if (indicator) indicator.textContent = `TURN ${turnNumber} OF ${snapshots[snapshots.length - 1]?.turnNumber || totalTurns}${phaseText}`;
+
+  if (unitStats && snap) {
+    const p1Count = (snap.p1Units || []).filter(u => u.isAlive || u.hp > 0).length;
+    const p2Count = (snap.p2Units || []).filter(u => u.isAlive || u.hp > 0).length;
+    unitStats.textContent = `Allied: ${p1Count} | Hostile: ${p2Count}`;
+  }
+
+  if (slider) {
+    slider.min = 1;
+    slider.max = totalTurns;
+    slider.value = currentIdx + 1;
+  }
+
+  if (btnFirst) btnFirst.disabled = (currentIdx === 0);
+  if (btnPrev) btnPrev.disabled = (currentIdx === 0);
+  if (btnNext) btnNext.disabled = (currentIdx >= totalTurns - 1);
+  if (btnLast) btnLast.disabled = (currentIdx >= totalTurns - 1);
 };
 
 window.showVictoryReport = function() {
+  if (window.gApp && window.gApp.replayAutoTimer) {
+    clearInterval(window.gApp.replayAutoTimer);
+    window.gApp.replayAutoTimer = null;
+  }
   const modal = document.getElementById('victory-modal');
   if (modal) modal.style.display = 'flex';
-  const banner = document.getElementById('terrain-view-banner');
-  if (banner) banner.style.display = 'none';
+  const toolbar = document.getElementById('aar-replay-toolbar');
+  if (toolbar) toolbar.style.display = 'none';
 };
 
 window.returnToMainMenu = function() {
   if (window.gApp) {
+    if (window.gApp.replayAutoTimer) {
+      clearInterval(window.gApp.replayAutoTimer);
+      window.gApp.replayAutoTimer = null;
+    }
+    if (window.gApp.engine) {
+      window.gApp.engine.isReplayMode = false;
+    }
     window.gApp.exitToMainMenu();
-  } else {
-    const banner = document.getElementById('terrain-view-banner');
-    if (banner) banner.style.display = 'none';
-    const modal = document.getElementById('victory-modal');
-    if (modal) modal.style.display = 'none';
-    const bModal = document.getElementById('modal-bootcamp-complete');
-    if (bModal) bModal.style.display = 'none';
-    const fModal = document.getElementById('modal-bootcamp-failed');
-    if (fModal) fModal.style.display = 'none';
-    const menu = document.getElementById('main-menu-overlay');
-    if (menu) menu.style.display = 'flex';
   }
+  const toolbar = document.getElementById('aar-replay-toolbar');
+  if (toolbar) toolbar.style.display = 'none';
+  const modal = document.getElementById('victory-modal');
+  if (modal) modal.style.display = 'none';
+  const bModal = document.getElementById('modal-bootcamp-complete');
+  if (bModal) bModal.style.display = 'none';
+  const fModal = document.getElementById('modal-bootcamp-failed');
+  if (fModal) fModal.style.display = 'none';
+  const menu = document.getElementById('main-menu-overlay');
+  if (menu) menu.style.display = 'flex';
   try { if (window.gApp && window.gApp.audio) window.gApp.audio.playPaper(); } catch(e){}
 };
 
@@ -7448,6 +7869,50 @@ document.addEventListener('keydown', (e) => {
     }
   }
 
+  // REPLAY MODE KEYBOARD SHORTCUTS
+  if (window.gApp && window.gApp.engine && window.gApp.engine.isReplayMode) {
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      window.stepReplayTurn(-1);
+      return;
+    }
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      window.stepReplayTurn(1);
+      return;
+    }
+    if (e.key === ' ' || e.code === 'Space') {
+      e.preventDefault();
+      window.toggleReplayAutoPlay();
+      return;
+    }
+    if (e.key === 'Home') {
+      e.preventDefault();
+      window.stepReplayTo(0);
+      return;
+    }
+    if (e.key === 'End') {
+      e.preventDefault();
+      window.stepReplayToLast();
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      window.showVictoryReport();
+      return;
+    }
+  }
+
+  // VICTORY / DEFEAT MODAL KEYBOARD SHORTCUTS (R for Replay)
+  const victoryModal = document.getElementById('victory-modal');
+  if (victoryModal && victoryModal.style.display !== 'none') {
+    if (e.key === 'r' || e.key === 'R') {
+      e.preventDefault();
+      window.enterTerrainView();
+      return;
+    }
+  }
+
   // Hotkey F1: Toggle Tactical Field Manual & Cheat-Sheet
   if (e.key === 'F1') {
     e.preventDefault();
@@ -7464,6 +7929,12 @@ document.addEventListener('keydown', (e) => {
     const csModal = document.getElementById('cheatsheet-modal');
     if (csModal && csModal.style.display !== 'none') {
       window.closeCheatSheetModal();
+      return;
+    }
+
+    const replayToolbar = document.getElementById('aar-replay-toolbar');
+    if (replayToolbar && replayToolbar.style.display !== 'none') {
+      window.showVictoryReport();
       return;
     }
 

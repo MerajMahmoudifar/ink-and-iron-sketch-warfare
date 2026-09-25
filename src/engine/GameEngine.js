@@ -48,8 +48,61 @@ export class GameEngine {
     this.combatLogs = [];
     this.listeners = [];
 
+    // AFTER-ACTION MATCH REPLAY RECORDER & STATE
+    this.turnHistory = [];
+    this.isReplayMode = false;
+    this.replayTurnIndex = 0;
+
     // Spawn starting Scout & Rifleman for both players at start
     this.spawnInitialUnits();
+    this.recordTurnSnapshot('PLANNING');
+  }
+
+  recordTurnSnapshot(phaseLabel = 'PLANNING') {
+    if (!this.turnHistory) this.turnHistory = [];
+
+    const cloneUnit = (u) => ({
+      id: u.id,
+      typeKey: u.typeKey || u.id,
+      name: u.name,
+      owner: u.owner,
+      x: u.x,
+      y: u.y,
+      hp: u.hp,
+      maxHp: u.maxHp,
+      attack: u.attack,
+      moveRange: u.moveRange,
+      attackRange: u.attackRange,
+      visionRange: u.visionRange,
+      category: u.category,
+      stance: u.stance,
+      waypoints: (u.waypoints || []).map(wp => ({ x: wp.x, y: wp.y })),
+      isAlive: (typeof u.isAlive === 'function') ? u.isAlive() : (u.hp > 0)
+    });
+
+    const gridClone = this.grid.map(row => row.map(tile => ({
+      ...tile,
+      owner: tile.owner
+    })));
+
+    const snapshot = {
+      turnNumber: this.turnNumber,
+      phaseLabel: phaseLabel,
+      timestamp: Date.now(),
+      grid: gridClone,
+      p1Units: this.players[1] ? this.players[1].units.map(cloneUnit) : [],
+      p2Units: this.players[2] ? this.players[2].units.map(cloneUnit) : [],
+      p1Ink: this.players[1] ? this.players[1].ink : 0,
+      p2Ink: this.players[2] ? this.players[2].ink : 0,
+      combatLogs: [...(this.combatLogs || [])]
+    };
+
+    const existingIdx = this.turnHistory.findIndex(s => s.turnNumber === this.turnNumber && s.phaseLabel === phaseLabel);
+    if (existingIdx !== -1) {
+      this.turnHistory[existingIdx] = snapshot;
+    } else {
+      this.turnHistory.push(snapshot);
+    }
   }
 
   spawnInitialUnits() {
