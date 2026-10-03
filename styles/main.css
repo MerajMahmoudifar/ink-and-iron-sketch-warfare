@@ -1162,6 +1162,16 @@ select.btn-sketch option:disabled {
   max-width: 280px;
 }
 
+.mp-select-sm-wrap {
+  width: auto;
+  min-width: 135px;
+}
+
+.diesel-select-trigger.mp-select-sm {
+  padding: 4px 8px !important;
+  font-size: 0.72rem !important;
+}
+
 select.diesel-hidden-select {
   display: none !important;
   position: absolute !important;

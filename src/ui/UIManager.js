@@ -429,6 +429,12 @@ export class UIManager {
       if (activeBtn) activeBtn.classList.add('active');
       if (activePane) activePane.style.display = 'flex';
 
+      if (typeof UnitIcons !== 'undefined' && activePane) {
+        UnitIcons.renderStaticBadges(activePane);
+      }
+      if (window.initCustomSelects) window.initCustomSelects();
+      if (window.syncCustomSelects) window.syncCustomSelects();
+
       if (btnId === 'tab-btn-bootcamp' || btnId === 'tab-btn-account') {
         if (this.app && this.app.bootcampManager) this.app.bootcampManager.updateMenuUI();
       }

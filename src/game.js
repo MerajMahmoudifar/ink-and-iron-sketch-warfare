@@ -5854,8 +5854,8 @@ window.switchMenuTab = function(btnId, paneId) {
   });
   const tabs = [
     { btn: 'tab-btn-play', pane: 'tab-pane-play' },
+    { btn: 'tab-btn-multiplayer', pane: 'tab-pane-multiplayer' },
     { btn: 'tab-btn-bootcamp', pane: 'tab-pane-bootcamp' },
-    { btn: 'tab-btn-factions', pane: 'tab-pane-factions' },
     { btn: 'tab-btn-codex', pane: 'tab-pane-codex' },
     { btn: 'tab-btn-account', pane: 'tab-pane-account' },
     { btn: 'tab-btn-settings', pane: 'tab-pane-settings' }
@@ -5873,6 +5873,9 @@ window.switchMenuTab = function(btnId, paneId) {
   if (typeof UnitIcons !== 'undefined' && activePane) {
     UnitIcons.renderStaticBadges(activePane);
   }
+  if (window.initCustomSelects) window.initCustomSelects();
+  if (window.syncCustomSelects) window.syncCustomSelects();
+
   if (btnId === 'tab-btn-bootcamp' || btnId === 'tab-btn-account') {
     if (window.gApp && window.gApp.bootcampManager) window.gApp.bootcampManager.updateMenuUI();
   }
@@ -6248,6 +6251,9 @@ window.updateMultiplayerLobbyUI = function(room) {
       startBtn.style.display = 'none';
     }
   }
+
+  if (window.initCustomSelects) window.initCustomSelects();
+  if (window.syncCustomSelects) window.syncCustomSelects();
 };
 
 window.startBattlefieldReplay = function() {
@@ -8144,7 +8150,7 @@ window.deleteAdminUser = async function(id) {
  * preventing native browser OS dropdown popup glitches and Segoe UI flicker.
  */
 function initCustomSelects() {
-  const selects = document.querySelectorAll('#tab-pane-play select.btn-sketch, #tab-pane-settings select.btn-sketch');
+  const selects = document.querySelectorAll('select.btn-sketch, select.setting-select, select.mp-select-sm');
   selects.forEach(selectEl => {
     if (selectEl.dataset.customized === 'true') {
       if (typeof selectEl._syncCustomSelect === 'function') selectEl._syncCustomSelect();
@@ -8155,6 +8161,9 @@ function initCustomSelects() {
     wrapper.className = 'diesel-select-wrapper';
     if (selectEl.classList.contains('setting-select')) {
       wrapper.classList.add('setting-select-wrap');
+    }
+    if (selectEl.classList.contains('mp-select-sm')) {
+      wrapper.classList.add('mp-select-sm-wrap');
     }
 
     // Insert wrapper before select, then place select inside wrapper
@@ -8171,6 +8180,9 @@ function initCustomSelects() {
     const trigger = document.createElement('button');
     trigger.type = 'button';
     trigger.className = 'diesel-select-trigger btn-sketch';
+    if (selectEl.classList.contains('mp-select-sm')) {
+      trigger.classList.add('mp-select-sm');
+    }
     trigger.setAttribute('aria-haspopup', 'listbox');
     trigger.setAttribute('aria-expanded', 'false');
 
@@ -8196,6 +8208,15 @@ function initCustomSelects() {
       if (selectedOpt) {
         labelSpan.textContent = selectedOpt.textContent;
       }
+      trigger.disabled = !!selectEl.disabled;
+      trigger.classList.toggle('disabled', !!selectEl.disabled);
+      if (selectEl.disabled) {
+        trigger.style.opacity = '0.5';
+        trigger.style.cursor = 'not-allowed';
+      } else {
+        trigger.style.opacity = '';
+        trigger.style.cursor = 'pointer';
+      }
       Array.from(menu.children).forEach(item => {
         item.classList.toggle('selected', item.dataset.value === selectEl.value);
       });
@@ -8217,7 +8238,7 @@ function initCustomSelects() {
         } else {
           item.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (opt.disabled) return;
+            if (opt.disabled || selectEl.disabled) return;
             selectOption(opt.value);
           });
         }
@@ -8232,6 +8253,7 @@ function initCustomSelects() {
     }
 
     function selectOption(val) {
+      if (selectEl.disabled) return;
       const valueChanged = selectEl.value !== val;
       // Always re-trigger for 'CUSTOM' so the modal opens even if already selected
       if (valueChanged || val === 'CUSTOM') {
@@ -8249,6 +8271,7 @@ function initCustomSelects() {
     }
 
     function openMenu() {
+      if (selectEl.disabled) return;
       // Close other open diesel selects
       document.querySelectorAll('.diesel-select-wrapper.open').forEach(other => {
         if (other !== wrapper) {
@@ -8292,6 +8315,7 @@ function initCustomSelects() {
     }
 
     function toggleMenu() {
+      if (selectEl.disabled) return;
       if (wrapper.classList.contains('open')) {
         closeMenu();
       } else {
@@ -8302,6 +8326,7 @@ function initCustomSelects() {
     trigger.addEventListener('click', (e) => {
       e.stopPropagation();
       e.preventDefault();
+      if (selectEl.disabled) return;
       try {
         if (window.gApp && window.gApp.audio) window.gApp.audio.playClick();
       } catch (err) {}
