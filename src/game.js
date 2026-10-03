@@ -1067,6 +1067,9 @@ class GameEngine {
         units: this.players[slot].units.map(u => ({
           id: u.id,
           typeKey: u.typeKey,
+          x: u.x,
+          y: u.y,
+          hp: u.hp,
           waypoints: (u.waypoints || []).map(w => ({ x: w.x, y: w.y })),
           stance: u.stance || 'ADVANCE',
           targetUnitId: u.targetUnit ? u.targetUnit.id : null
@@ -1168,9 +1171,9 @@ class GameEngine {
     const player = this.players[playerId];
     const ability = ABILITIES[abilityKey];
     if (!ability) return { success: false, reason: 'Unknown ability' };
-    if (player.cp < ability.cpCost) return { success: false, reason: `Not enough Command Points (Need ${ability.cpCost} CP)` };
+    if (!isRemote && player.cp < ability.cpCost) return { success: false, reason: `Not enough Command Points (Need ${ability.cpCost} CP)` };
 
-    player.cp -= ability.cpCost;
+    player.cp = Math.max(0, player.cp - ability.cpCost);
 
     if (this.isMultiplayer && !isRemote) {
       if (!this.pendingAbilitiesThisTurn) this.pendingAbilitiesThisTurn = [];
@@ -1360,25 +1363,28 @@ class GameEngine {
     const player = this.players[playerId];
     const template = UNIT_TYPES[typeKey];
     if (!template) return { success: false, reason: 'Unknown unit type' };
-    if (template.factionLock && template.factionLock !== player.faction.id) return { success: false, reason: 'Unit locked to other nation' };
-    if (player.ink < template.cost) return { success: false, reason: `Not enough Ink (Need ${template.cost} Ink)` };
 
-    const tile = this.grid[spawnY][spawnX];
-    if (!tile || tile.owner !== playerId) return { success: false, reason: 'Must deploy at your Base or captured Supply Zone!' };
-    
-    const enemyNearby = this.getAllUnits().some(other => {
-      if (other.owner === playerId || !other.isAlive()) return false;
-      return Math.abs(other.x - spawnX) + Math.abs(other.y - spawnY) <= 1;
-    });
+    if (!isRemote) {
+      if (template.factionLock && template.factionLock !== player.faction.id) return { success: false, reason: 'Unit locked to other nation' };
+      if (player.ink < template.cost) return { success: false, reason: `Not enough Ink (Need ${template.cost} Ink)` };
 
-    if (enemyNearby) {
-      return { success: false, reason: `Spawn Point ${formatCoord(spawnX, spawnY)} is UNDER SIEGE! Enemy troops are blocking deployment.` };
+      const tile = this.grid[spawnY][spawnX];
+      if (!tile || tile.owner !== playerId) return { success: false, reason: 'Must deploy at your Base or captured Supply Zone!' };
+      
+      const enemyNearby = this.getAllUnits().some(other => {
+        if (other.owner === playerId || !other.isAlive()) return false;
+        return Math.abs(other.x - spawnX) + Math.abs(other.y - spawnY) <= 1;
+      });
+
+      if (enemyNearby) {
+        return { success: false, reason: `Spawn Point ${formatCoord(spawnX, spawnY)} is UNDER SIEGE! Enemy troops are blocking deployment.` };
+      }
+
+      const occupied = this.getAllUnits().some(u => u.x === spawnX && u.y === spawnY && u.isAlive());
+      if (occupied) return { success: false, reason: `Deployment Tile ${formatCoord(spawnX, spawnY)} is occupied by another unit!` };
     }
 
-    const occupied = this.getAllUnits().some(u => u.x === spawnX && u.y === spawnY && u.isAlive());
-    if (occupied) return { success: false, reason: `Deployment Tile ${formatCoord(spawnX, spawnY)} is occupied by another unit!` };
-
-    player.ink -= template.cost;
+    player.ink = Math.max(0, player.ink - template.cost);
     const unitId = customId || `U_SPAWN_P${playerId}_T${this.turnNumber}_${Date.now().toString(36)}_${Math.floor(Math.random()*1000)}`;
     const newUnit = new Unit(typeKey, playerId, spawnX, spawnY, unitId);
     player.units.push(newUnit);
@@ -6951,21 +6957,29 @@ class App {
     const mySlot = eng.localPlayerSlot || 1;
     const oppSlot = mySlot === 1 ? 2 : 1;
 
-    // 1. Apply opponent unit waypoints and stances
-    if (opponentPayload && opponentPayload.units) {
-      opponentPayload.units.forEach(uOrder => {
-        const oppUnit = eng.players[oppSlot].units.find(u => u.id === uOrder.id);
-        if (oppUnit) {
-          oppUnit.waypoints = (uOrder.waypoints || []).map(w => ({ x: w.x, y: w.y }));
-          oppUnit.stance = uOrder.stance || 'ADVANCE';
+    // 1. Apply opponent spawns FIRST
+    if (opponentPayload && opponentPayload.spawns) {
+      opponentPayload.spawns.forEach(spawn => {
+        const existing = eng.players[oppSlot].units.find(u => u.id === spawn.id);
+        if (!existing) {
+          eng.buyUnit(oppSlot, spawn.typeKey, spawn.x, spawn.y, true, spawn.id);
         }
       });
     }
 
-    // 2. Apply opponent spawns
-    if (opponentPayload && opponentPayload.spawns) {
-      opponentPayload.spawns.forEach(spawn => {
-        eng.buyUnit(oppSlot, spawn.typeKey, spawn.x, spawn.y, true, spawn.id);
+    // 2. Apply opponent unit waypoints, stances, and reconcile missing units
+    if (opponentPayload && opponentPayload.units) {
+      opponentPayload.units.forEach(uOrder => {
+        let oppUnit = eng.players[oppSlot].units.find(u => u.id === uOrder.id);
+        if (!oppUnit) {
+          oppUnit = new Unit(uOrder.typeKey || 'RIFLEMAN', oppSlot, uOrder.x, uOrder.y, uOrder.id);
+          if (uOrder.hp !== undefined) oppUnit.hp = uOrder.hp;
+          eng.players[oppSlot].units.push(oppUnit);
+        } else {
+          if (uOrder.hp !== undefined) oppUnit.hp = uOrder.hp;
+        }
+        oppUnit.waypoints = (uOrder.waypoints || []).map(w => ({ x: w.x, y: w.y }));
+        oppUnit.stance = uOrder.stance || 'ADVANCE';
       });
     }
 

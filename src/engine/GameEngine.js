@@ -223,32 +223,35 @@ export class GameEngine {
     this.players[playerId].zonesCaptured = zonesCount;
   }
 
-  buyUnit(playerId, typeKey, spawnX, spawnY, customId = null) {
+  buyUnit(playerId, typeKey, spawnX, spawnY, isRemote = false, customId = null) {
     const player = this.players[playerId];
     const unitTemplate = UNIT_TYPES[typeKey];
 
     if (!unitTemplate) return { success: false, reason: 'Unknown unit type' };
-    if (unitTemplate.factionLock && unitTemplate.factionLock !== player.faction.id) {
-      return { success: false, reason: 'Unit locked to other nation' };
-    }
-    if (player.ink < unitTemplate.cost) {
-      return { success: false, reason: 'Not enough Ink currency' };
-    }
 
-    // Verify spawn location (Main base or captured zone owned by player)
-    const tile = this.grid[spawnY][spawnX];
-    if (!tile || tile.owner !== playerId) {
-      return { success: false, reason: 'Must spawn at base or owned Supply Zone' };
-    }
+    if (!isRemote) {
+      if (unitTemplate.factionLock && unitTemplate.factionLock !== player.faction.id) {
+        return { success: false, reason: 'Unit locked to other nation' };
+      }
+      if (player.ink < unitTemplate.cost) {
+        return { success: false, reason: 'Not enough Ink currency' };
+      }
 
-    // Check if tile already occupied
-    const occupied = this.getAllUnits().some(u => u.x === spawnX && u.y === spawnY);
-    if (occupied) {
-      return { success: false, reason: 'Tile is occupied by another unit' };
+      // Verify spawn location (Main base or captured zone owned by player)
+      const tile = this.grid[spawnY][spawnX];
+      if (!tile || tile.owner !== playerId) {
+        return { success: false, reason: 'Must spawn at base or owned Supply Zone' };
+      }
+
+      // Check if tile already occupied
+      const occupied = this.getAllUnits().some(u => u.x === spawnX && u.y === spawnY);
+      if (occupied) {
+        return { success: false, reason: 'Tile is occupied by another unit' };
+      }
     }
 
     // Deduct cost and spawn
-    player.ink -= unitTemplate.cost;
+    player.ink = Math.max(0, player.ink - unitTemplate.cost);
     const unitId = customId || `U_SPAWN_P${playerId}_T${this.turnNumber}_${Date.now().toString(36)}_${Math.floor(Math.random()*1000)}`;
     const newUnit = new Unit(typeKey, playerId, spawnX, spawnY, unitId);
     player.units.push(newUnit);
