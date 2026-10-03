@@ -749,10 +749,20 @@ export class MultiplayerManager {
     const mySlot = `p${this.playerSlot}`;
     const oppSlot = this.playerSlot === 1 ? 'p2' : 'p1';
 
-    // Step A: If opponent committed their hash and we have a pending commit, auto-reveal our payload
-    if (turnData[`${oppSlot}Commit`] && this.pendingTurnCommit && this.pendingTurnCommit.turnNumber === currentTurn) {
-      if (!turnData[`${mySlot}Data`]) {
-        await this.revealTurnData(currentTurn, this.pendingTurnCommit.revealData);
+    // Step A: If opponent committed their hash, mark opponent as ready and auto-reveal our payload if committed
+    if (turnData[`${oppSlot}Commit`]) {
+      if (engine && !engine.isOpponentReadyThisTurn) {
+        engine.isOpponentReadyThisTurn = true;
+        if (window.gApp?.ui) {
+          window.gApp.ui.updateHUD(engine);
+          window.gApp.ui.showToast('Enemy Ready', 'Enemy Commander has committed their turn orders!');
+        }
+        try { if (engine.audio) engine.audio.playCountdownTick(); } catch(e){}
+      }
+      if (this.pendingTurnCommit && this.pendingTurnCommit.turnNumber === currentTurn) {
+        if (!turnData[`${mySlot}Data`]) {
+          await this.revealTurnData(currentTurn, this.pendingTurnCommit.revealData);
+        }
       }
     }
 

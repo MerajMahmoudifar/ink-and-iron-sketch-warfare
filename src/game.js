@@ -4411,8 +4411,15 @@ class UIManager {
         engine.bootcampManager.updateHUD(engine);
       }
     } else if (engine.phase === 'PLANNING') {
-      this.phaseBadge.textContent = `Planning Phase — ${engine.planningTimeRemaining}s`;
-      this.phaseBadge.style.background = '';
+      const isOppReady = !!engine.isOpponentReadyThisTurn;
+      if (isOppReady) {
+        this.phaseBadge.textContent = `Planning (${engine.planningTimeRemaining}s) — ENEMY READY!`;
+        this.phaseBadge.className = 'phase-badge enemy-ready-pulse';
+      } else {
+        this.phaseBadge.textContent = `Planning Phase — ${engine.planningTimeRemaining}s`;
+        this.phaseBadge.className = 'phase-badge';
+        this.phaseBadge.style.background = '';
+      }
       const maxPlanningSecs = engine.planningDurationConfig || 40;
       this.timerBarFill.style.width = `${Math.min(100, Math.max(0, (engine.planningTimeRemaining / maxPlanningSecs) * 100))}%`;
       const dialog = document.getElementById('bootcamp-instructor-dialog');
@@ -4421,6 +4428,7 @@ class UIManager {
       if (pointer) pointer.style.display = 'none';
     } else if (engine.phase === 'PLAYBACK') {
       this.phaseBadge.textContent = `Combat Playback — ${engine.playbackTimeRemaining}s`;
+      this.phaseBadge.className = 'phase-badge';
       this.phaseBadge.style.background = '';
       const maxPlaybackSecs = engine.playbackDurationConfig || 3;
       this.timerBarFill.style.width = `${(engine.playbackTimeRemaining / maxPlaybackSecs) * 100}%`;
@@ -4430,6 +4438,7 @@ class UIManager {
       if (pointer) pointer.style.display = 'none';
     } else if (engine.phase === 'GAME_OVER') {
       this.phaseBadge.textContent = `Game Over`;
+      this.phaseBadge.className = 'phase-badge';
       this.timerBarFill.style.width = '0%';
     }
 
@@ -4440,7 +4449,13 @@ class UIManager {
 
     this.p1InkDisplay.textContent = `Ink: ${localPlayer.ink}`;
     if (this.p1CpDisplay) this.p1CpDisplay.textContent = `CP: ${localPlayer.cp}/10`;
-    if (this.p2InkDisplay) this.p2InkDisplay.textContent = `${oppPlayer.name}: ${oppPlayer.ink}`;
+    if (this.p2InkDisplay) {
+      if (engine.isMultiplayer && engine.isOpponentReadyThisTurn) {
+        this.p2InkDisplay.innerHTML = `${oppPlayer.name}: ${oppPlayer.ink} <span class="opp-ready-indicator"><span class="opp-ready-dot"></span>READY</span>`;
+      } else {
+        this.p2InkDisplay.textContent = `${oppPlayer.name}: ${oppPlayer.ink}`;
+      }
+    }
 
     try { this.renderUnitStore(engine); } catch(e){ console.error('Error rendering unit store:', e); }
     try { this.renderInspector(engine); } catch(e){ console.error('Error rendering inspector:', e); }
@@ -4472,6 +4487,7 @@ class UIManager {
       if (endTurnBtn) {
         endTurnBtn.innerHTML = '<span class="btn-end-title">DEPLOY NOW</span> <span class="hotkey-pill hotkey-pill-light">Space / E</span>';
         endTurnBtn.classList.add('btn-accent');
+        endTurnBtn.classList.remove('btn-enemy-ready-highlight');
         endTurnBtn.disabled = false;
         endTurnBtn.style.opacity = '1';
         endTurnBtn.style.pointerEvents = 'auto';
@@ -4482,6 +4498,7 @@ class UIManager {
       const endTurnBtn = document.getElementById('btn-end-turn');
       if (endTurnBtn) {
         endTurnBtn.innerHTML = '<span class="btn-end-title">WAITING FOR ENEMY...</span>';
+        endTurnBtn.classList.remove('btn-enemy-ready-highlight');
         endTurnBtn.disabled = true;
         endTurnBtn.style.opacity = '0.5';
         endTurnBtn.style.pointerEvents = 'none';
@@ -4494,8 +4511,15 @@ class UIManager {
       });
       const endTurnBtn = document.getElementById('btn-end-turn');
       if (endTurnBtn) {
-        endTurnBtn.innerHTML = '<span class="btn-end-title">END PHASE &#9654;&#9654;</span> <span class="hotkey-pill hotkey-pill-light">Space / E</span>';
-        endTurnBtn.classList.remove('btn-accent');
+        if (engine.isOpponentReadyThisTurn) {
+          endTurnBtn.innerHTML = '<span class="btn-end-title">ENEMY READY • DEPLOY NOW ▶▶</span> <span class="hotkey-pill hotkey-pill-light">Space / E</span>';
+          endTurnBtn.classList.add('btn-enemy-ready-highlight');
+          endTurnBtn.classList.add('btn-accent');
+        } else {
+          endTurnBtn.innerHTML = '<span class="btn-end-title">END PHASE &#9654;&#9654;</span> <span class="hotkey-pill hotkey-pill-light">Space / E</span>';
+          endTurnBtn.classList.remove('btn-enemy-ready-highlight');
+          endTurnBtn.classList.remove('btn-accent');
+        }
       }
     }
 
