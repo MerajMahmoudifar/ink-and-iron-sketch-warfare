@@ -3031,7 +3031,23 @@ class SketchRenderer {
 
       const gridR = Math.max(0, Math.min(7, Math.round(unit.renderY)));
       const gridC = Math.max(0, Math.min(7, Math.round(unit.renderX)));
-      const isVisibleToLocal = localVision[gridR][gridC] || unit.owner === localSlot;
+      
+      const isEnemy = unit.owner !== localSlot;
+      const tile = engine.grid[gridR] && engine.grid[gridR][gridC];
+      const isForestAmbush = isEnemy && tile && tile.id === 'FOREST' && unit.stance === 'AMBUSH' && unit.isAmbusherHidden;
+
+      let isAmbushDetected = false;
+      if (isForestAmbush) {
+        const hasAdjacentAllied = engine.players[localSlot]?.units?.some(allied => 
+          allied.isAlive() && Math.abs(allied.x - gridC) <= 1 && Math.abs(allied.y - gridR) <= 1
+        );
+        const hasFlare = engine.activeFlares?.some(f => 
+          f.owner === localSlot && Math.abs(f.x - gridC) <= 1 && Math.abs(f.y - gridR) <= 1
+        );
+        isAmbushDetected = hasAdjacentAllied || hasFlare || isTerrainView;
+      }
+
+      const isVisibleToLocal = isTerrainView || (unit.owner === localSlot) || (localVision[gridR][gridC] && (!isForestAmbush || isAmbushDetected));
 
       if (isVisibleToLocal) {
         const pos = this.getScreenCoords(unit.renderX, unit.renderY);
@@ -4929,12 +4945,26 @@ class UIManager {
     const localVision = isTerrainView ? Array(8).fill(null).map(() => Array(8).fill(true)) : engine.calculateVision(localSlot);
     const isTileVisible = localVision[sel.y][sel.x];
 
-    // Mask enemy units on tiles shrouded by Fog of War (revealed in replay mode)
+    // Mask enemy units on tiles shrouded by Fog of War or concealed in Forest Ambush
     const allUnitsInView = isReplay
       ? [...(currentSnap.p1Units || []), ...(currentSnap.p2Units || [])]
       : engine.getAllUnits();
     const rawUnit = allUnitsInView.find(u => u.x === sel.x && u.y === sel.y && ((typeof u.isAlive === 'function' ? u.isAlive() : u.isAlive) || (u.hp > 0)));
-    const unitOnTile = (rawUnit && (rawUnit.owner === localSlot || isTileVisible)) ? rawUnit : null;
+    
+    const isEnemy = rawUnit && rawUnit.owner !== localSlot;
+    const isForestAmbush = isEnemy && tile && tile.id === 'FOREST' && rawUnit.stance === 'AMBUSH' && rawUnit.isAmbusherHidden;
+    let isAmbushDetected = false;
+    if (isForestAmbush) {
+      const hasAdjacentAllied = engine.players[localSlot]?.units?.some(allied => 
+        allied.isAlive() && Math.abs(allied.x - sel.x) <= 1 && Math.abs(allied.y - sel.y) <= 1
+      );
+      const hasFlare = engine.activeFlares?.some(f => 
+        f.owner === localSlot && Math.abs(f.x - sel.x) <= 1 && Math.abs(f.y - sel.y) <= 1
+      );
+      isAmbushDetected = hasAdjacentAllied || hasFlare || isTerrainView;
+    }
+    const isUnitVisible = rawUnit && (isTerrainView || rawUnit.owner === localSlot || (isTileVisible && (!isForestAmbush || isAmbushDetected)));
+    const unitOnTile = isUnitVisible ? rawUnit : null;
 
     const colLetter = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][sel.x] || String(sel.x);
     const rowNum = sel.y + 1;
@@ -7186,7 +7216,20 @@ class App {
       return;
     }
 
-    const unit = this.engine.getAllUnits().find(u => u.x === hoveredTile.x && u.y === hoveredTile.y && u.isAlive());
+    const rawUnit = this.engine.getAllUnits().find(u => u.x === hoveredTile.x && u.y === hoveredTile.y && u.isAlive());
+    const isEnemy = rawUnit && rawUnit.owner !== localSlot;
+    const isForestAmbush = isEnemy && tile && tile.id === 'FOREST' && rawUnit.stance === 'AMBUSH' && rawUnit.isAmbusherHidden;
+    let isAmbushDetected = false;
+    if (isForestAmbush) {
+      const hasAdjacentAllied = this.engine.players[localSlot]?.units?.some(allied => 
+        allied.isAlive() && Math.abs(allied.x - hoveredTile.x) <= 1 && Math.abs(allied.y - hoveredTile.y) <= 1
+      );
+      const hasFlare = this.engine.activeFlares?.some(f => 
+        f.owner === localSlot && Math.abs(f.x - hoveredTile.x) <= 1 && Math.abs(f.y - hoveredTile.y) <= 1
+      );
+      isAmbushDetected = hasAdjacentAllied || hasFlare || (this.engine.phase === 'GAME_OVER');
+    }
+    const unit = (rawUnit && (!isForestAmbush || isAmbushDetected || rawUnit.owner === localSlot)) ? rawUnit : null;
 
     if (unit) {
       const allegiance = unit.owner === localSlot ? '<span style="color:#60a5fa; font-weight:700;">ALLIED' : '<span style="color:#f87171; font-weight:700;">HOSTILE';
