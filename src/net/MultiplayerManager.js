@@ -756,8 +756,12 @@ export class MultiplayerManager {
       }
     }
 
-    // Step B: If both players have revealed their data, verify and execute playback!
-    if (turnData.p1Data && turnData.p2Data && !turnData.resolvedLocally) {
+    // Step B: If both players have revealed their data, verify and execute playback exactly once!
+    this.resolvedTurns = this.resolvedTurns || new Set();
+    const turnKey = `${room.id}_turn_${currentTurn}`;
+
+    if (turnData.p1Data && turnData.p2Data && !this.resolvedTurns.has(turnKey)) {
+      this.resolvedTurns.add(turnKey);
       turnData.resolvedLocally = true;
 
       // Verify cryptographic hashes for integrity
@@ -782,6 +786,7 @@ export class MultiplayerManager {
   }
 
   leaveRoom() {
+    this.resolvedTurns = new Set();
     if (this.roomUnsubscribe) {
       this.roomUnsubscribe();
       this.roomUnsubscribe = null;

@@ -6987,6 +6987,10 @@ class App {
     if (opponentPayload && opponentPayload.abilities) {
       opponentPayload.abilities.forEach(ab => {
         eng.useAbility(oppSlot, ab.abilityKey, ab.x, ab.y, true);
+        try {
+          if (ab.abilityKey === 'RECON_FLARE' && eng.audio) eng.audio.playFlareSound();
+          else if (ab.abilityKey === 'SMOKE_SCREEN' && eng.audio) eng.audio.playSmokeSound();
+        } catch(e){}
       });
     }
 
