@@ -786,6 +786,7 @@ class GameEngine {
     this.currentPlaybackStep = 0;
     this.timerInterval = null;
     this.isWaitingForOpponentTurn = false;
+    this.isOpponentReadyThisTurn = false;
     this.pendingSpawnsThisTurn = [];
     this.pendingAbilitiesThisTurn = [];
 
@@ -1122,6 +1123,7 @@ class GameEngine {
     this.phase = GAME_PHASES.PLANNING;
     this.planningTimeRemaining = this.bootcampLesson ? Infinity : this.planningDurationConfig;
     this.isWaitingForOpponentTurn = false;
+    this.isOpponentReadyThisTurn = false;
     this.pendingSpawnsThisTurn = [];
     this.pendingAbilitiesThisTurn = [];
 
@@ -4411,9 +4413,9 @@ class UIManager {
         engine.bootcampManager.updateHUD(engine);
       }
     } else if (engine.phase === 'PLANNING') {
-      const isOppReady = !!engine.isOpponentReadyThisTurn;
+      const isOppReady = !!(engine.isMultiplayer && engine.isOpponentReadyThisTurn);
       if (isOppReady) {
-        this.phaseBadge.textContent = `Planning (${engine.planningTimeRemaining}s) — ENEMY READY!`;
+        this.phaseBadge.textContent = `Planning (${engine.planningTimeRemaining}s) • ENEMY READY`;
         this.phaseBadge.className = 'phase-badge enemy-ready-pulse';
       } else {
         this.phaseBadge.textContent = `Planning Phase — ${engine.planningTimeRemaining}s`;
@@ -4511,15 +4513,13 @@ class UIManager {
       });
       const endTurnBtn = document.getElementById('btn-end-turn');
       if (endTurnBtn) {
-        if (engine.isOpponentReadyThisTurn) {
-          endTurnBtn.innerHTML = '<span class="btn-end-title">ENEMY READY • DEPLOY NOW ▶▶</span> <span class="hotkey-pill hotkey-pill-light">Space / E</span>';
+        endTurnBtn.innerHTML = '<span class="btn-end-title">END PHASE &#9654;&#9654;</span> <span class="hotkey-pill hotkey-pill-light">Space / E</span>';
+        if (engine.isMultiplayer && engine.isOpponentReadyThisTurn) {
           endTurnBtn.classList.add('btn-enemy-ready-highlight');
-          endTurnBtn.classList.add('btn-accent');
         } else {
-          endTurnBtn.innerHTML = '<span class="btn-end-title">END PHASE &#9654;&#9654;</span> <span class="hotkey-pill hotkey-pill-light">Space / E</span>';
           endTurnBtn.classList.remove('btn-enemy-ready-highlight');
-          endTurnBtn.classList.remove('btn-accent');
         }
+        endTurnBtn.classList.remove('btn-accent');
       }
     }
 
@@ -7052,6 +7052,7 @@ class App {
     eng.pendingSpawnsThisTurn = [];
     eng.pendingAbilitiesThisTurn = [];
     eng.isWaitingForOpponentTurn = false;
+    eng.isOpponentReadyThisTurn = false;
 
     // 5. Trigger synchronized playback phase
     eng.phase = GAME_PHASES.PLAYBACK;

@@ -749,9 +749,9 @@ export class MultiplayerManager {
     const mySlot = `p${this.playerSlot}`;
     const oppSlot = this.playerSlot === 1 ? 'p2' : 'p1';
 
-    // Step A: If opponent committed their hash, mark opponent as ready and auto-reveal our payload if committed
+    // Step A: If opponent committed their hash for current turn, mark opponent as ready
     if (turnData[`${oppSlot}Commit`]) {
-      if (engine && !engine.isOpponentReadyThisTurn) {
+      if (engine && engine.isMultiplayer && !engine.isOpponentReadyThisTurn) {
         engine.isOpponentReadyThisTurn = true;
         if (window.gApp?.ui) {
           window.gApp.ui.updateHUD(engine);
@@ -763,6 +763,10 @@ export class MultiplayerManager {
         if (!turnData[`${mySlot}Data`]) {
           await this.revealTurnData(currentTurn, this.pendingTurnCommit.revealData);
         }
+      }
+    } else {
+      if (engine) {
+        engine.isOpponentReadyThisTurn = false;
       }
     }
 
