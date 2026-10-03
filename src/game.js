@@ -5954,6 +5954,62 @@ window.cancelQuickMatch = function() {
   if (lobbyView) lobbyView.style.display = 'none';
 };
 
+window.openFirebaseRulesModal = function() {
+  const modal = document.getElementById('modal-firebase-rules');
+  if (modal) modal.style.display = 'flex';
+};
+
+window.closeFirebaseRulesModal = function() {
+  const modal = document.getElementById('modal-firebase-rules');
+  if (modal) modal.style.display = 'none';
+};
+
+window.copyFirebaseRules = function() {
+  const rules = `{
+  "rules": {
+    "matchmaking": {
+      ".read": true,
+      ".write": true
+    },
+    "rooms": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}`;
+  navigator.clipboard.writeText(rules).then(() => {
+    const btn = document.getElementById('btn-copy-firebase-rules');
+    if (btn) {
+      const orig = btn.textContent;
+      btn.textContent = 'Copied to Clipboard!';
+      setTimeout(() => { btn.textContent = orig; }, 2500);
+    }
+    if (window.gApp?.ui) {
+      window.gApp.ui.showToast('Rules Copied', 'Firebase Realtime Database rules copied! Paste in Firebase Console > Rules.');
+    }
+  }).catch(() => {
+    prompt('Copy Security Rules JSON:', rules);
+  });
+};
+
+window.updateNetworkBadge = function(mode, message) {
+  const badge = document.getElementById('mp-network-status-badge');
+  if (!badge) return;
+  if (mode === 'LOCAL_MESH') {
+    badge.textContent = 'LOCAL MESH ACTIVE';
+    badge.style.background = 'rgba(234, 179, 8, 0.15)';
+    badge.style.color = '#facc15';
+    badge.style.borderColor = 'rgba(234, 179, 8, 0.4)';
+    badge.title = message || 'Multi-tab and local testing active. Open Firebase Rules Guide to enable global internet warfare.';
+  } else {
+    badge.textContent = 'CLOUD READY';
+    badge.style.background = 'rgba(34, 197, 94, 0.15)';
+    badge.style.color = '#4ade80';
+    badge.style.borderColor = 'rgba(34, 197, 94, 0.4)';
+    badge.title = message || 'Firebase Realtime Database Cloud Network connected.';
+  }
+};
+
 window.createCustomRoom = async function() {
   if (window.checkUserBannedState && window.checkUserBannedState()) {
     alert("ACCOUNT SUSPENDED: Your Commander profile is banned by an Administrator.");
@@ -5961,10 +6017,17 @@ window.createCustomRoom = async function() {
   }
   if (!window.gMultiplayer) return;
   try {
-    await window.gMultiplayer.createRoom();
+    const res = await window.gMultiplayer.createRoom();
+    if (res && res.transport === 'LOCAL_MESH' && window.gApp?.ui) {
+      window.gApp.ui.showToast('Local Mesh Active', `Created room [${res.roomId}] via Local Mesh. Ready for multi-tab play!`);
+    }
   } catch (err) {
     console.error('Create room error:', err);
-    alert('Could not create room: ' + err.message);
+    if (window.gApp?.ui) {
+      window.gApp.ui.showToast('Room Creation', err.message);
+    } else {
+      alert('Could not create room: ' + err.message);
+    }
   }
 };
 
@@ -5977,14 +6040,25 @@ window.joinCustomRoom = async function() {
   const input = document.getElementById('input-mp-room-code');
   const code = (input ? input.value : '').trim();
   if (!code) {
-    alert('Please enter a tactical room code (e.g. IRON-4821).');
+    if (window.gApp?.ui) {
+      window.gApp.ui.showToast('Invalid Code', 'Please enter a tactical room code (e.g. IRON-4821).');
+    } else {
+      alert('Please enter a tactical room code (e.g. IRON-4821).');
+    }
     return;
   }
   try {
-    await window.gMultiplayer.joinRoom(code);
+    const res = await window.gMultiplayer.joinRoom(code);
+    if (res && res.transport === 'LOCAL_MESH' && window.gApp?.ui) {
+      window.gApp.ui.showToast('Local Mesh Synced', `Joined room [${code}] via Local Mesh!`);
+    }
   } catch (err) {
     console.error('Join room error:', err);
-    alert('Could not join room: ' + err.message);
+    if (window.gApp?.ui) {
+      window.gApp.ui.showToast('Join Error', err.message);
+    } else {
+      alert('Could not join room: ' + err.message);
+    }
   }
 };
 

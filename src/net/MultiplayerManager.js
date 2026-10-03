@@ -1,6 +1,6 @@
 // Ink & Iron: Sketch Warfare - Online Multiplayer Network Module
-// 100% Free Peer-to-Peer / Firebase Realtime Database Sync Engine
-// Supports Anonymous / Registered Auth, Quick Matchmaking, Custom Room Codes & SHA-256 Commit-Reveal
+// Hybrid Realtime Database (Cloud) + Local Mesh (Multi-Tab / Cross-Window) Transport Engine
+// 100% Free Zero-Server Architecture: Cryptographic SHA-256 Commit-Reveal WEGO Synchronizer
 
 export class MultiplayerManager {
   constructor() {
@@ -14,16 +14,27 @@ export class MultiplayerManager {
     this.roomUnsubscribe = null;
     this.queueUnsubscribe = null;
     this.presenceUnsubscribe = null;
-    this.disconnectTimer = null;
     this.pendingTurnCommit = null;
     this.listeners = [];
+    this.statusListeners = [];
+    this.transportMode = 'CLOUD'; // 'CLOUD' (Firebase RTDB) or 'LOCAL_MESH' (BroadcastChannel + localStorage)
+
+    this.guestUid = this.getOrCreateGuestUid();
+    this.initBroadcastChannel();
+  }
+
+  get myUid() {
+    if (window.gAuth && window.gAuth.user && window.gAuth.user.uid) {
+      return window.gAuth.user.uid;
+    }
+    return this.guestUid;
   }
 
   get currentUser() {
     if (window.gAuth && window.gAuth.user) {
       return window.gAuth.user;
     }
-    return null;
+    return { uid: this.guestUid, isGuest: true };
   }
 
   get currentProfile() {
@@ -38,6 +49,99 @@ export class MultiplayerManager {
     };
   }
 
+  getOrCreateGuestUid() {
+    let uid = localStorage.getItem('sketch_guest_uid');
+    if (!uid) {
+      uid = 'guest_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36).substring(4);
+      localStorage.setItem('sketch_guest_uid', uid);
+    }
+    return uid;
+  }
+
+  // ─── LOCAL MESH & BROADCAST CHANNEL SUBSYSTEM ────────────────────────────
+
+  initBroadcastChannel() {
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        this.broadcastChannel = new BroadcastChannel('ink_iron_mp_network');
+        this.broadcastChannel.onmessage = (evt) => this.handleLocalMeshMessage(evt.data);
+      }
+    } catch (e) {
+      console.warn('[MultiplayerManager] BroadcastChannel not supported in this environment:', e);
+    }
+
+    // Cross-tab storage event backup
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', (evt) => {
+        if (evt.key === 'sketch_mp_rooms_event' && evt.newValue) {
+          try {
+            const data = JSON.parse(evt.newValue);
+            this.handleLocalMeshMessage(data);
+          } catch (e) {}
+        }
+      });
+    }
+  }
+
+  _getLocalRooms() {
+    try {
+      return JSON.parse(localStorage.getItem('sketch_mp_rooms') || '{}');
+    } catch (e) {
+      return {};
+    }
+  }
+
+  _saveLocalRooms(rooms) {
+    try {
+      localStorage.setItem('sketch_mp_rooms', JSON.stringify(rooms));
+    } catch (e) {}
+  }
+
+  _getLocalQueue() {
+    try {
+      return JSON.parse(localStorage.getItem('sketch_mp_queue') || '{}');
+    } catch (e) {
+      return {};
+    }
+  }
+
+  _saveLocalQueue(queue) {
+    try {
+      localStorage.setItem('sketch_mp_queue', JSON.stringify(queue));
+    } catch (e) {}
+  }
+
+  _broadcastMeshEvent(action, payload) {
+    const msg = {
+      action,
+      payload,
+      senderUid: this.myUid,
+      timestamp: Date.now()
+    };
+    if (this.broadcastChannel) {
+      try { this.broadcastChannel.postMessage(msg); } catch (e) {}
+    }
+    try {
+      localStorage.setItem('sketch_mp_rooms_event', JSON.stringify(msg));
+    } catch (e) {}
+  }
+
+  handleLocalMeshMessage(msg) {
+    if (!msg || !msg.action) return;
+
+    if (msg.action === 'ROOM_UPDATED' && msg.payload && msg.payload.id === this.currentRoomId) {
+      this.roomData = msg.payload;
+      this.handleRoomUpdate(this.roomData);
+    } else if (msg.action === 'QUEUE_UPDATED') {
+      // If we are currently searching for quick match, re-check local queue
+      if (this.isSearchingQuickMatch) {
+        this.checkLocalMatchmakingQueue();
+      }
+    }
+  }
+
+  // ─── AUTHENTICATION & RTDB PROBING ────────────────────────────────────────
+
   async ensureAuthenticated() {
     if (window.gAuthManager) {
       this.rtdb = window.gAuthManager.rtdb;
@@ -45,33 +149,31 @@ export class MultiplayerManager {
       this.sdk = window.gAuthManager.sdk;
     }
 
-    if (!this.auth) {
-      throw new Error('Firebase Auth is initializing. Please try again in a moment.');
-    }
-
-    // If no user logged in, sign in anonymously so guests can play multiplayer instantly for $0
-    if (!this.auth.currentUser) {
+    // Try Anonymous Firebase Auth if not signed in
+    if (this.auth && !this.auth.currentUser) {
       try {
         const { signInAnonymously } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
         const cred = await signInAnonymously(this.auth);
-        window.gAuth.user = cred.user;
-        window.gAuth.isGuest = true;
+        if (window.gAuth) {
+          window.gAuth.user = cred.user;
+          window.gAuth.isGuest = true;
+        }
       } catch (err) {
-        console.warn('[MultiplayerManager] Anonymous sign-in warning:', err);
+        console.warn('[MultiplayerManager] Anonymous auth bypassed, using local guest token:', err?.message || err);
       }
     }
 
-    // Ensure Realtime Database is loaded
-    if (!this.rtdb) {
+    // Ensure Realtime Database instance is loaded
+    if (!this.rtdb && window.gAuthManager?.firebaseApp) {
       try {
         const { getDatabase } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
-        this.rtdb = getDatabase(window.gAuthManager?.firebaseApp);
+        this.rtdb = getDatabase(window.gAuthManager.firebaseApp);
       } catch (err) {
-        throw new Error('Realtime Database could not be reached: ' + err.message);
+        console.warn('[MultiplayerManager] RTDB load bypassed:', err?.message || err);
       }
     }
 
-    return this.auth.currentUser;
+    return this.currentUser;
   }
 
   generateRoomCode() {
@@ -108,73 +210,178 @@ export class MultiplayerManager {
   // ─── QUICK MATCHMAKING QUEUE ──────────────────────────────────────────────
 
   async findQuickMatch(onStatusUpdate) {
+    this.isSearchingQuickMatch = true;
     const user = await this.ensureAuthenticated();
-    const { ref, get, set, remove, onDisconnect } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
 
-    if (onStatusUpdate) onStatusUpdate('SEARCHING', 'Searching for active battle rooms...');
+    if (onStatusUpdate) onStatusUpdate('SEARCHING', 'Scanning tactical network for open battle frequencies...');
 
-    const queueRef = ref(this.rtdb, 'matchmaking/queue');
-    const snap = await get(queueRef);
-    const queueData = snap.exists() ? snap.val() : {};
+    // Attempt Firebase RTDB Queue first if not in forced local mode
+    if (this.rtdb && this.transportMode !== 'LOCAL_MESH') {
+      try {
+        const { ref, get, set, remove, onDisconnect } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
+        const queueRef = ref(this.rtdb, 'matchmaking/queue');
+        const snap = await get(queueRef);
+        const queueData = snap.exists() ? snap.val() : {};
 
-    // Check if there is an existing waiting room (not created by current user)
+        const now = Date.now();
+        let matchedRoomId = null;
+
+        for (const [roomId, entry] of Object.entries(queueData)) {
+          if (entry && entry.hostUid !== user.uid && (now - entry.createdAt) < 60000) {
+            matchedRoomId = roomId;
+            break;
+          }
+        }
+
+        if (matchedRoomId) {
+          if (onStatusUpdate) onStatusUpdate('JOINING', `Match found! Entering theater [${matchedRoomId}]...`);
+          try { await remove(ref(this.rtdb, `matchmaking/queue/${matchedRoomId}`)); } catch(e){}
+          this.isSearchingQuickMatch = false;
+          return await this.joinRoom(matchedRoomId);
+        } else {
+          const roomId = this.generateRoomCode();
+          if (onStatusUpdate) onStatusUpdate('HOSTING', `Broadcasting challenge in [${roomId}]...`);
+
+          await set(ref(this.rtdb, `matchmaking/queue/${roomId}`), {
+            hostUid: user.uid,
+            hostName: this.currentProfile.displayName || 'Commander',
+            createdAt: now
+          });
+
+          const qEntryRef = ref(this.rtdb, `matchmaking/queue/${roomId}`);
+          onDisconnect(qEntryRef).remove();
+
+          this.isSearchingQuickMatch = false;
+          return await this.createRoom(roomId, { isQuickMatch: true });
+        }
+      } catch (err) {
+        console.warn('[MultiplayerManager] Cloud matchmaking restricted, switching to Local Mesh transport:', err?.message || err);
+        this.setTransportMode('LOCAL_MESH');
+      }
+    }
+
+    // Local Mesh Matchmaking Fallback
+    return this.findQuickMatchLocal(onStatusUpdate);
+  }
+
+  findQuickMatchLocal(onStatusUpdate) {
+    if (onStatusUpdate) onStatusUpdate('SEARCHING', 'Searching Local Mesh Theater for active commanders...');
+    const queue = this._getLocalQueue();
     const now = Date.now();
     let matchedRoomId = null;
 
-    for (const [roomId, entry] of Object.entries(queueData)) {
-      if (entry && entry.hostUid !== user.uid && (now - entry.createdAt) < 60000) {
+    for (const [roomId, entry] of Object.entries(queue)) {
+      if (entry && entry.hostUid !== this.myUid && (now - entry.createdAt) < 120000) {
         matchedRoomId = roomId;
         break;
       }
     }
 
     if (matchedRoomId) {
-      if (onStatusUpdate) onStatusUpdate('JOINING', `Match found! Entering theater [${matchedRoomId}]...`);
-      // Remove from matchmaking queue
-      try { await remove(ref(this.rtdb, `matchmaking/queue/${matchedRoomId}`)); } catch(e){}
-      return await this.joinRoom(matchedRoomId);
+      if (onStatusUpdate) onStatusUpdate('JOINING', `Local match found! Synchronizing with [${matchedRoomId}]...`);
+      delete queue[matchedRoomId];
+      this._saveLocalQueue(queue);
+      this._broadcastMeshEvent('QUEUE_UPDATED', {});
+      this.isSearchingQuickMatch = false;
+      return this.joinRoomLocal(matchedRoomId);
     } else {
-      // Create new open room in queue
       const roomId = this.generateRoomCode();
-      if (onStatusUpdate) onStatusUpdate('HOSTING', `Waiting for commander in [${roomId}]...`);
+      if (onStatusUpdate) onStatusUpdate('HOSTING', `Hosting Local Mesh Theater [${roomId}]...`);
 
-      await set(ref(this.rtdb, `matchmaking/queue/${roomId}`), {
-        hostUid: user.uid,
-        hostName: this.currentProfile.displayName || 'Commander',
+      queue[roomId] = {
+        hostUid: this.myUid,
+        hostName: this.currentProfile.displayName || 'Commander Host',
         createdAt: now
-      });
+      };
+      this._saveLocalQueue(queue);
+      this._broadcastMeshEvent('QUEUE_UPDATED', {});
 
-      // Cleanup queue entry if host disconnects
-      const qEntryRef = ref(this.rtdb, `matchmaking/queue/${roomId}`);
-      onDisconnect(qEntryRef).remove();
-
-      return await this.createRoom(roomId, { isQuickMatch: true });
+      this.isSearchingQuickMatch = false;
+      return this.createRoomLocal(roomId, { isQuickMatch: true });
     }
   }
 
+  checkLocalMatchmakingQueue() {
+    // If waiting in local queue and another tab created or modified queue
+    if (!this.isSearchingQuickMatch) return;
+  }
+
   async cancelQuickMatch() {
+    this.isSearchingQuickMatch = false;
     if (this.currentRoomId) {
-      try {
-        const { ref, remove } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
-        await remove(ref(this.rtdb, `matchmaking/queue/${this.currentRoomId}`));
-      } catch(e){}
+      if (this.rtdb && this.transportMode === 'CLOUD') {
+        try {
+          const { ref, remove } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
+          await remove(ref(this.rtdb, `matchmaking/queue/${this.currentRoomId}`));
+        } catch(e){}
+      }
+      const queue = this._getLocalQueue();
+      if (queue[this.currentRoomId]) {
+        delete queue[this.currentRoomId];
+        this._saveLocalQueue(queue);
+        this._broadcastMeshEvent('QUEUE_UPDATED', {});
+      }
     }
     this.leaveRoom();
   }
 
-  // ─── ROOM CREATION & JOINING ──────────────────────────────────────────────
+  // ─── ROOM CREATION ────────────────────────────────────────────────────────
 
   async createRoom(customCode = null, options = {}) {
     const user = await this.ensureAuthenticated();
     const roomId = (customCode || this.generateRoomCode()).toUpperCase().trim();
-    const { ref, set, onValue, onDisconnect } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
 
+    // Primary: Firebase Realtime Database
+    if (this.rtdb && this.transportMode !== 'LOCAL_MESH') {
+      try {
+        const { ref, set, onDisconnect } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
+        this.currentRoomId = roomId;
+        this.playerSlot = 1;
+        this.isHost = true;
+        this.transportMode = 'CLOUD';
+
+        const roomRef = ref(this.rtdb, `rooms/${roomId}`);
+        const initialData = this.buildInitialRoomData(roomId, user.uid, options);
+
+        await set(roomRef, initialData);
+
+        const p1PresenceRef = ref(this.rtdb, `rooms/${roomId}/players/p1/connected`);
+        onDisconnect(p1PresenceRef).set(false);
+
+        this.listenToRoom(roomId);
+        this.notifyNetworkStatus('CLOUD', 'Connected to Global Firebase Cloud Network.');
+        return { success: true, roomId, playerSlot: 1, transport: 'CLOUD' };
+      } catch (err) {
+        console.warn('[MultiplayerManager] Cloud room creation error (PERMISSION_DENIED or network). Switching to Local Mesh:', err?.message || err);
+        this.setTransportMode('LOCAL_MESH');
+      }
+    }
+
+    // Fallback: Local Mesh Transport (Multi-Tab / Multi-Window / Same PC)
+    return this.createRoomLocal(roomId, options);
+  }
+
+  createRoomLocal(roomId, options = {}) {
     this.currentRoomId = roomId;
     this.playerSlot = 1;
     this.isHost = true;
+    this.transportMode = 'LOCAL_MESH';
 
-    const roomRef = ref(this.rtdb, `rooms/${roomId}`);
-    const initialData = {
+    const initialData = this.buildInitialRoomData(roomId, this.myUid, options);
+    const rooms = this._getLocalRooms();
+    rooms[roomId] = initialData;
+    this._saveLocalRooms(rooms);
+
+    this.roomData = initialData;
+    this._broadcastMeshEvent('ROOM_UPDATED', initialData);
+    this.notifyListeners(this.roomData);
+    this.notifyNetworkStatus('LOCAL_MESH', 'Local Mesh Theater Active. Multi-tab/local synchronization enabled.');
+
+    return { success: true, roomId, playerSlot: 1, transport: 'LOCAL_MESH' };
+  }
+
+  buildInitialRoomData(roomId, hostUid, options = {}) {
+    return {
       id: roomId,
       status: 'LOBBY',
       createdAt: Date.now(),
@@ -186,7 +393,7 @@ export class MultiplayerManager {
       },
       players: {
         p1: {
-          uid: user.uid,
+          uid: hostUid,
           name: this.currentProfile.displayName || 'Commander 1',
           rank: this.currentProfile.rank || 'Recruit',
           faction: options.faction || 'IRON_CORPS',
@@ -197,58 +404,106 @@ export class MultiplayerManager {
       },
       turns: {}
     };
-
-    await set(roomRef, initialData);
-
-    // Presence on disconnect
-    const p1PresenceRef = ref(this.rtdb, `rooms/${roomId}/players/p1/connected`);
-    onDisconnect(p1PresenceRef).set(false);
-
-    this.listenToRoom(roomId);
-    return { success: true, roomId, playerSlot: 1 };
   }
+
+  // ─── ROOM JOINING ─────────────────────────────────────────────────────────
 
   async joinRoom(roomId, options = {}) {
     const user = await this.ensureAuthenticated();
     const cleanId = roomId.toUpperCase().trim();
-    const { ref, get, update, onDisconnect } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
 
-    const roomRef = ref(this.rtdb, `rooms/${cleanId}`);
-    const snap = await get(roomRef);
+    // Primary: Firebase Realtime Database
+    if (this.rtdb && this.transportMode !== 'LOCAL_MESH') {
+      try {
+        const { ref, get, update, onDisconnect } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
+        const roomRef = ref(this.rtdb, `rooms/${cleanId}`);
+        const snap = await get(roomRef);
 
-    if (!snap.exists()) {
-      throw new Error(`Battle Room [${cleanId}] does not exist.`);
+        if (snap.exists()) {
+          const data = snap.val();
+          if (data.status === 'IN_BATTLE' && data.players?.p2?.uid !== user.uid) {
+            throw new Error(`Battle Room [${cleanId}] is already in progress with 2 players.`);
+          }
+
+          this.currentRoomId = cleanId;
+          this.playerSlot = (data.players?.p1?.uid === user.uid) ? 1 : 2;
+          this.isHost = (this.playerSlot === 1);
+          this.transportMode = 'CLOUD';
+
+          const slotKey = `p${this.playerSlot}`;
+          const defaultFaction = this.playerSlot === 2
+            ? (data.players?.p1?.faction === 'IRON_CORPS' ? 'VANGUARD_LEGION' : 'IRON_CORPS')
+            : 'IRON_CORPS';
+
+          await update(ref(this.rtdb, `rooms/${cleanId}/players/${slotKey}`), {
+            uid: user.uid,
+            name: this.currentProfile.displayName || `Commander ${this.playerSlot}`,
+            rank: this.currentProfile.rank || 'Recruit',
+            faction: options.faction || defaultFaction,
+            ready: false,
+            connected: true,
+            lastSeen: Date.now()
+          });
+
+          const presenceRef = ref(this.rtdb, `rooms/${cleanId}/players/${slotKey}/connected`);
+          onDisconnect(presenceRef).set(false);
+
+          this.listenToRoom(cleanId);
+          this.notifyNetworkStatus('CLOUD', 'Connected to Global Firebase Cloud Network.');
+          return { success: true, roomId: cleanId, playerSlot: this.playerSlot, transport: 'CLOUD' };
+        }
+      } catch (err) {
+        if (err.message && err.message.includes('already in progress')) throw err;
+        console.warn('[MultiplayerManager] RTDB join room failed, checking Local Mesh:', err?.message || err);
+      }
     }
 
-    const data = snap.val();
-    if (data.status === 'IN_BATTLE' && data.players?.p2?.uid !== user.uid) {
+    // Fallback: Local Mesh Room Joining
+    return this.joinRoomLocal(cleanId, options);
+  }
+
+  joinRoomLocal(cleanId, options = {}) {
+    const rooms = this._getLocalRooms();
+    const room = rooms[cleanId];
+
+    if (!room) {
+      throw new Error(`Battle Room [${cleanId}] not found in tactical network.`);
+    }
+
+    if (room.status === 'IN_BATTLE' && room.players?.p2?.uid !== this.myUid) {
       throw new Error(`Battle Room [${cleanId}] is already in progress with 2 players.`);
     }
 
     this.currentRoomId = cleanId;
-    this.playerSlot = (data.players?.p1?.uid === user.uid) ? 1 : 2;
+    this.playerSlot = (room.players?.p1?.uid === this.myUid) ? 1 : 2;
     this.isHost = (this.playerSlot === 1);
+    this.transportMode = 'LOCAL_MESH';
 
     const slotKey = `p${this.playerSlot}`;
     const defaultFaction = this.playerSlot === 2
-      ? (data.players?.p1?.faction === 'IRON_CORPS' ? 'VANGUARD_LEGION' : 'IRON_CORPS')
+      ? (room.players?.p1?.faction === 'IRON_CORPS' ? 'VANGUARD_LEGION' : 'IRON_CORPS')
       : 'IRON_CORPS';
 
-    await update(ref(this.rtdb, `rooms/${cleanId}/players/${slotKey}`), {
-      uid: user.uid,
+    if (!room.players) room.players = {};
+    room.players[slotKey] = {
+      uid: this.myUid,
       name: this.currentProfile.displayName || `Commander ${this.playerSlot}`,
       rank: this.currentProfile.rank || 'Recruit',
       faction: options.faction || defaultFaction,
       ready: false,
       connected: true,
       lastSeen: Date.now()
-    });
+    };
 
-    const presenceRef = ref(this.rtdb, `rooms/${cleanId}/players/${slotKey}/connected`);
-    onDisconnect(presenceRef).set(false);
+    rooms[cleanId] = room;
+    this._saveLocalRooms(rooms);
+    this.roomData = room;
 
-    this.listenToRoom(cleanId);
-    return { success: true, roomId: cleanId, playerSlot: this.playerSlot };
+    this._broadcastMeshEvent('ROOM_UPDATED', room);
+    this.notifyListeners(this.roomData);
+    this.notifyNetworkStatus('LOCAL_MESH', 'Local Mesh Theater Active. Multi-tab/local synchronization enabled.');
+
+    return { success: true, roomId: cleanId, playerSlot: this.playerSlot, transport: 'LOCAL_MESH' };
   }
 
   listenToRoom(roomId) {
@@ -257,14 +512,21 @@ export class MultiplayerManager {
       this.roomUnsubscribe = null;
     }
 
-    import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js').then(({ ref, onValue }) => {
-      const roomRef = ref(this.rtdb, `rooms/${roomId}`);
-      this.roomUnsubscribe = onValue(roomRef, (snapshot) => {
-        if (!snapshot.exists()) return;
-        this.roomData = snapshot.val();
-        this.handleRoomUpdate(this.roomData);
+    if (this.rtdb && this.transportMode === 'CLOUD') {
+      import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js').then(({ ref, onValue }) => {
+        const roomRef = ref(this.rtdb, `rooms/${roomId}`);
+        this.roomUnsubscribe = onValue(roomRef, (snapshot) => {
+          if (!snapshot.exists()) return;
+          this.roomData = snapshot.val();
+          this.handleRoomUpdate(this.roomData);
+        }, (err) => {
+          console.warn('[MultiplayerManager] onValue listener error, falling back to Local Mesh:', err);
+          this.setTransportMode('LOCAL_MESH');
+        });
+      }).catch(e => {
+        console.warn('[MultiplayerManager] Error importing database module for listener:', e);
       });
-    });
+    }
   }
 
   handleRoomUpdate(room) {
@@ -280,42 +542,118 @@ export class MultiplayerManager {
 
   async setReady(isReady) {
     if (!this.currentRoomId || !this.playerSlot) return;
-    const { ref, update } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
     const slotKey = `p${this.playerSlot}`;
-    await update(ref(this.rtdb, `rooms/${this.currentRoomId}/players/${slotKey}`), {
-      ready: isReady
-    });
+
+    if (this.transportMode === 'CLOUD' && this.rtdb) {
+      try {
+        const { ref, update } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
+        await update(ref(this.rtdb, `rooms/${this.currentRoomId}/players/${slotKey}`), {
+          ready: isReady
+        });
+        return;
+      } catch (err) {
+        console.warn('[MultiplayerManager] RTDB setReady failed, switching to Local Mesh:', err);
+        this.setTransportMode('LOCAL_MESH');
+      }
+    }
+
+    // Local Mesh
+    const rooms = this._getLocalRooms();
+    if (rooms[this.currentRoomId]?.players?.[slotKey]) {
+      rooms[this.currentRoomId].players[slotKey].ready = isReady;
+      this._saveLocalRooms(rooms);
+      this.roomData = rooms[this.currentRoomId];
+      this._broadcastMeshEvent('ROOM_UPDATED', this.roomData);
+      this.notifyListeners(this.roomData);
+    }
   }
 
   async setFaction(factionKey) {
     if (!this.currentRoomId || !this.playerSlot) return;
-    const { ref, update } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
     const slotKey = `p${this.playerSlot}`;
-    await update(ref(this.rtdb, `rooms/${this.currentRoomId}/players/${slotKey}`), {
-      faction: factionKey
-    });
+
+    if (this.transportMode === 'CLOUD' && this.rtdb) {
+      try {
+        const { ref, update } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
+        await update(ref(this.rtdb, `rooms/${this.currentRoomId}/players/${slotKey}`), {
+          faction: factionKey
+        });
+        return;
+      } catch (err) {
+        console.warn('[MultiplayerManager] RTDB setFaction failed, switching to Local Mesh:', err);
+        this.setTransportMode('LOCAL_MESH');
+      }
+    }
+
+    // Local Mesh
+    const rooms = this._getLocalRooms();
+    if (rooms[this.currentRoomId]?.players?.[slotKey]) {
+      rooms[this.currentRoomId].players[slotKey].faction = factionKey;
+      this._saveLocalRooms(rooms);
+      this.roomData = rooms[this.currentRoomId];
+      this._broadcastMeshEvent('ROOM_UPDATED', this.roomData);
+      this.notifyListeners(this.roomData);
+    }
   }
 
   async updateRoomConfig(configObj) {
     if (!this.currentRoomId || !this.isHost) return;
-    const { ref, update } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
-    await update(ref(this.rtdb, `rooms/${this.currentRoomId}/config`), configObj);
+
+    if (this.transportMode === 'CLOUD' && this.rtdb) {
+      try {
+        const { ref, update } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
+        await update(ref(this.rtdb, `rooms/${this.currentRoomId}/config`), configObj);
+        return;
+      } catch (err) {
+        console.warn('[MultiplayerManager] RTDB updateRoomConfig failed, switching to Local Mesh:', err);
+        this.setTransportMode('LOCAL_MESH');
+      }
+    }
+
+    // Local Mesh
+    const rooms = this._getLocalRooms();
+    if (rooms[this.currentRoomId]) {
+      rooms[this.currentRoomId].config = Object.assign({}, rooms[this.currentRoomId].config, configObj);
+      this._saveLocalRooms(rooms);
+      this.roomData = rooms[this.currentRoomId];
+      this._broadcastMeshEvent('ROOM_UPDATED', this.roomData);
+      this.notifyListeners(this.roomData);
+    }
   }
 
   async startMatch() {
     if (!this.currentRoomId || !this.isHost) return;
-    const { ref, update } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
-    await update(ref(this.rtdb, `rooms/${this.currentRoomId}`), {
-      status: 'IN_BATTLE',
-      startedAt: Date.now()
-    });
+
+    if (this.transportMode === 'CLOUD' && this.rtdb) {
+      try {
+        const { ref, update } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
+        await update(ref(this.rtdb, `rooms/${this.currentRoomId}`), {
+          status: 'IN_BATTLE',
+          startedAt: Date.now()
+        });
+        return;
+      } catch (err) {
+        console.warn('[MultiplayerManager] RTDB startMatch failed, switching to Local Mesh:', err);
+        this.setTransportMode('LOCAL_MESH');
+      }
+    }
+
+    // Local Mesh
+    const rooms = this._getLocalRooms();
+    if (rooms[this.currentRoomId]) {
+      rooms[this.currentRoomId].status = 'IN_BATTLE';
+      rooms[this.currentRoomId].startedAt = Date.now();
+      this._saveLocalRooms(rooms);
+      this.roomData = rooms[this.currentRoomId];
+      this._broadcastMeshEvent('ROOM_UPDATED', this.roomData);
+      this.notifyListeners(this.roomData);
+    }
   }
 
   // ─── COMMIT-REVEAL TURN SYNCHRONIZATION ───────────────────────────────────
 
   async submitTurnOrders(turnNumber, ordersPayload) {
     if (!this.currentRoomId || !this.playerSlot) return;
-    const { ref, update } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
 
     const slotKey = `p${this.playerSlot}`;
     const otherSlotKey = this.playerSlot === 1 ? 'p2' : 'p1';
@@ -324,28 +662,72 @@ export class MultiplayerManager {
     const { commitHash, revealData } = await this.createCommitHash(ordersPayload);
     this.pendingTurnCommit = { turnNumber, revealData };
 
-    // 2. Upload commit hash
-    const updates = {};
-    updates[`rooms/${this.currentRoomId}/turns/${turnNumber}/${slotKey}Commit`] = commitHash;
-    updates[`rooms/${this.currentRoomId}/turns/${turnNumber}/${slotKey}CommittedAt`] = Date.now();
+    if (this.transportMode === 'CLOUD' && this.rtdb) {
+      try {
+        const { ref, update } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
+        const updates = {};
+        updates[`rooms/${this.currentRoomId}/turns/${turnNumber}/${slotKey}Commit`] = commitHash;
+        updates[`rooms/${this.currentRoomId}/turns/${turnNumber}/${slotKey}CommittedAt`] = Date.now();
 
-    await update(ref(this.rtdb), updates);
+        await update(ref(this.rtdb), updates);
 
-    // 3. Check if opponent has already committed their hash for this turn
-    const turnData = this.roomData?.turns?.[turnNumber];
-    if (turnData && turnData[`${otherSlotKey}Commit`]) {
-      // Both committed! Immediately reveal our data
-      await this.revealTurnData(turnNumber, revealData);
+        const turnData = this.roomData?.turns?.[turnNumber];
+        if (turnData && turnData[`${otherSlotKey}Commit`]) {
+          await this.revealTurnData(turnNumber, revealData);
+        }
+        return;
+      } catch (err) {
+        console.warn('[MultiplayerManager] RTDB submitTurnOrders failed, switching to Local Mesh:', err);
+        this.setTransportMode('LOCAL_MESH');
+      }
+    }
+
+    // Local Mesh
+    const rooms = this._getLocalRooms();
+    if (rooms[this.currentRoomId]) {
+      if (!rooms[this.currentRoomId].turns) rooms[this.currentRoomId].turns = {};
+      if (!rooms[this.currentRoomId].turns[turnNumber]) rooms[this.currentRoomId].turns[turnNumber] = {};
+
+      const turn = rooms[this.currentRoomId].turns[turnNumber];
+      turn[`${slotKey}Commit`] = commitHash;
+      turn[`${slotKey}CommittedAt`] = Date.now();
+
+      this._saveLocalRooms(rooms);
+      this.roomData = rooms[this.currentRoomId];
+      this._broadcastMeshEvent('ROOM_UPDATED', this.roomData);
+
+      if (turn[`${otherSlotKey}Commit`]) {
+        await this.revealTurnData(turnNumber, revealData);
+      }
     }
   }
 
   async revealTurnData(turnNumber, revealData) {
     if (!this.currentRoomId || !this.playerSlot) return;
-    const { ref, update } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
     const slotKey = `p${this.playerSlot}`;
-    const updates = {};
-    updates[`rooms/${this.currentRoomId}/turns/${turnNumber}/${slotKey}Data`] = revealData;
-    await update(ref(this.rtdb), updates);
+
+    if (this.transportMode === 'CLOUD' && this.rtdb) {
+      try {
+        const { ref, update } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
+        const updates = {};
+        updates[`rooms/${this.currentRoomId}/turns/${turnNumber}/${slotKey}Data`] = revealData;
+        await update(ref(this.rtdb), updates);
+        return;
+      } catch (err) {
+        console.warn('[MultiplayerManager] RTDB revealTurnData failed, switching to Local Mesh:', err);
+        this.setTransportMode('LOCAL_MESH');
+      }
+    }
+
+    // Local Mesh
+    const rooms = this._getLocalRooms();
+    if (rooms[this.currentRoomId]?.turns?.[turnNumber]) {
+      rooms[this.currentRoomId].turns[turnNumber][`${slotKey}Data`] = revealData;
+      this._saveLocalRooms(rooms);
+      this.roomData = rooms[this.currentRoomId];
+      this._broadcastMeshEvent('ROOM_UPDATED', this.roomData);
+      this.handleTurnSync(this.roomData);
+    }
   }
 
   async handleTurnSync(room) {
@@ -396,12 +778,33 @@ export class MultiplayerManager {
       this.roomUnsubscribe();
       this.roomUnsubscribe = null;
     }
+    if (this.currentRoomId && this.transportMode === 'LOCAL_MESH') {
+      const rooms = this._getLocalRooms();
+      if (rooms[this.currentRoomId]) {
+        const slotKey = `p${this.playerSlot}`;
+        if (rooms[this.currentRoomId].players?.[slotKey]) {
+          rooms[this.currentRoomId].players[slotKey].connected = false;
+        }
+        this._saveLocalRooms(rooms);
+        this._broadcastMeshEvent('ROOM_UPDATED', rooms[this.currentRoomId]);
+      }
+    }
+
     this.currentRoomId = null;
     this.playerSlot = null;
     this.isHost = false;
     this.roomData = null;
     this.pendingTurnCommit = null;
     this.notifyListeners(null);
+  }
+
+  setTransportMode(mode) {
+    this.transportMode = mode;
+    if (mode === 'LOCAL_MESH') {
+      this.notifyNetworkStatus('LOCAL_MESH', 'Local Mesh Theater Active. Multi-tab/local synchronization enabled.');
+    } else {
+      this.notifyNetworkStatus('CLOUD', 'Connected to Global Firebase Cloud Network.');
+    }
   }
 
   subscribe(fn) {
@@ -412,6 +815,19 @@ export class MultiplayerManager {
     this.listeners.forEach(fn => {
       try { fn(data); } catch(e){}
     });
+  }
+
+  onNetworkStatus(fn) {
+    this.statusListeners.push(fn);
+  }
+
+  notifyNetworkStatus(mode, message) {
+    this.statusListeners.forEach(fn => {
+      try { fn(mode, message); } catch(e){}
+    });
+    if (window.updateNetworkBadge) {
+      window.updateNetworkBadge(mode, message);
+    }
   }
 }
 

@@ -153,8 +153,20 @@
           <!-- 1. Matchmaking & Room Selection View -->
           <div id="mp-select-view" class="mp-flow-section">
             <div class="mp-hero-banner">
-              <div class="mp-hero-title">Live Tactical Operations &mdash; 1v1 Online Warfare</div>
-              <p class="mp-hero-sub">Engage commanders globally in simultaneous WEGO tactical combat. Powered by 100% Free Firebase Realtime Network.</p>
+              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <div>
+                  <div class="mp-hero-title">Live Tactical Operations &mdash; 1v1 Online Warfare</div>
+                  <p class="mp-hero-sub">Engage commanders in simultaneous WEGO tactical combat with cryptographic commit-reveal turn synchronization.</p>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span id="mp-network-status-badge" class="mp-card-badge" style="background: rgba(34, 197, 94, 0.15); color: #4ade80; border-color: rgba(34, 197, 94, 0.4);">
+                    NETWORK READY
+                  </span>
+                  <button class="btn-sketch" style="font-size: 0.72rem; padding: 4px 8px;" onclick="window.openFirebaseRulesModal()">
+                    Firebase Rules Guide
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div class="mp-modes-grid">
@@ -2010,10 +2022,45 @@
         <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 8px;">
           You cannot start battles, queue for multiplayer, or access game features while banned.
         </p>
-        <div style="margin-top: 20px;">
-          <button class="btn-sketch btn-accent" onclick="if(window.gAuthManager){window.gAuthManager.logout();} localStorage.clear(); location.reload();">
-            Sign Out & Switch Account
-          </button>
+    <!-- FIREBASE REALTIME DATABASE SETUP / SECURITY RULES MODAL -->
+    <div id="modal-firebase-rules" class="modal-overlay" style="display: none; z-index: 100015;" onclick="if(event.target === this) window.closeFirebaseRulesModal()">
+      <div class="modal-card sketch-admin-card" style="max-width: 560px; border-left: 4px solid #3b82f6;">
+        <button class="modal-close-btn" onclick="window.closeFirebaseRulesModal()" title="Close [Esc]">&times;</button>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          <span class="menu-logo-badge" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3);">FIREBASE CLOUD NETWORK</span>
+        </div>
+        <h2 class="modal-title" style="font-size: 1.25rem;">Unlock Global Internet Play</h2>
+        <p class="modal-subtitle" style="margin-top: 6px; font-size: 0.84rem; color: #cbd5e1; line-height: 1.45;">
+          The game currently operates with a zero-setup <strong>Local Mesh Network</strong> (for multi-tab / local play). To allow commanders on different devices across the internet to connect, paste these free Realtime Database rules in your Firebase Console.
+        </p>
+
+        <div style="margin: 14px 0 8px 0; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(71, 85, 105, 0.5); border-radius: 6px; padding: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span style="font-family: var(--font-mono); font-size: 0.72rem; color: #94a3b8; font-weight: bold;">FIREBASE REALTIME DATABASE RULES</span>
+            <button id="btn-copy-firebase-rules" class="btn-sketch" style="font-size: 0.7rem; padding: 3px 8px;" onclick="window.copyFirebaseRules()">Copy Rules JSON</button>
+          </div>
+          <pre id="pre-firebase-rules" style="margin: 0; font-family: var(--font-mono); font-size: 0.78rem; color: #38bdf8; background: transparent; overflow-x: auto; line-height: 1.4;">{
+  "rules": {
+    "matchmaking": {
+      ".read": true,
+      ".write": true
+    },
+    "rooms": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}</pre>
+        </div>
+
+        <ol style="font-size: 0.78rem; color: #94a3b8; margin: 8px 0 16px 18px; line-height: 1.4;">
+          <li>Open your <a href="https://console.firebase.google.com/" target="_blank" rel="noopener" style="color: #60a5fa; text-decoration: underline;">Firebase Console</a> &rarr; select project <code>ink-and-iron-1c654</code>.</li>
+          <li>Click <strong>Realtime Database</strong> on the left menu &rarr; select the <strong>Rules</strong> tab.</li>
+          <li>Paste the rules above and click <strong>Publish</strong>.</li>
+        </ol>
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button class="btn-sketch btn-accent" onclick="window.closeFirebaseRulesModal()">Done</button>
         </div>
       </div>
     </div>
