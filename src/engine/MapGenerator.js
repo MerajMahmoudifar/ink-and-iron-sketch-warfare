@@ -3,16 +3,28 @@ import { TERRAIN } from './Types.js';
 export class MapGenerator {
   static GRID_SIZE = 8;
 
+  static createRng(seed) {
+    if (seed === null || seed === undefined) return Math.random;
+    let s = (typeof seed === 'number' ? seed : parseInt(seed, 10)) || 123456789;
+    return function() {
+      s |= 0; s = (s + 0x6D2B79F5) | 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
   /**
    * Generates or loads a map grid.
    * @param {string} mapType - 'PRESET_1', 'PRESET_2', 'PRESET_3', or 'PROCEDURAL'
+   * @param {number|null} seed - Optional seed for procedural generation
    * @returns {Object} { grid: Array(8x8), player1Base: {x,y}, player2Base: {x,y} }
    */
-  static createMap(mapType = 'PRESET_1') {
+  static createMap(mapType = 'PRESET_1', seed = null) {
     let grid = Array(8).fill(null).map(() => Array(8).fill(null));
 
     if (mapType === 'PROCEDURAL') {
-      return this.generateProceduralSymmetrical();
+      return this.generateProceduralSymmetrical(seed);
     }
 
     switch (mapType) {
@@ -74,7 +86,8 @@ export class MapGenerator {
   /**
    * Generates a completely procedural 8x8 map with guaranteed 180-degree rotational symmetry.
    */
-  static generateProceduralSymmetrical() {
+  static generateProceduralSymmetrical(seed = null) {
+    const rng = MapGenerator.createRng(seed);
     const grid = Array(8).fill(null).map(() => Array(8).fill(null));
 
     // Fill with default plains
@@ -111,8 +124,8 @@ export class MapGenerator {
         const current = grid[y][x];
         if (current.id === 'MAIN_BASE' || current.id === 'CAPTURE_ZONE') continue;
 
-        if (Math.random() < 0.35) {
-          const type = terrainChoices[Math.floor(Math.random() * terrainChoices.length)];
+        if (rng() < 0.35) {
+          const type = terrainChoices[Math.floor(rng() * terrainChoices.length)];
           grid[y][x] = { ...type, x, y, owner: null };
 
           // Mirror position

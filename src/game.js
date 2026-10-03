@@ -162,13 +162,24 @@ const ABILITIES = {
 // 2. MAP GENERATOR
 // ==========================================
 class MapGenerator {
-  static createMap(mapType = 'PRESET_1') {
+  static createRng(seed) {
+    if (seed === null || seed === undefined) return Math.random;
+    let s = (typeof seed === 'number' ? seed : parseInt(seed, 10)) || 123456789;
+    return function() {
+      s |= 0; s = (s + 0x6D2B79F5) | 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  static createMap(mapType = 'PRESET_1', seed = null) {
     let result;
     if (mapType.startsWith('BOOTCAMP_')) {
       const lessonNum = parseInt(mapType.replace('BOOTCAMP_', ''), 10) || 1;
       return this.loadBootcampMap(lessonNum);
     } else if (mapType === 'PROCEDURAL') {
-      result = this.generateProceduralSymmetrical();
+      result = this.generateProceduralSymmetrical(seed);
     } else {
       switch (mapType) {
         case 'PRESET_2': result = this.loadPreset2(); break;
@@ -451,7 +462,8 @@ class MapGenerator {
   // -----------------------------------------------
   // PROCEDURAL: Symmetrical with connectivity guard
   // -----------------------------------------------
-  static generateProceduralSymmetrical() {
+  static generateProceduralSymmetrical(seed = null) {
+    const rng = MapGenerator.createRng(seed);
     const grid = Array(8).fill(null).map(() => Array(8).fill(null));
 
     for (let r = 0; r < 8; r++) {
@@ -480,12 +492,12 @@ class MapGenerator {
         const current = grid[y][x];
         if (current.id === 'MAIN_BASE' || current.id === 'CAPTURE_ZONE') continue;
 
-        const roll = Math.random();
+        const roll = rng();
         let type = null;
         if (roll < 0.18) {
-          type = hardBlockers[Math.floor(Math.random() * hardBlockers.length)];
+          type = hardBlockers[Math.floor(rng() * hardBlockers.length)];
         } else if (roll < 0.42) {
-          type = softTerrain[Math.floor(Math.random() * softTerrain.length)];
+          type = softTerrain[Math.floor(rng() * softTerrain.length)];
         }
 
         if (type) {
@@ -530,7 +542,7 @@ class MapGenerator {
 class Unit {
   static idCounter = 1;
 
-  constructor(typeKey, ownerId, startX, startY) {
+  constructor(typeKey, ownerId, startX, startY, customId = null) {
     const template = UNIT_TYPES[typeKey] || {
       name: 'Rifle Squad',
       category: 'INFANTRY',
@@ -543,7 +555,7 @@ class Unit {
       symbol: '✕',
       description: 'Frontline Infantry'
     };
-    this.id = `U_${Unit.idCounter++}_P${ownerId}`;
+    this.id = customId || `U_${Unit.idCounter++}_P${ownerId}`;
     this.typeKey = typeKey;
     this.name = template.name || 'Rifle Squad';
     this.category = template.category || 'INFANTRY';
@@ -755,6 +767,7 @@ const CombatSystem = Combat;
 class GameEngine {
   constructor(config = {}) {
     this.mapType = config.mapType || 'PRESET_1';
+    this.seed = config.seed !== undefined ? config.seed : null;
     this.bootcampLesson = config.bootcampLesson || null;
     this.player1Faction = config.p1Faction || FACTIONS.IRON_CORPS;
     this.player2Faction = config.p2Faction || FACTIONS.VANGUARD_LEGION;
@@ -776,7 +789,7 @@ class GameEngine {
     this.pendingSpawnsThisTurn = [];
     this.pendingAbilitiesThisTurn = [];
 
-    const mapData = MapGenerator.createMap(this.mapType);
+    const mapData = MapGenerator.createMap(this.mapType, this.seed);
     this.grid = mapData.grid;
     this.p1Base = mapData.player1Base;
     this.p2Base = mapData.player2Base;
@@ -943,10 +956,10 @@ class GameEngine {
       return;
     }
 
-    const u1 = new Unit('RIFLEMAN', 1, this.p1Base.x + 1, this.p1Base.y);
-    const u2 = new Unit('SCOUT', 1, this.p1Base.x, Math.min(7, this.p1Base.y + 1));
-    const u3 = new Unit('RIFLEMAN', 2, this.p2Base.x - 1, this.p2Base.y);
-    const u4 = new Unit('SCOUT', 2, this.p2Base.x, Math.max(0, this.p2Base.y - 1));
+    const u1 = new Unit('RIFLEMAN', 1, this.p1Base.x + 1, this.p1Base.y, 'U_INIT_P1_1');
+    const u2 = new Unit('SCOUT', 1, this.p1Base.x, Math.min(7, this.p1Base.y + 1), 'U_INIT_P1_2');
+    const u3 = new Unit('RIFLEMAN', 2, this.p2Base.x - 1, this.p2Base.y, 'U_INIT_P2_1');
+    const u4 = new Unit('SCOUT', 2, this.p2Base.x, Math.max(0, this.p2Base.y - 1), 'U_INIT_P2_2');
 
     this.players[1].units.push(u1, u2);
     this.players[2].units.push(u3, u4);
@@ -1343,7 +1356,7 @@ class GameEngine {
     return points;
   }
 
-  buyUnit(playerId, typeKey, spawnX, spawnY, isRemote = false) {
+  buyUnit(playerId, typeKey, spawnX, spawnY, isRemote = false, customId = null) {
     const player = this.players[playerId];
     const template = UNIT_TYPES[typeKey];
     if (!template) return { success: false, reason: 'Unknown unit type' };
@@ -1366,12 +1379,13 @@ class GameEngine {
     if (occupied) return { success: false, reason: `Deployment Tile ${formatCoord(spawnX, spawnY)} is occupied by another unit!` };
 
     player.ink -= template.cost;
-    const newUnit = new Unit(typeKey, playerId, spawnX, spawnY);
+    const unitId = customId || `U_SPAWN_P${playerId}_T${this.turnNumber}_${Date.now().toString(36)}_${Math.floor(Math.random()*1000)}`;
+    const newUnit = new Unit(typeKey, playerId, spawnX, spawnY, unitId);
     player.units.push(newUnit);
 
     if (this.isMultiplayer && !isRemote) {
       if (!this.pendingSpawnsThisTurn) this.pendingSpawnsThisTurn = [];
-      this.pendingSpawnsThisTurn.push({ typeKey, x: spawnX, y: spawnY });
+      this.pendingSpawnsThisTurn.push({ id: unitId, typeKey, x: spawnX, y: spawnY });
     }
 
     this.actionLogs.push({
@@ -6842,6 +6856,7 @@ class App {
 
       this.engine = new GameEngine({
         mapType: mapVal,
+        seed: room.seed,
         p1Faction: FACTIONS[p1FactionKey] || FACTIONS.IRON_CORPS,
         p2Faction: FACTIONS[p2FactionKey] || FACTIONS.VANGUARD_LEGION,
         isSinglePlayer: false,
@@ -6922,7 +6937,7 @@ class App {
     // 2. Apply opponent spawns
     if (opponentPayload && opponentPayload.spawns) {
       opponentPayload.spawns.forEach(spawn => {
-        eng.buyUnit(oppSlot, spawn.typeKey, spawn.x, spawn.y, true);
+        eng.buyUnit(oppSlot, spawn.typeKey, spawn.x, spawn.y, true, spawn.id);
       });
     }
 

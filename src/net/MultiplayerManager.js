@@ -187,22 +187,23 @@ export class MultiplayerManager {
 
   async createCommitHash(payloadObj) {
     const salt = Math.random().toString(36).substring(2) + Date.now().toString(36);
-    const packaged = { payload: payloadObj, salt };
-    const str = JSON.stringify(packaged);
+    const payloadStr = JSON.stringify(payloadObj || {});
+    const combined = payloadStr + '::' + salt;
     const encoder = new TextEncoder();
-    const hashBuf = await crypto.subtle.digest('SHA-256', encoder.encode(str));
+    const hashBuf = await crypto.subtle.digest('SHA-256', encoder.encode(combined));
     const hashHex = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
     return {
       commitHash: hashHex,
-      revealData: packaged
+      revealData: { payload: payloadObj || {}, payloadStr, salt }
     };
   }
 
   async verifyCommitHash(commitHash, revealData) {
     if (!commitHash || !revealData) return false;
-    const str = JSON.stringify(revealData);
+    const payloadStr = revealData.payloadStr || JSON.stringify(revealData.payload || {});
+    const combined = payloadStr + '::' + (revealData.salt || '');
     const encoder = new TextEncoder();
-    const hashBuf = await crypto.subtle.digest('SHA-256', encoder.encode(str));
+    const hashBuf = await crypto.subtle.digest('SHA-256', encoder.encode(combined));
     const hashHex = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
     return hashHex === commitHash;
   }

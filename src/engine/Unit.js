@@ -3,11 +3,11 @@ import { UNIT_TYPES, STANCES } from './Types.js';
 export class Unit {
   static idCounter = 1;
 
-  constructor(typeKey, ownerId, startX, startY) {
+  constructor(typeKey, ownerId, startX, startY, customId = null) {
     const template = UNIT_TYPES[typeKey];
     if (!template) throw new Error(`Invalid unit typeKey: ${typeKey}`);
 
-    this.id = `U_${Unit.idCounter++}_P${ownerId}`;
+    this.id = customId || `U_${Unit.idCounter++}_P${ownerId}`;
     this.typeKey = typeKey;
     this.name = template.name;
     this.category = template.category;

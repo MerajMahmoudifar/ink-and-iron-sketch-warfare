@@ -6,6 +6,7 @@ import { Combat } from './Combat.js';
 export class GameEngine {
   constructor(config = {}) {
     this.mapType = config.mapType || 'PRESET_1';
+    this.seed = config.seed !== undefined ? config.seed : null;
     this.player1Faction = config.p1Faction || FACTIONS.IRON_CORPS;
     this.player2Faction = config.p2Faction || FACTIONS.VANGUARD_LEGION;
     this.isSinglePlayer = config.isSinglePlayer !== false; // default true
@@ -18,7 +19,7 @@ export class GameEngine {
     this.timerInterval = null;
 
     // Board & Players Setup
-    const mapData = MapGenerator.createMap(this.mapType);
+    const mapData = MapGenerator.createMap(this.mapType, this.seed);
     this.grid = mapData.grid; // 8x8
     this.p1Base = mapData.player1Base;
     this.p2Base = mapData.player2Base;
@@ -107,13 +108,13 @@ export class GameEngine {
 
   spawnInitialUnits() {
     // Player 1 Initial Units near base
-    const p1U1 = new Unit('RIFLEMAN', 1, this.p1Base.x + 1, this.p1Base.y);
-    const p1U2 = new Unit('SCOUT', 1, this.p1Base.x, Math.min(7, this.p1Base.y + 1));
+    const p1U1 = new Unit('RIFLEMAN', 1, this.p1Base.x + 1, this.p1Base.y, 'U_INIT_P1_1');
+    const p1U2 = new Unit('SCOUT', 1, this.p1Base.x, Math.min(7, this.p1Base.y + 1), 'U_INIT_P1_2');
     this.players[1].units.push(p1U1, p1U2);
 
     // Player 2 Initial Units near base
-    const p2U1 = new Unit('RIFLEMAN', 2, this.p2Base.x - 1, this.p2Base.y);
-    const p2U2 = new Unit('SCOUT', 2, this.p2Base.x, Math.max(0, this.p2Base.y - 1));
+    const p2U1 = new Unit('RIFLEMAN', 2, this.p2Base.x - 1, this.p2Base.y, 'U_INIT_P2_1');
+    const p2U2 = new Unit('SCOUT', 2, this.p2Base.x, Math.max(0, this.p2Base.y - 1), 'U_INIT_P2_2');
     this.players[2].units.push(p2U1, p2U2);
   }
 
@@ -222,7 +223,7 @@ export class GameEngine {
     this.players[playerId].zonesCaptured = zonesCount;
   }
 
-  buyUnit(playerId, typeKey, spawnX, spawnY) {
+  buyUnit(playerId, typeKey, spawnX, spawnY, customId = null) {
     const player = this.players[playerId];
     const unitTemplate = UNIT_TYPES[typeKey];
 
@@ -248,7 +249,8 @@ export class GameEngine {
 
     // Deduct cost and spawn
     player.ink -= unitTemplate.cost;
-    const newUnit = new Unit(typeKey, playerId, spawnX, spawnY);
+    const unitId = customId || `U_SPAWN_P${playerId}_T${this.turnNumber}_${Date.now().toString(36)}_${Math.floor(Math.random()*1000)}`;
+    const newUnit = new Unit(typeKey, playerId, spawnX, spawnY, unitId);
     player.units.push(newUnit);
 
     this.notifyStateChange();
