@@ -5354,4 +5354,65 @@ select.diesel-hidden-select {
   min-width: 200px;
 }
 
+/* Real-Time Enemy Orders Intercept / Ready Banner */
+.enemy-ready-dispatch-banner {
+  position: absolute;
+  top: 42px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.94);
+  border: 1.5px solid rgba(74, 222, 128, 0.8);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 15px rgba(74, 222, 128, 0.35);
+  border-radius: 4px;
+  padding: 6px 16px;
+  z-index: 40;
+  pointer-events: none;
+  font-family: var(--font-mono);
+  animation: slide-down-dispatch 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slide-down-dispatch {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -15px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+.dispatch-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #4ade80;
+  box-shadow: 0 0 8px #4ade80;
+  animation: mp-ready-pulse 1s infinite ease-in-out;
+}
+
+.dispatch-prefix {
+  font-weight: 800;
+  color: #4ade80;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+}
+
+.dispatch-text {
+  font-weight: 700;
+  color: #f8fafc;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+}
+
+.timer-enemy-ready {
+  background: linear-gradient(90deg, #10b981, #4ade80) !important;
+  box-shadow: 0 0 12px rgba(74, 222, 128, 0.6) !important;
+  animation: mp-ready-pulse 1.5s infinite ease-in-out;
+}
+
+
 

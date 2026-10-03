@@ -4417,10 +4417,12 @@ class UIManager {
       if (isOppReady) {
         this.phaseBadge.textContent = `Planning (${engine.planningTimeRemaining}s) • ENEMY READY`;
         this.phaseBadge.className = 'phase-badge enemy-ready-pulse';
+        if (this.timerBarFill) this.timerBarFill.classList.add('timer-enemy-ready');
       } else {
         this.phaseBadge.textContent = `Planning Phase — ${engine.planningTimeRemaining}s`;
         this.phaseBadge.className = 'phase-badge';
         this.phaseBadge.style.background = '';
+        if (this.timerBarFill) this.timerBarFill.classList.remove('timer-enemy-ready');
       }
       const maxPlanningSecs = engine.planningDurationConfig || 40;
       this.timerBarFill.style.width = `${Math.min(100, Math.max(0, (engine.planningTimeRemaining / maxPlanningSecs) * 100))}%`;
@@ -4432,6 +4434,7 @@ class UIManager {
       this.phaseBadge.textContent = `Combat Playback — ${engine.playbackTimeRemaining}s`;
       this.phaseBadge.className = 'phase-badge';
       this.phaseBadge.style.background = '';
+      if (this.timerBarFill) this.timerBarFill.classList.remove('timer-enemy-ready');
       const maxPlaybackSecs = engine.playbackDurationConfig || 3;
       this.timerBarFill.style.width = `${(engine.playbackTimeRemaining / maxPlaybackSecs) * 100}%`;
       const dialog = document.getElementById('bootcamp-instructor-dialog');
@@ -4441,6 +4444,7 @@ class UIManager {
     } else if (engine.phase === 'GAME_OVER') {
       this.phaseBadge.textContent = `Game Over`;
       this.phaseBadge.className = 'phase-badge';
+      if (this.timerBarFill) this.timerBarFill.classList.remove('timer-enemy-ready');
       this.timerBarFill.style.width = '0%';
     }
 
@@ -6743,6 +6747,25 @@ class App {
     } catch(err){}
   }
 
+  showEnemyReadyDispatchBanner() {
+    const banner = document.getElementById('enemy-ready-dispatch-banner');
+    if (!banner) return;
+    banner.style.display = 'flex';
+    if (this.enemyReadyBannerTimer) clearTimeout(this.enemyReadyBannerTimer);
+    this.enemyReadyBannerTimer = setTimeout(() => {
+      banner.style.display = 'none';
+    }, 4500);
+  }
+
+  hideEnemyReadyDispatchBanner() {
+    const banner = document.getElementById('enemy-ready-dispatch-banner');
+    if (banner) banner.style.display = 'none';
+    if (this.enemyReadyBannerTimer) {
+      clearTimeout(this.enemyReadyBannerTimer);
+      this.enemyReadyBannerTimer = null;
+    }
+  }
+
   startReconPhase(durationMs = 10000) {
     if (this.reconTimer) {
       clearInterval(this.reconTimer);
@@ -7053,6 +7076,7 @@ class App {
     eng.pendingAbilitiesThisTurn = [];
     eng.isWaitingForOpponentTurn = false;
     eng.isOpponentReadyThisTurn = false;
+    this.hideEnemyReadyDispatchBanner();
 
     // 5. Trigger synchronized playback phase
     eng.phase = GAME_PHASES.PLAYBACK;

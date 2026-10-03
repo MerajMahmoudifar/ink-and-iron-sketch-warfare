@@ -753,9 +753,10 @@ export class MultiplayerManager {
     if (turnData[`${oppSlot}Commit`]) {
       if (engine && engine.isMultiplayer && !engine.isOpponentReadyThisTurn) {
         engine.isOpponentReadyThisTurn = true;
-        if (window.gApp?.ui) {
-          window.gApp.ui.updateHUD(engine);
-          window.gApp.ui.showToast('Enemy Ready', 'Enemy Commander has committed their turn orders!');
+        if (window.gApp) {
+          if (window.gApp.ui) window.gApp.ui.updateHUD(engine);
+          if (window.gApp.showEnemyReadyDispatchBanner) window.gApp.showEnemyReadyDispatchBanner();
+          if (window.gApp.ui?.showToast) window.gApp.ui.showToast('Orders Intercepted', 'Enemy Commander has committed their turn orders!');
         }
         try { if (engine.audio) engine.audio.playCountdownTick(); } catch(e){}
       }
