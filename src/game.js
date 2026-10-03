@@ -759,6 +759,8 @@ class GameEngine {
     this.player1Faction = config.p1Faction || FACTIONS.IRON_CORPS;
     this.player2Faction = config.p2Faction || FACTIONS.VANGUARD_LEGION;
     this.isSinglePlayer = config.isSinglePlayer !== undefined ? config.isSinglePlayer : true;
+    this.isMultiplayer = config.isMultiplayer || false;
+    this.localPlayerSlot = config.localPlayerSlot || 1;
     this.aiDifficulty = config.aiDifficulty || 'VETERAN';
     this.audio = config.audio || null;
     this.playbackDurationConfig = config.playbackDuration || 3;
@@ -770,6 +772,9 @@ class GameEngine {
     this.playbackTimeRemaining = this.playbackDurationConfig;
     this.currentPlaybackStep = 0;
     this.timerInterval = null;
+    this.isWaitingForOpponentTurn = false;
+    this.pendingSpawnsThisTurn = [];
+    this.pendingAbilitiesThisTurn = [];
 
     const mapData = MapGenerator.createMap(this.mapType);
     this.grid = mapData.grid;
@@ -1042,6 +1047,30 @@ class GameEngine {
 
   endPlanningPhase() {
     if (this.isStopped || this.phase === 'MENU' || this.phase === GAME_PHASES.GAME_OVER) return;
+
+    if (this.isMultiplayer) {
+      const slot = this.localPlayerSlot || 1;
+      const myOrders = {
+        units: this.players[slot].units.map(u => ({
+          id: u.id,
+          typeKey: u.typeKey,
+          waypoints: (u.waypoints || []).map(w => ({ x: w.x, y: w.y })),
+          stance: u.stance || 'ADVANCE',
+          targetUnitId: u.targetUnit ? u.targetUnit.id : null
+        })),
+        spawns: [...(this.pendingSpawnsThisTurn || [])],
+        abilities: [...(this.pendingAbilitiesThisTurn || [])]
+      };
+
+      this.isWaitingForOpponentTurn = true;
+      this.notifyStateChange();
+
+      if (window.gMultiplayer) {
+        window.gMultiplayer.submitTurnOrders(this.turnNumber, myOrders);
+      }
+      return;
+    }
+
     this.phase = GAME_PHASES.PLAYBACK;
     this.playbackTimeRemaining = this.playbackDurationConfig;
     this.currentPlaybackStep = 0;
@@ -1076,6 +1105,9 @@ class GameEngine {
     this.turnNumber++;
     this.phase = GAME_PHASES.PLANNING;
     this.planningTimeRemaining = this.bootcampLesson ? Infinity : this.planningDurationConfig;
+    this.isWaitingForOpponentTurn = false;
+    this.pendingSpawnsThisTurn = [];
+    this.pendingAbilitiesThisTurn = [];
 
     this.calculateTurnIncome(1);
     this.calculateTurnIncome(2);
@@ -1119,13 +1151,18 @@ class GameEngine {
   }
 
   // SPECIAL ABILITY CASTING LOGIC
-  useAbility(playerId, abilityKey, targetX, targetY) {
+  useAbility(playerId, abilityKey, targetX, targetY, isRemote = false) {
     const player = this.players[playerId];
     const ability = ABILITIES[abilityKey];
     if (!ability) return { success: false, reason: 'Unknown ability' };
     if (player.cp < ability.cpCost) return { success: false, reason: `Not enough Command Points (Need ${ability.cpCost} CP)` };
 
     player.cp -= ability.cpCost;
+
+    if (this.isMultiplayer && !isRemote) {
+      if (!this.pendingAbilitiesThisTurn) this.pendingAbilitiesThisTurn = [];
+      this.pendingAbilitiesThisTurn.push({ abilityKey, x: targetX, y: targetY });
+    }
 
     if (abilityKey === 'RECON_FLARE') {
       this.activeFlares.push({ x: targetX, y: targetY, owner: playerId, turnsLeft: 2 });
@@ -1200,6 +1237,10 @@ class GameEngine {
 
     this.activeArtilleryStrikes = this.activeArtilleryStrikes.filter(a => !(a.owner === playerId && a.targetTurn === this.turnNumber));
     this.activeSmokes = this.activeSmokes.filter(s => !(s.owner === playerId && s.turnPlaced === this.turnNumber));
+
+    if (this.isMultiplayer) {
+      this.pendingAbilitiesThisTurn = [];
+    }
 
     if (this.players[playerId]) {
       this.players[playerId].cp = Math.min(10, this.players[playerId].cp + refundedCP);
@@ -1302,7 +1343,7 @@ class GameEngine {
     return points;
   }
 
-  buyUnit(playerId, typeKey, spawnX, spawnY) {
+  buyUnit(playerId, typeKey, spawnX, spawnY, isRemote = false) {
     const player = this.players[playerId];
     const template = UNIT_TYPES[typeKey];
     if (!template) return { success: false, reason: 'Unknown unit type' };
@@ -1327,6 +1368,11 @@ class GameEngine {
     player.ink -= template.cost;
     const newUnit = new Unit(typeKey, playerId, spawnX, spawnY);
     player.units.push(newUnit);
+
+    if (this.isMultiplayer && !isRemote) {
+      if (!this.pendingSpawnsThisTurn) this.pendingSpawnsThisTurn = [];
+      this.pendingSpawnsThisTurn.push({ typeKey, x: spawnX, y: spawnY });
+    }
 
     this.actionLogs.push({
       type: 'DEPLOY',
@@ -1406,11 +1452,12 @@ class GameEngine {
 
     // EXECUTE ARTILLERY STRIKES ON STEP 2 OF PLAYBACK
     if (stepIndex === 2 && this.activeArtilleryStrikes.length > 0) {
-      const p1Vision = this.calculateVision(1);
+      const localSlot = this.localPlayerSlot || 1;
+      const localVision = this.calculateVision(localSlot);
       this.activeArtilleryStrikes.forEach(art => {
         if (art.targetTurn === this.turnNumber) {
-          const isArtilleryVisible = p1Vision[art.y][art.x];
-          if (isArtilleryVisible || art.owner === 1) {
+          const isArtilleryVisible = localVision[art.y][art.x];
+          if (isArtilleryVisible || art.owner === localSlot) {
             if (this.audio) this.audio.playExplosion(true);
             this.actionLogs.push({
               type: 'ARTILLERY_IMPACT',
@@ -1426,14 +1473,14 @@ class GameEngine {
               const dmg = targetUnit.takeDamage(35);
               
               // MASK LOG IF TARGET IS HIDDEN IN FOG OF WAR
-              const isTargetVisible = p1Vision[targetUnit.y][targetUnit.x] || targetUnit.owner === 1;
+              const isTargetVisible = localVision[targetUnit.y][targetUnit.x] || targetUnit.owner === localSlot;
               if (isTargetVisible) {
                 this.actionLogs.push({
                   type: 'ARTILLERY_HIT',
                   turn: this.turnNumber,
                   unitName: targetUnit.name,
                   unitIcon: targetUnit.icon,
-                  ownerTag: targetUnit.owner === 1 ? 'P1' : 'AI',
+                  ownerTag: targetUnit.owner === localSlot ? 'ALLIED' : 'ENEMY',
                   damage: dmg,
                   died: !targetUnit.isAlive(),
                   x: targetUnit.x,
@@ -1551,7 +1598,8 @@ class GameEngine {
     const p1Units = this.players[1].units.filter(u => u.isAlive());
     const p2Units = this.players[2].units.filter(u => u.isAlive());
 
-    const p1VisionNow = this.calculateVision(1);
+    const localSlot = this.localPlayerSlot || 1;
+    const localVisionNow = this.calculateVision(localSlot);
 
     p1Units.forEach(u1 => {
       p2Units.forEach(u2 => {
@@ -1581,8 +1629,8 @@ class GameEngine {
               else this.audio.playGunfire(u1.category === 'VEHICLE' || u2.category === 'VEHICLE');
             }
             
-            // ONLY LOG COMBAT IF DEFENDER TILE IS VISIBLE TO P1
-            if (p1VisionNow[u2.y][u2.x]) {
+            // ONLY LOG COMBAT IF DEFENDER TILE IS VISIBLE TO LOCAL PLAYER
+            if (localVisionNow[u2.y][u2.x] || u1.owner === localSlot) {
               this.actionLogs.push({ ...res, turn: this.turnNumber, step: stepIndex });
             }
 
@@ -1598,8 +1646,8 @@ class GameEngine {
             const res = Combat.resolveEncounter(u2, u1, this.grid[u1.y][u1.x], this.players[2].faction, this.players[1].faction);
             u2.hasAttackedThisTurn = true;
             
-            // ONLY LOG COMBAT IF ATTACKER TILE IS VISIBLE TO P1
-            if (p1VisionNow[u2.y][u2.x] || p1VisionNow[u1.y][u1.x]) {
+            // ONLY LOG COMBAT IF ATTACKER TILE IS VISIBLE TO LOCAL PLAYER
+            if (localVisionNow[u2.y][u2.x] || localVisionNow[u1.y][u1.x] || u2.owner === localSlot) {
               this.actionLogs.push({ ...res, turn: this.turnNumber, step: stepIndex });
             }
 
@@ -2836,7 +2884,9 @@ class SketchRenderer {
 
     // In GAME_OVER terrain-view mode or RECON mode: reveal all tiles (no fog)
     const isTerrainView = engine.phase === 'GAME_OVER' || engine.isReconPhase;
-    const p1Vision = isTerrainView ? Array(8).fill(null).map(() => Array(8).fill(true)) : engine.calculateVision(1);
+    const localSlot = engine.localPlayerSlot || 1;
+    const enemySlot = localSlot === 1 ? 2 : 1;
+    const localVision = isTerrainView ? Array(8).fill(null).map(() => Array(8).fill(true)) : engine.calculateVision(localSlot);
 
     // 3. Terrain Tiles
     for (let r = 0; r < 8; r++) {
@@ -2917,27 +2967,29 @@ class SketchRenderer {
     this.ctx.strokeRect(this.offsetX, this.offsetY, 560, 560);
     this.ctx.restore();
 
-    // 6. Units Multi-Turn Waypoints — Show P1's own units' plans
-    engine.players[1].units.forEach(unit => {
-      if (unit.isAlive() && unit.waypoints.length > 0) {
-        const gridC = Math.max(0, Math.min(7, Math.round(unit.renderX !== undefined ? unit.renderX : unit.x)));
-        const gridR = Math.max(0, Math.min(7, Math.round(unit.renderY !== undefined ? unit.renderY : unit.y)));
-        if (p1Vision[gridR][gridC] || isTerrainView) {
-          this.drawMultiTurnWaypoints(unit, engine);
+    // 6. Units Multi-Turn Waypoints — Show local player's own units' plans
+    if (engine.players[localSlot]) {
+      engine.players[localSlot].units.forEach(unit => {
+        if (unit.isAlive() && unit.waypoints.length > 0) {
+          const gridC = Math.max(0, Math.min(7, Math.round(unit.renderX !== undefined ? unit.renderX : unit.x)));
+          const gridR = Math.max(0, Math.min(7, Math.round(unit.renderY !== undefined ? unit.renderY : unit.y)));
+          if (localVision[gridR][gridC] || isTerrainView) {
+            this.drawMultiTurnWaypoints(unit, engine);
+          }
         }
-      }
-    });
+      });
+    }
 
     // In GAME_OVER (See Map) mode: reveal all remaining enemy queued movement lines in red!
-    if (isTerrainView && engine.players[2]) {
-      engine.players[2].units.forEach(unit => {
+    if (isTerrainView && engine.players[enemySlot]) {
+      engine.players[enemySlot].units.forEach(unit => {
         if (unit.isAlive() && unit.waypoints.length > 0) {
           this.drawMultiTurnWaypoints(unit, engine);
         }
       });
     }
 
-    // 7. Render Living Units (Visible to P1) with Smooth Interpolation
+    // 7. Render Living Units (Visible to Local Player) with Smooth Interpolation
     const allUnits = engine.getAllUnits();
     allUnits.forEach(unit => {
       if (!unit.isAlive()) return;
@@ -2959,9 +3011,9 @@ class SketchRenderer {
 
       const gridR = Math.max(0, Math.min(7, Math.round(unit.renderY)));
       const gridC = Math.max(0, Math.min(7, Math.round(unit.renderX)));
-      const isVisibleToP1 = p1Vision[gridR][gridC] || unit.owner === 1;
+      const isVisibleToLocal = localVision[gridR][gridC] || unit.owner === localSlot;
 
-      if (isVisibleToP1) {
+      if (isVisibleToLocal) {
         const pos = this.getScreenCoords(unit.renderX, unit.renderY);
         this.drawUnit(unit, pos.x, pos.y, engine);
       }
@@ -3040,9 +3092,9 @@ class SketchRenderer {
       const now = Date.now();
       const pulse = (Math.sin(now / 180) + 1) / 2; // 0 to 1 pulsating scale
 
-      // 1. Highlight Player 1 Base (Allied HQ)
-      if (engine.players[1] && engine.players[1].basePos) {
-        const bp = engine.players[1].basePos;
+      // 1. Highlight Local Base (Allied HQ)
+      if (engine.players[localSlot] && engine.players[localSlot].basePos) {
+        const bp = engine.players[localSlot].basePos;
         const bPos = this.getScreenCoords(bp.x, bp.y);
         
         this.ctx.save();
@@ -3091,8 +3143,8 @@ class SketchRenderer {
       }
 
       // 3. Highlight Enemy HQ
-      if (engine.players[2] && engine.players[2].basePos) {
-        const ep = engine.players[2].basePos;
+      if (engine.players[enemySlot] && engine.players[enemySlot].basePos) {
+        const ep = engine.players[enemySlot].basePos;
         const ePos = this.getScreenCoords(ep.x, ep.y);
         this.ctx.save();
         this.ctx.strokeStyle = `rgba(239, 68, 68, ${0.5 + pulse * 0.35})`;
@@ -3113,7 +3165,7 @@ class SketchRenderer {
     if (!isTerrainView) {
       for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
-          if (!p1Vision[r][c]) {
+          if (!localVision[r][c]) {
             const pos = this.getScreenCoords(c, r);
             this.drawPencilHatching(pos.x, pos.y);
           }
@@ -4237,8 +4289,9 @@ class UIManager {
 
   handleAbilityClick(abilityKey) {
     if (!this.app.engine || this.app.engine.phase !== 'PLANNING') return;
+    const localSlot = this.app.engine.localPlayerSlot || 1;
     const ability = ABILITIES[abilityKey];
-    if (this.app.engine.players[1].cp < ability.cpCost) {
+    if (this.app.engine.players[localSlot].cp < ability.cpCost) {
       this.showToast('Low Command Power', `Need ${ability.cpCost} CP to launch ${ability.name}!`);
       return;
     }
@@ -4253,6 +4306,7 @@ class UIManager {
   setupMenuTabs() {
     const tabs = [
       { btn: 'tab-btn-play', pane: 'tab-pane-play' },
+      { btn: 'tab-btn-multiplayer', pane: 'tab-pane-multiplayer' },
       { btn: 'tab-btn-bootcamp', pane: 'tab-pane-bootcamp' },
       { btn: 'tab-btn-factions', pane: 'tab-pane-factions' },
       { btn: 'tab-btn-codex', pane: 'tab-pane-codex' },
@@ -4344,9 +4398,14 @@ class UIManager {
       this.timerBarFill.style.width = '0%';
     }
 
-    this.p1InkDisplay.textContent = `Ink: ${engine.players[1].ink}`;
-    if (this.p1CpDisplay) this.p1CpDisplay.textContent = `CP: ${engine.players[1].cp}/10`;
-    if (this.p2InkDisplay) this.p2InkDisplay.textContent = `${engine.players[2].name}: ${engine.players[2].ink}`;
+    const localSlot = engine.localPlayerSlot || 1;
+    const oppSlot = localSlot === 1 ? 2 : 1;
+    const localPlayer = engine.players[localSlot] || { ink: 0, cp: 0, name: 'Commander' };
+    const oppPlayer = engine.players[oppSlot] || { ink: 0, cp: 0, name: 'Hostile Commander' };
+
+    this.p1InkDisplay.textContent = `Ink: ${localPlayer.ink}`;
+    if (this.p1CpDisplay) this.p1CpDisplay.textContent = `CP: ${localPlayer.cp}/10`;
+    if (this.p2InkDisplay) this.p2InkDisplay.textContent = `${oppPlayer.name}: ${oppPlayer.ink}`;
 
     try { this.renderUnitStore(engine); } catch(e){ console.error('Error rendering unit store:', e); }
     try { this.renderInspector(engine); } catch(e){ console.error('Error rendering inspector:', e); }
@@ -4354,12 +4413,12 @@ class UIManager {
 
     // Update accordion status badges
     const cpBadge = document.getElementById('abilities-cp-badge');
-    if (cpBadge && engine.players[1]) {
-      cpBadge.textContent = `CP: ${engine.players[1].cp}/10`;
+    if (cpBadge && localPlayer) {
+      cpBadge.textContent = `CP: ${localPlayer.cp}/10`;
     }
     const recruitCountBadge = document.getElementById('recruitment-count-badge');
-    if (recruitCountBadge && engine.players[1]) {
-      recruitCountBadge.textContent = `${engine.players[1].ink} INK`;
+    if (recruitCountBadge && localPlayer) {
+      recruitCountBadge.textContent = `${localPlayer.ink} INK`;
     }
 
     // In GAME_OVER: lock all action controls. In RECON: enable Deploy Now button, disable abilities.
@@ -4381,6 +4440,16 @@ class UIManager {
         endTurnBtn.disabled = false;
         endTurnBtn.style.opacity = '1';
         endTurnBtn.style.pointerEvents = 'auto';
+      }
+    } else if (engine.isWaitingForOpponentTurn) {
+      this.phaseBadge.textContent = `Orders Committed — Transmitting (SHA-256)...`;
+      this.phaseBadge.style.background = 'rgba(234, 179, 8, 0.25)';
+      const endTurnBtn = document.getElementById('btn-end-turn');
+      if (endTurnBtn) {
+        endTurnBtn.innerHTML = '<span class="btn-end-title">WAITING FOR ENEMY...</span>';
+        endTurnBtn.disabled = true;
+        endTurnBtn.style.opacity = '0.5';
+        endTurnBtn.style.pointerEvents = 'none';
       }
     } else {
       // Normal PLANNING or PLAYBACK phase
@@ -4404,7 +4473,6 @@ class UIManager {
     }
 
     // Update active ability targeting indicators & affordability
-    const p1 = engine.players[1];
     [
       { id: 'btn-ability-flare', key: 'RECON_FLARE' },
       { id: 'btn-ability-smoke', key: 'SMOKE_SCREEN' },
@@ -4413,7 +4481,7 @@ class UIManager {
       const btn = document.getElementById(ab.id);
       if (btn) {
         const config = (typeof ABILITIES !== 'undefined') ? ABILITIES[ab.key] : null;
-        const canAfford = config && p1 ? p1.cp >= config.cpCost : true;
+        const canAfford = config && localPlayer ? localPlayer.cp >= config.cpCost : true;
         const isTargeting = this.pendingAbilityKey === ab.key;
 
         if (isTargeting) {
@@ -4432,7 +4500,7 @@ class UIManager {
 
     const cancelAbilitiesBtn = document.getElementById('btn-cancel-abilities');
     if (cancelAbilitiesBtn) {
-      const hasRefundable = engine.phase === 'PLANNING' && engine.hasRefundableAbilities && engine.hasRefundableAbilities(1);
+      const hasRefundable = engine.phase === 'PLANNING' && engine.hasRefundableAbilities && engine.hasRefundableAbilities(localSlot);
       cancelAbilitiesBtn.disabled = !hasRefundable || engine.phase === 'GAME_OVER';
       cancelAbilitiesBtn.style.opacity = hasRefundable ? '1' : '0.45';
       cancelAbilitiesBtn.style.pointerEvents = hasRefundable ? 'auto' : 'none';
@@ -4460,7 +4528,7 @@ class UIManager {
           return;
         }
         if (window.gAuthManager) {
-          window.gAuthManager.recordMatchResult(engine.winner === 1);
+          window.gAuthManager.recordMatchResult(engine.winner === localSlot);
         }
         const modal = document.getElementById('victory-modal');
         const cardEl = document.getElementById('victory-card-element');
@@ -4481,7 +4549,7 @@ class UIManager {
 
         if (modal) {
           modal.style.display = 'flex';
-          const isVictory = (engine.winner === 1);
+          const isVictory = (engine.winner === localSlot);
           const turns = engine.turnNumber || 1;
 
           if (this.app && this.app.audio) {
@@ -4490,26 +4558,26 @@ class UIManager {
           }
 
           // Calculate Battle Stats
-          const p1Alive = engine.players[1] ? engine.players[1].units.filter(u => u.isAlive()).length : 0;
-          const p2Alive = engine.players[2] ? engine.players[2].units.filter(u => u.isAlive()).length : 0;
-          const p1Deploys = Math.max(2, (engine.actionLogs || []).filter(l => l.type === 'DEPLOY' && l.playerOwner === 1).length);
-          const p2Deploys = Math.max(2, (engine.actionLogs || []).filter(l => l.type === 'DEPLOY' && l.playerOwner === 2).length);
-          const p1Losses = Math.max(0, p1Deploys - p1Alive);
-          const p2Losses = Math.max(0, p2Deploys - p2Alive);
+          const localAlive = engine.players[localSlot] ? engine.players[localSlot].units.filter(u => u.isAlive()).length : 0;
+          const oppAlive = engine.players[oppSlot] ? engine.players[oppSlot].units.filter(u => u.isAlive()).length : 0;
+          const localDeploys = Math.max(2, (engine.actionLogs || []).filter(l => l.type === 'DEPLOY' && l.playerOwner === localSlot).length);
+          const oppDeploys = Math.max(2, (engine.actionLogs || []).filter(l => l.type === 'DEPLOY' && l.playerOwner === oppSlot).length);
+          const localLosses = Math.max(0, localDeploys - localAlive);
+          const oppLosses = Math.max(0, oppDeploys - oppAlive);
           
-          let p1Zones = 0;
+          let localZones = 0;
           if (engine.grid) {
             for (let r = 0; r < 8; r++) {
               for (let c = 0; c < 8; c++) {
-                if (engine.grid[r] && engine.grid[r][c] && engine.grid[r][c].id === 'CAPTURE_ZONE' && engine.grid[r][c].owner === 1) p1Zones++;
+                if (engine.grid[r] && engine.grid[r][c] && engine.grid[r][c].id === 'CAPTURE_ZONE' && engine.grid[r][c].owner === localSlot) localZones++;
               }
             }
           }
 
           if (turnStamp) turnStamp.textContent = `TURN ${turns}`;
-          if (statKills) statKills.textContent = `${p2Losses}`;
-          if (statLosses) statLosses.textContent = `${p1Losses}`;
-          if (statSectors) statSectors.textContent = `${p1Zones}`;
+          if (statKills) statKills.textContent = `${oppLosses}`;
+          if (statLosses) statLosses.textContent = `${localLosses}`;
+          if (statSectors) statSectors.textContent = `${localZones}`;
 
           if (cardEl) {
             cardEl.classList.remove('victory-mode', 'defeat-mode');
@@ -4618,7 +4686,8 @@ class UIManager {
     this.storeContainer.innerHTML = '';
     // Hide the store entirely during terrain view / game over
     if (engine.phase === 'GAME_OVER') return;
-    const p1 = engine.players[1];
+    const localSlot = engine.localPlayerSlot || 1;
+    const p1 = engine.players[localSlot];
 
     Object.keys(UNIT_TYPES).filter(k => !UNIT_TYPES[k].factionLock || UNIT_TYPES[k].factionLock === p1.faction.id).forEach(key => {
       const u = UNIT_TYPES[key];
@@ -4626,7 +4695,7 @@ class UIManager {
       const roleLabel = u.category || 'COMBAT';
       const roleClass = (u.category === 'VEHICLE' || u.category === 'ARMOR') ? 'role-vehicle' : (u.category === 'INFANTRY' ? 'role-infantry' : 'role-support');
       const badgeHtml = (typeof UnitIcons !== 'undefined')
-        ? UnitIcons.getBadgeHtml(key, { size: 'md', owner: 1 })
+        ? UnitIcons.getBadgeHtml(key, { size: 'md', owner: localSlot })
         : `<span class="unit-card-symbol">${u.symbol || '⬚'}</span>`;
 
       const canAfford = p1.ink >= u.cost;
@@ -4659,7 +4728,7 @@ class UIManager {
         <div class="unit-card-desc">${u.description}</div>`;
       
       btn.addEventListener('click', () => {
-        const availableSpawns = engine.getOwnedSpawnPoints(1);
+        const availableSpawns = engine.getOwnedSpawnPoints(localSlot);
         const unContestedSpawns = availableSpawns.filter(sp => !sp.isContested && !engine.getAllUnits().some(u => u.x === sp.x && u.y === sp.y && u.isAlive()));
 
         if (unContestedSpawns.length === 0) {
@@ -4672,7 +4741,7 @@ class UIManager {
         if (selTile) {
           const isSelectedValid = unContestedSpawns.some(sp => sp.x === selTile.x && sp.y === selTile.y);
           if (isSelectedValid) {
-            const res = engine.buyUnit(1, key, selTile.x, selTile.y);
+            const res = engine.buyUnit(localSlot, key, selTile.x, selTile.y);
             if (res.success) {
               try { this.app.audio.playSpawnSound(); } catch(err){}
             } else {
@@ -4702,7 +4771,8 @@ class UIManager {
   openDeploymentPicker(engine, unitTypeKey, unitObj) {
     const titleEl = document.getElementById('deploy-picker-title');
     if (titleEl && unitObj) titleEl.textContent = `Deploy ${unitObj.symbol} ${unitObj.name}`;
-    const spawnPoints = engine.getOwnedSpawnPoints(1);
+    const localSlot = engine.localPlayerSlot || 1;
+    const spawnPoints = engine.getOwnedSpawnPoints(localSlot);
     const listEl = document.getElementById('deploy-picker-list');
     if (!listEl) return;
     listEl.innerHTML = '';
@@ -4763,7 +4833,7 @@ class UIManager {
         `;
         btn.addEventListener('click', () => {
           if (this.deployPickerModal) this.deployPickerModal.style.display = 'none';
-          const res = engine.buyUnit(1, unitTypeKey, sp.x, sp.y);
+          const res = engine.buyUnit(localSlot, unitTypeKey, sp.x, sp.y);
           if (res.success) {
             try { this.app.audio.playSpawnSound(); } catch(err){}
           } else {
@@ -4835,15 +4905,17 @@ class UIManager {
 
     const tile = activeGrid[sel.y][sel.x];
     const isTerrainView = engine.phase === 'GAME_OVER' || isReplay;
-    const p1Vision = isTerrainView ? Array(8).fill(null).map(() => Array(8).fill(true)) : engine.calculateVision(1);
-    const isTileVisible = p1Vision[sel.y][sel.x];
+    const localSlot = engine.localPlayerSlot || 1;
+    const enemySlot = localSlot === 1 ? 2 : 1;
+    const localVision = isTerrainView ? Array(8).fill(null).map(() => Array(8).fill(true)) : engine.calculateVision(localSlot);
+    const isTileVisible = localVision[sel.y][sel.x];
 
     // Mask enemy units on tiles shrouded by Fog of War (revealed in replay mode)
     const allUnitsInView = isReplay
       ? [...(currentSnap.p1Units || []), ...(currentSnap.p2Units || [])]
       : engine.getAllUnits();
     const rawUnit = allUnitsInView.find(u => u.x === sel.x && u.y === sel.y && ((typeof u.isAlive === 'function' ? u.isAlive() : u.isAlive) || (u.hp > 0)));
-    const unitOnTile = (rawUnit && (rawUnit.owner === 1 || isTileVisible)) ? rawUnit : null;
+    const unitOnTile = (rawUnit && (rawUnit.owner === localSlot || isTileVisible)) ? rawUnit : null;
 
     const colLetter = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][sel.x] || String(sel.x);
     const rowNum = sel.y + 1;
@@ -4851,7 +4923,7 @@ class UIManager {
 
     if (statusBadge) {
       if (unitOnTile) {
-        statusBadge.textContent = unitOnTile.owner === 1 ? 'ALLIED SQUAD' : 'ENEMY CONTACT';
+        statusBadge.textContent = unitOnTile.owner === localSlot ? 'ALLIED SQUAD' : 'ENEMY CONTACT';
         if (secRecruit) secRecruit.classList.add('collapsed');
       } else {
         statusBadge.textContent = `${colLetter}${rowNum} TERRAIN`;
@@ -4908,7 +4980,7 @@ class UIManager {
       }
 
       let spawnStatusHtml = '';
-      if ((tile.id === 'CAPTURE_ZONE' || tile.id === 'MAIN_BASE') && tile.owner === 1) {
+      if ((tile.id === 'CAPTURE_ZONE' || tile.id === 'MAIN_BASE') && tile.owner === localSlot) {
         if (unitOnTile) {
           spawnStatusHtml = `<div class="dossier-spawn-status occupied">[OCCUPIED] DEPLOY POINT OCCUPIED</div>`;
         } else {
@@ -4932,7 +5004,7 @@ class UIManager {
     }
 
     if (unitOnTile) {
-      const isFriendly = unitOnTile.owner === 1;
+      const isFriendly = unitOnTile.owner === localSlot;
       const waypointsCount = unitOnTile.waypoints.length;
       const hpPct = Math.max(0, Math.min(100, Math.round((unitOnTile.hp / unitOnTile.maxHp) * 100)));
       const roleLabel = unitOnTile.category || 'COMBAT';
@@ -4978,7 +5050,7 @@ class UIManager {
           ${(isFriendly && waypointsCount > 0) ? `<div class="dossier-orders-tag">ORDERS: ${waypointsCount} WAYPOINTS QUEUED</div>` : ''}
       `;
 
-      if (unitOnTile.owner === 1 && engine.phase === 'PLANNING') {
+      if (unitOnTile.owner === localSlot && engine.phase === 'PLANNING' && !engine.isWaitingForOpponentTurn) {
         const canAmbush = unitOnTile.category === 'INFANTRY' && tile.id === 'FOREST';
         html += `
           <div class="dossier-stance-block">
@@ -4998,7 +5070,7 @@ class UIManager {
     }
     this.inspectorContent.innerHTML = html;
 
-    if (unitOnTile && unitOnTile.owner === 1 && engine.phase === 'PLANNING') {
+    if (unitOnTile && unitOnTile.owner === localSlot && engine.phase === 'PLANNING' && !engine.isWaitingForOpponentTurn) {
       const btnAdv = document.getElementById('stance-adv');
       const btnDef = document.getElementById('stance-def');
       const btnAmb = document.getElementById('stance-amb');
@@ -5024,9 +5096,9 @@ class UIManager {
       const factionsMap = { 1: engine.player1Faction, 2: engine.player2Faction };
 
       if (unitOnTile) {
-        if (unitOnTile.owner === 2) {
+        if (unitOnTile.owner === enemySlot) {
           // Player is inspecting an enemy unit! Find best friendly attacker
-          const friendlyUnits = engine.players[1].units.filter(u => u.isAlive());
+          const friendlyUnits = engine.players[localSlot].units.filter(u => u.isAlive());
           let bestAttacker = friendlyUnits.find(u => {
             const lastWp = u.waypoints.length > 0 ? u.waypoints[u.waypoints.length - 1] : { x: u.x, y: u.y };
             return Combat.getDistance(lastWp, unitOnTile) <= u.attackRange;
@@ -5043,9 +5115,9 @@ class UIManager {
           if (bestAttacker) {
             forecast = Combat.getForecast(bestAttacker, unitOnTile, engine.grid, factionsMap);
           }
-        } else if (unitOnTile.owner === 1) {
+        } else if (unitOnTile.owner === localSlot) {
           // Player is inspecting friendly unit! Find visible enemy targets in range
-          const enemyUnits = engine.players[2].units.filter(u => u.isAlive() && p1Vision[u.y][u.x]);
+          const enemyUnits = engine.players[enemySlot].units.filter(u => u.isAlive() && localVision[u.y][u.x]);
           const targetEnemy = enemyUnits.find(e => Combat.getDistance(unitOnTile, e) <= unitOnTile.attackRange) ||
                               (enemyUnits.length > 0 ? enemyUnits.reduce((closest, cur) => {
                                 const dCur = Combat.getDistance(unitOnTile, cur);
@@ -5097,7 +5169,9 @@ class UIManager {
     
     let currentRenderedTurn = 0;
     const isReplay = engine.isReplayMode;
-    const p1Vision = isReplay ? Array(8).fill(null).map(() => Array(8).fill(true)) : engine.calculateVision(1);
+    const localSlot = engine.localPlayerSlot || 1;
+    const enemySlot = localSlot === 1 ? 2 : 1;
+    const localVision = isReplay ? Array(8).fill(null).map(() => Array(8).fill(true)) : engine.calculateVision(localSlot);
     const currentSnap = (isReplay && engine.turnHistory) ? engine.turnHistory[engine.replayTurnIndex || 0] : null;
     const logs = (currentSnap && currentSnap.actionLogs) ? currentSnap.actionLogs : (engine.actionLogs || []);
 
@@ -5107,12 +5181,12 @@ class UIManager {
       if (this.currentLogFilter === 'COMBAT' && !['COMBAT', 'ARTILLERY_IMPACT', 'ARTILLERY_HIT'].includes(log.type)) return;
       if (this.currentLogFilter === 'DEPLOY' && !['DEPLOY', 'ABILITY', 'CAPTURE'].includes(log.type)) return;
 
-      // STRICT FOG OF WAR LOG FILTERING FOR PLAYER 1 VIEW (bypassed in replay mode):
+      // STRICT FOG OF WAR LOG FILTERING FOR LOCAL PLAYER VIEW (bypassed in replay mode):
       if (!isReplay) {
-        if (log.playerOwner === 2 && log.x !== undefined && log.y !== undefined && !p1Vision[log.y][log.x]) return;
-        if (log.type === 'CAPTURE' && log.playerOwner === 2 && log.x !== undefined && log.y !== undefined && !p1Vision[log.y][log.x]) return;
-        if (log.type === 'ARTILLERY_IMPACT' && log.playerName !== 'Player 1' && log.x !== undefined && log.y !== undefined && !p1Vision[log.y][log.x]) return;
-        if (log.type === 'ARTILLERY_HIT' && log.ownerTag === 'AI' && log.x !== undefined && log.y !== undefined && !p1Vision[log.y][log.x]) return;
+        if (log.playerOwner === enemySlot && log.x !== undefined && log.y !== undefined && !localVision[log.y][log.x]) return;
+        if (log.type === 'CAPTURE' && log.playerOwner === enemySlot && log.x !== undefined && log.y !== undefined && !localVision[log.y][log.x]) return;
+        if (log.type === 'ARTILLERY_IMPACT' && log.playerName !== (engine.players[localSlot]?.name || 'Player 1') && log.x !== undefined && log.y !== undefined && !localVision[log.y][log.x]) return;
+        if (log.type === 'ARTILLERY_HIT' && log.ownerTag !== 'ALLIED' && log.x !== undefined && log.y !== undefined && !localVision[log.y][log.x]) return;
       }
 
       if (log.turn && log.turn !== currentRenderedTurn) {
@@ -5134,19 +5208,21 @@ class UIManager {
       div.style.borderBottom = '1px dashed #e5e7eb';
 
       if (log.type === 'DEPLOY') {
-        const ownerTag = log.playerOwner === 1 ? 'P1' : 'AI';
-        const color = log.playerOwner === 1 ? '#3b82f6' : '#f87171';
+        const isAllied = log.playerOwner === localSlot;
+        const ownerTag = isAllied ? 'ALLIED' : 'HOSTILE';
+        const color = isAllied ? '#3b82f6' : '#f87171';
         div.innerHTML = `<b style="color:${color};">${ownerTag} ${log.playerName}</b> recruited <b>[${log.unitIcon}] ${log.unitName}</b> at <span style="color:#4ade80; font-weight:bold;">${formatCoord(log.x, log.y)}</span>`;
       } else if (log.type === 'ABILITY') {
-        const ownerTag = log.playerOwner === 1 ? 'P1' : 'AI';
+        const isAllied = log.playerOwner === localSlot;
+        const ownerTag = isAllied ? 'ALLIED' : 'HOSTILE';
         div.innerHTML = `<b>${ownerTag} ${log.playerName}</b> deployed <b>${log.abilityName}</b> at ${formatCoord(log.x, log.y)}`;
       } else if (log.type === 'ARTILLERY_IMPACT') {
         div.innerHTML = `<b>${log.playerName} Heavy Artillery</b> barrage hit target zone ${formatCoord(log.x, log.y)}`;
       } else if (log.type === 'ARTILLERY_HIT') {
         div.innerHTML = `<b>${log.ownerTag} [${log.unitIcon}] ${log.unitName}</b> caught in artillery blast for <span style="color:#f87171; font-weight:bold;">${log.damage} splash damage</span> ${log.died ? '<b style="color:#f87171;">(ELIMINATED)</b>' : ''}`;
       } else if (log.type === 'COMBAT') {
-        const attackerOwnerTag = log.attackerOwner === 1 ? 'P1' : 'AI';
-        const defenderOwnerTag = log.defenderOwner === 1 ? 'P1' : 'AI';
+        const attackerOwnerTag = log.attackerOwner === localSlot ? 'ALLIED' : 'HOSTILE';
+        const defenderOwnerTag = log.defenderOwner === localSlot ? 'ALLIED' : 'HOSTILE';
 
         if (log.defenderDied) {
           div.innerHTML = `
@@ -5823,6 +5899,284 @@ window.deployGameFromMenu = function() {
   if (window.gApp) window.gApp.launchMatchFromMenu();
 };
 
+// ─── MULTIPLAYER LOBBY & MATCHMAKING GLOBAL HANDLERS ─────────────────────────
+
+window.startQuickMatch = async function() {
+  if (window.checkUserBannedState && window.checkUserBannedState()) {
+    alert("ACCOUNT SUSPENDED: Your Commander profile is banned by an Administrator. You cannot join multiplayer matches.");
+    return;
+  }
+  if (!window.gMultiplayer) return;
+
+  const selectView = document.getElementById('mp-select-view');
+  const searchingView = document.getElementById('mp-searching-view');
+  const statusTitle = document.getElementById('mp-searching-status-title');
+  const statusSub = document.getElementById('mp-searching-status-sub');
+  const timerEl = document.getElementById('mp-searching-timer');
+
+  if (selectView) selectView.style.display = 'none';
+  if (searchingView) searchingView.style.display = 'flex';
+
+  let searchSeconds = 0;
+  if (window.gMpSearchTimer) clearInterval(window.gMpSearchTimer);
+  window.gMpSearchTimer = setInterval(() => {
+    searchSeconds++;
+    const mm = String(Math.floor(searchSeconds / 60)).padStart(2, '0');
+    const ss = String(searchSeconds % 60).padStart(2, '0');
+    if (timerEl) timerEl.textContent = `${mm}:${ss}`;
+  }, 1000);
+
+  try {
+    await window.gMultiplayer.findQuickMatch((status, msg) => {
+      if (statusTitle) statusTitle.textContent = status === 'JOINING' ? 'JOINING THEATER...' : 'SEARCHING FOR ENEMY COMMANDER';
+      if (statusSub) statusSub.textContent = msg;
+    });
+  } catch (err) {
+    console.error('Quick match error:', err);
+    alert('Matchmaking error: ' + err.message);
+    window.cancelQuickMatch();
+  }
+};
+
+window.cancelQuickMatch = function() {
+  if (window.gMpSearchTimer) {
+    clearInterval(window.gMpSearchTimer);
+    window.gMpSearchTimer = null;
+  }
+  if (window.gMultiplayer) {
+    window.gMultiplayer.cancelQuickMatch();
+  }
+  const selectView = document.getElementById('mp-select-view');
+  const searchingView = document.getElementById('mp-searching-view');
+  const lobbyView = document.getElementById('mp-lobby-view');
+  if (selectView) selectView.style.display = 'block';
+  if (searchingView) searchingView.style.display = 'none';
+  if (lobbyView) lobbyView.style.display = 'none';
+};
+
+window.createCustomRoom = async function() {
+  if (window.checkUserBannedState && window.checkUserBannedState()) {
+    alert("ACCOUNT SUSPENDED: Your Commander profile is banned by an Administrator.");
+    return;
+  }
+  if (!window.gMultiplayer) return;
+  try {
+    await window.gMultiplayer.createRoom();
+  } catch (err) {
+    console.error('Create room error:', err);
+    alert('Could not create room: ' + err.message);
+  }
+};
+
+window.joinCustomRoom = async function() {
+  if (window.checkUserBannedState && window.checkUserBannedState()) {
+    alert("ACCOUNT SUSPENDED: Your Commander profile is banned by an Administrator.");
+    return;
+  }
+  if (!window.gMultiplayer) return;
+  const input = document.getElementById('input-mp-room-code');
+  const code = (input ? input.value : '').trim();
+  if (!code) {
+    alert('Please enter a tactical room code (e.g. IRON-4821).');
+    return;
+  }
+  try {
+    await window.gMultiplayer.joinRoom(code);
+  } catch (err) {
+    console.error('Join room error:', err);
+    alert('Could not join room: ' + err.message);
+  }
+};
+
+window.leaveCurrentRoom = function() {
+  if (window.gMultiplayer) {
+    window.gMultiplayer.leaveRoom();
+  }
+  const selectView = document.getElementById('mp-select-view');
+  const searchingView = document.getElementById('mp-searching-view');
+  const lobbyView = document.getElementById('mp-lobby-view');
+  if (selectView) selectView.style.display = 'block';
+  if (searchingView) searchingView.style.display = 'none';
+  if (lobbyView) lobbyView.style.display = 'none';
+};
+
+window.copyRoomCode = function() {
+  const code = window.gMultiplayer?.currentRoomId;
+  if (!code) return;
+  navigator.clipboard.writeText(code).then(() => {
+    if (window.gApp?.ui) {
+      window.gApp.ui.showToast('Room Code Copied', `Tactical Code [${code}] copied to clipboard! Share with your opponent.`);
+    } else {
+      alert(`Room Code [${code}] copied to clipboard!`);
+    }
+  }).catch(() => {
+    prompt('Copy Room Code:', code);
+  });
+};
+
+window.toggleLobbyReady = async function() {
+  if (!window.gMultiplayer) return;
+  const slot = window.gMultiplayer.playerSlot || 1;
+  const curReady = window.gMultiplayer.roomData?.players?.[`p${slot}`]?.ready || false;
+  await window.gMultiplayer.setReady(!curReady);
+};
+
+window.setLobbyFaction = async function(slot, factionKey) {
+  if (!window.gMultiplayer || window.gMultiplayer.playerSlot !== slot) return;
+  await window.gMultiplayer.setFaction(factionKey);
+};
+
+window.updateLobbyConfig = async function() {
+  if (!window.gMultiplayer || !window.gMultiplayer.isHost) return;
+  const mapVal = document.getElementById('mp-select-map')?.value || 'PRESET_1';
+  const durVal = parseInt(document.getElementById('mp-select-duration')?.value || '40', 10);
+  await window.gMultiplayer.updateRoomConfig({ map: mapVal, turnDuration: durVal });
+};
+
+window.startLobbyMatch = async function() {
+  if (!window.gMultiplayer || !window.gMultiplayer.isHost) return;
+  await window.gMultiplayer.startMatch();
+};
+
+window.updateMultiplayerLobbyUI = function(room) {
+  const selectView = document.getElementById('mp-select-view');
+  const searchingView = document.getElementById('mp-searching-view');
+  const lobbyView = document.getElementById('mp-lobby-view');
+
+  if (!room) {
+    if (selectView) selectView.style.display = 'block';
+    if (searchingView) searchingView.style.display = 'none';
+    if (lobbyView) lobbyView.style.display = 'none';
+    return;
+  }
+
+  // If match started in room:
+  if (room.status === 'IN_BATTLE') {
+    if (window.gApp && (!window.gApp.engine || !window.gApp.engine.isMultiplayer || window.gApp.engine.roomId !== room.id)) {
+      window.gApp.launchMultiplayerMatch(room);
+    }
+    return;
+  }
+
+  // Otherwise in LOBBY view:
+  if (selectView) selectView.style.display = 'none';
+  if (searchingView) searchingView.style.display = 'none';
+  if (lobbyView) lobbyView.style.display = 'block';
+
+  // Room code
+  const codeEl = document.getElementById('mp-lobby-room-code');
+  if (codeEl) codeEl.textContent = room.id;
+
+  const mySlot = window.gMultiplayer?.playerSlot || 1;
+  const isHost = mySlot === 1;
+
+  // Player 1 (Host) Card
+  const p1 = room.players?.p1;
+  if (p1) {
+    const p1Name = document.getElementById('mp-p1-name');
+    const p1Rank = document.getElementById('mp-p1-rank');
+    const p1Avatar = document.getElementById('mp-p1-avatar');
+    if (p1Name) p1Name.textContent = p1.name || 'Commander 1';
+    if (p1Rank) p1Rank.textContent = `Rank: ${p1.rank || 'Recruit'}`;
+    if (p1Avatar) p1Avatar.textContent = (p1.name || 'C1').substring(0, 2).toUpperCase();
+    const p1FactionSel = document.getElementById('mp-p1-faction-select');
+    if (p1FactionSel) {
+      p1FactionSel.value = p1.faction || 'IRON_CORPS';
+      p1FactionSel.disabled = (mySlot !== 1);
+    }
+    const p1Ready = document.getElementById('mp-p1-ready-badge');
+    if (p1Ready) {
+      if (p1.ready) {
+        p1Ready.className = 'mp-ready-badge ready';
+        p1Ready.textContent = 'READY';
+      } else {
+        p1Ready.className = 'mp-ready-badge not-ready';
+        p1Ready.textContent = 'PLANNING';
+      }
+    }
+  }
+
+  // Player 2 (Guest) Card
+  const p2 = room.players?.p2;
+  const p2Card = document.getElementById('mp-card-p2');
+  const p2Name = document.getElementById('mp-p2-name');
+  const p2Rank = document.getElementById('mp-p2-rank');
+  const p2Avatar = document.getElementById('mp-p2-avatar');
+  const p2FactionSel = document.getElementById('mp-p2-faction-select');
+  const p2Ready = document.getElementById('mp-p2-ready-badge');
+
+  if (p2 && p2.uid) {
+    if (p2Card) p2Card.classList.remove('waiting');
+    if (p2Name) p2Name.textContent = p2.name || 'Commander 2';
+    if (p2Rank) p2Rank.textContent = `Rank: ${p2.rank || 'Recruit'}`;
+    if (p2Avatar) p2Avatar.textContent = (p2.name || 'C2').substring(0, 2).toUpperCase();
+    if (p2FactionSel) {
+      p2FactionSel.value = p2.faction || 'VANGUARD_LEGION';
+      p2FactionSel.disabled = (mySlot !== 2);
+    }
+    if (p2Ready) {
+      if (p2.ready) {
+        p2Ready.className = 'mp-ready-badge ready';
+        p2Ready.textContent = 'READY';
+      } else {
+        p2Ready.className = 'mp-ready-badge not-ready';
+        p2Ready.textContent = 'PLANNING';
+      }
+    }
+  } else {
+    if (p2Card) p2Card.classList.add('waiting');
+    if (p2Name) p2Name.textContent = 'Waiting for Opponent...';
+    if (p2Rank) p2Rank.textContent = '--';
+    if (p2Avatar) p2Avatar.textContent = '?';
+    if (p2FactionSel) p2FactionSel.disabled = true;
+    if (p2Ready) {
+      p2Ready.className = 'mp-ready-badge not-ready';
+      p2Ready.textContent = 'WAITING';
+    }
+  }
+
+  // Config Settings (Map & Timer)
+  const mapSel = document.getElementById('mp-select-map');
+  const durSel = document.getElementById('mp-select-duration');
+  if (mapSel) {
+    if (room.config?.map) mapSel.value = room.config.map;
+    mapSel.disabled = !isHost;
+  }
+  if (durSel) {
+    if (room.config?.turnDuration) durSel.value = String(room.config.turnDuration);
+    durSel.disabled = !isHost;
+  }
+
+  // Ready Button & Start Battle Button
+  const readyBtn = document.getElementById('btn-mp-toggle-ready');
+  const startBtn = document.getElementById('btn-mp-start-battle');
+  const me = room.players?.[`p${mySlot}`];
+
+  if (readyBtn) {
+    if (me?.ready) {
+      readyBtn.textContent = 'Cancel Ready';
+      readyBtn.classList.remove('mp-btn-ready');
+      readyBtn.classList.add('btn-danger');
+    } else {
+      readyBtn.textContent = 'Ready Up';
+      readyBtn.classList.add('mp-btn-ready');
+      readyBtn.classList.remove('btn-danger');
+    }
+  }
+
+  const bothReady = p1?.ready && p2?.ready;
+  if (startBtn) {
+    if (isHost && p2 && p2.uid) {
+      startBtn.style.display = 'inline-block';
+      startBtn.disabled = !bothReady;
+      startBtn.style.opacity = bothReady ? '1' : '0.5';
+      startBtn.textContent = bothReady ? 'Deploy into Battle' : 'Waiting for Both Ready...';
+    } else {
+      startBtn.style.display = 'none';
+    }
+  }
+};
+
 window.startBattlefieldReplay = function() {
   if (!window.gApp || !window.gApp.engine) return;
   const eng = window.gApp.engine;
@@ -6393,6 +6747,135 @@ class App {
     }
   }
 
+  launchMultiplayerMatch(room) {
+    if (window.checkUserBannedState && window.checkUserBannedState()) {
+      return;
+    }
+    try {
+      if (this.engine) this.engine.pauseTimer();
+
+      const mapVal = room.config?.map || 'PRESET_1';
+      const timerDuration = room.config?.turnDuration || 40;
+      const playbackDuration = room.config?.playbackDuration || 3;
+      const p1FactionKey = room.players?.p1?.faction || 'IRON_CORPS';
+      const p2FactionKey = room.players?.p2?.faction || 'VANGUARD_LEGION';
+      const mySlot = window.gMultiplayer?.playerSlot || 1;
+
+      this.engine = new GameEngine({
+        mapType: mapVal,
+        p1Faction: FACTIONS[p1FactionKey] || FACTIONS.IRON_CORPS,
+        p2Faction: FACTIONS[p2FactionKey] || FACTIONS.VANGUARD_LEGION,
+        isSinglePlayer: false,
+        isMultiplayer: true,
+        localPlayerSlot: mySlot,
+        planningDuration: timerDuration,
+        playbackDuration: playbackDuration,
+        audio: this.audio
+      });
+
+      this.engine.roomId = room.id;
+      this.engine.players[1].name = room.players?.p1?.name || 'Commander 1';
+      this.engine.players[2].name = room.players?.p2?.name || 'Commander 2';
+      this.engine.bootcampLesson = null;
+      this.engine.bootcampManager = null;
+      this.engine.planningTimeRemaining = timerDuration;
+
+      this.engine.subscribe(() => {
+        if (this.ui) this.ui.updateHUD(this.engine);
+      });
+
+      this.renderer.selectedTile = null;
+      if (this.audio) this.audio.startAmbient();
+
+      // Re-enable HUD action and menu buttons
+      ['btn-end-turn', 'btn-halt-all', 'btn-cancel-abilities', 'btn-ability-flare', 'btn-ability-smoke', 'btn-ability-artillery', 'btn-open-menu'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.disabled = false; el.style.opacity = ''; el.style.pointerEvents = ''; }
+      });
+
+      // Hide main menu overlay & modals
+      const menu = document.getElementById('main-menu-overlay');
+      const gameContainer = document.getElementById('game-container');
+      if (menu) menu.style.display = 'none';
+      if (gameContainer) {
+        gameContainer.classList.remove('game-blurred');
+        gameContainer.style.pointerEvents = '';
+        gameContainer.style.filter = '';
+      }
+
+      const terrainBanner = document.getElementById('terrain-view-banner');
+      if (terrainBanner) terrainBanner.style.display = 'none';
+      const replayToolbar = document.getElementById('aar-replay-toolbar');
+      if (replayToolbar) replayToolbar.style.display = 'none';
+      const victoryModal = document.getElementById('victory-modal');
+      if (victoryModal) victoryModal.style.display = 'none';
+
+      try {
+        this.audio.playStamp();
+        this.audio.startBattleMusic(1.5);
+      } catch(err){}
+
+      this.startReconPhase(6000);
+    } catch (err) {
+      console.error('Error starting multiplayer match:', err);
+    }
+  }
+
+  applyMultiplayerTurn(turnNumber, myPayload, opponentPayload) {
+    if (!this.engine || this.engine.phase === 'GAME_OVER' || this.engine.isStopped) return;
+    const eng = this.engine;
+    if (eng.turnNumber !== turnNumber) return;
+
+    const mySlot = eng.localPlayerSlot || 1;
+    const oppSlot = mySlot === 1 ? 2 : 1;
+
+    // 1. Apply opponent unit waypoints and stances
+    if (opponentPayload && opponentPayload.units) {
+      opponentPayload.units.forEach(uOrder => {
+        const oppUnit = eng.players[oppSlot].units.find(u => u.id === uOrder.id);
+        if (oppUnit) {
+          oppUnit.waypoints = (uOrder.waypoints || []).map(w => ({ x: w.x, y: w.y }));
+          oppUnit.stance = uOrder.stance || 'ADVANCE';
+        }
+      });
+    }
+
+    // 2. Apply opponent spawns
+    if (opponentPayload && opponentPayload.spawns) {
+      opponentPayload.spawns.forEach(spawn => {
+        eng.buyUnit(oppSlot, spawn.typeKey, spawn.x, spawn.y, true);
+      });
+    }
+
+    // 3. Apply opponent abilities
+    if (opponentPayload && opponentPayload.abilities) {
+      opponentPayload.abilities.forEach(ab => {
+        eng.useAbility(oppSlot, ab.abilityKey, ab.x, ab.y, true);
+      });
+    }
+
+    // 4. Clear pending buffers
+    eng.pendingSpawnsThisTurn = [];
+    eng.pendingAbilitiesThisTurn = [];
+    eng.isWaitingForOpponentTurn = false;
+
+    // 5. Trigger synchronized playback phase
+    eng.phase = GAME_PHASES.PLAYBACK;
+    eng.playbackTimeRemaining = eng.playbackDurationConfig;
+    eng.currentPlaybackStep = 0;
+    try { if (eng.audio) eng.audio.playActionWhistle(); } catch(err){}
+
+    eng.getAllUnits().forEach(u => {
+      u.prevX = u.x; u.prevY = u.y;
+      u.targetX = u.x; u.targetY = u.y;
+      u.miredThisTurn = false;
+    });
+
+    eng.recordTurnSnapshot('PLANNING');
+    eng.executeSinglePlaybackStep(0);
+    eng.notifyStateChange();
+  }
+
   setupCanvasInteractions() {
     this.canvas.addEventListener('click', (e) => {
       if (!this.engine) return;
@@ -6419,10 +6902,12 @@ class App {
         return;
       }
 
+      const localSlot = this.engine.localPlayerSlot || 1;
+
       if (this.engine.phase === 'PLANNING' && this.ui.pendingAbilityKey) {
         const abilityKey = this.ui.pendingAbilityKey;
         const ability = ABILITIES[abilityKey];
-        const res = this.engine.useAbility(1, abilityKey, gridCoords.x, gridCoords.y);
+        const res = this.engine.useAbility(localSlot, abilityKey, gridCoords.x, gridCoords.y);
         if (res.success) {
           try {
             if (abilityKey === 'RECON_FLARE') this.audio.playFlareSound();
@@ -6455,7 +6940,7 @@ class App {
       let playedSound = false;
 
       if (this.engine.phase === 'PLANNING' && prevSelected) {
-        const unit = this.engine.getAllUnits().find(u => u.x === prevSelected.x && u.y === prevSelected.y && u.owner === 1);
+        const unit = this.engine.getAllUnits().find(u => u.x === prevSelected.x && u.y === prevSelected.y && u.owner === localSlot);
         if (unit) {
           if (unit.category === 'VEHICLE' && this.engine.grid[gridCoords.y][gridCoords.x].id === 'SWAMP') {
             this.ui.showToast('Terrain Blocked', 'Mud, Swamp & Pond terrain is completely impassable to vehicles and tanks!');
@@ -6492,7 +6977,7 @@ class App {
 
       if (!playedSound) {
         const clickedUnit = this.engine.getAllUnits().find(u => u.x === gridCoords.x && u.y === gridCoords.y && u.isAlive());
-        if (clickedUnit && clickedUnit.owner === 1) {
+        if (clickedUnit && clickedUnit.owner === localSlot) {
           try { this.audio.playUnitSelect(); } catch(err){}
         } else {
           try { this.audio.playClick(); } catch(err){}
@@ -6551,9 +7036,10 @@ class App {
     const defPct = Math.round((tile.defenseBonus || 0) * 100);
     const losStatus = (tile.id === 'FOREST' || tile.id === 'MOUNTAIN') ? 'LOS BLOCKED' : 'LOS OPEN';
 
-    // Check if tile is visible to P1
-    const p1Vision = this.engine.phase === 'GAME_OVER' ? Array(8).fill(null).map(() => Array(8).fill(true)) : this.engine.calculateVision(1);
-    const isVisible = p1Vision[hoveredTile.y][hoveredTile.x];
+    // Check if tile is visible to local player
+    const localSlot = this.engine.localPlayerSlot || 1;
+    const localVision = this.engine.phase === 'GAME_OVER' ? Array(8).fill(null).map(() => Array(8).fill(true)) : this.engine.calculateVision(localSlot);
+    const isVisible = localVision[hoveredTile.y][hoveredTile.x];
     
     if (!isVisible && this.engine.phase !== 'GAME_OVER') {
       el.innerHTML = `[${colLetter}${rowNum}] &bull; <span style="color:#94a3b8;">TERRA INCOGNITA (UNSURVEYED)</span>`;
@@ -6563,7 +7049,7 @@ class App {
     const unit = this.engine.getAllUnits().find(u => u.x === hoveredTile.x && u.y === hoveredTile.y && u.isAlive());
 
     if (unit) {
-      const allegiance = unit.owner === 1 ? '<span style="color:#60a5fa; font-weight:700;">ALLIED' : '<span style="color:#f87171; font-weight:700;">HOSTILE';
+      const allegiance = unit.owner === localSlot ? '<span style="color:#60a5fa; font-weight:700;">ALLIED' : '<span style="color:#f87171; font-weight:700;">HOSTILE';
       const hp = `${unit.hp}/${unit.maxHp} HP`;
       const stance = (unit.stance && unit.stance !== 'ADVANCE') ? ` [${unit.stance}]` : '';
       let miredNote = '';
@@ -8047,6 +8533,15 @@ function bootGame() {
       }
     }
   });
+
+  // Subscribe to multiplayer network updates
+  if (window.gMultiplayer) {
+    window.gMultiplayer.subscribe((room) => {
+      if (window.updateMultiplayerLobbyUI) {
+        window.updateMultiplayerLobbyUI(room);
+      }
+    });
+  }
 
   // Universal Robust Admin Hotkey Listener (Capturing Mode)
   const triggerAdmin = (e) => {

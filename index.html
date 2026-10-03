@@ -94,6 +94,7 @@
         <!-- Navigation Tabs -->
         <nav class="menu-nav-tabs">
           <button id="tab-btn-play" class="menu-tab-btn active" onclick="window.switchMenuTab('tab-btn-play', 'tab-pane-play')">Deploy</button>
+          <button id="tab-btn-multiplayer" class="menu-tab-btn" onclick="window.switchMenuTab('tab-btn-multiplayer', 'tab-pane-multiplayer')">Online Warfare</button>
           <button id="tab-btn-bootcamp" class="menu-tab-btn" onclick="window.switchMenuTab('tab-btn-bootcamp', 'tab-pane-bootcamp')">Officer Bootcamp</button>
           <button id="tab-btn-factions" class="menu-tab-btn" onclick="window.switchMenuTab('tab-btn-factions', 'tab-pane-factions')">Factions</button>
           <button id="tab-btn-codex" class="menu-tab-btn" onclick="window.switchMenuTab('tab-btn-codex', 'tab-pane-codex')">Field Manual</button>
@@ -145,6 +146,149 @@
           <button id="btn-start-game" class="btn-sketch btn-sketch-lg btn-deploy-hero" onclick="window.deployGameFromMenu()">
             Deploy onto Battlefield
           </button>
+        </div>
+
+        <!-- TAB: ONLINE MULTIPLAYER -->
+        <div id="tab-pane-multiplayer" class="tab-pane" style="display: none;">
+          <!-- 1. Matchmaking & Room Selection View -->
+          <div id="mp-select-view" class="mp-flow-section">
+            <div class="mp-hero-banner">
+              <div class="mp-hero-title">Live Tactical Operations &mdash; 1v1 Online Warfare</div>
+              <p class="mp-hero-sub">Engage commanders globally in simultaneous WEGO tactical combat. Powered by 100% Free Firebase Realtime Network.</p>
+            </div>
+
+            <div class="mp-modes-grid">
+              <!-- Quick Match Card -->
+              <div class="mp-mode-card">
+                <div class="mp-card-header">
+                  <span class="mp-card-badge">AUTOMATED QUEUE</span>
+                  <h3 class="mp-card-title">Quick Battle</h3>
+                </div>
+                <p class="mp-card-desc">Instantly pair with an available commander across the global theater for a 1v1 tactical match.</p>
+                <button id="btn-mp-quick-match" class="btn-sketch btn-sketch-lg btn-accent mp-btn-primary" onclick="window.startQuickMatch()">
+                  Find Match
+                </button>
+              </div>
+
+              <!-- Custom Room / Room Code Card -->
+              <div class="mp-mode-card">
+                <div class="mp-card-header">
+                  <span class="mp-card-badge">TACTICAL ROOM CODE</span>
+                  <h3 class="mp-card-title">Private Operation</h3>
+                </div>
+                <p class="mp-card-desc">Host a custom room with selected map &amp; timer, or join an ally using a tactical room code.</p>
+                <div class="mp-custom-actions">
+                  <button id="btn-mp-create-room" class="btn-sketch mp-btn-secondary" onclick="window.createCustomRoom()">
+                    Create Room
+                  </button>
+                  <div class="mp-join-input-group">
+                    <input type="text" id="input-mp-room-code" class="btn-sketch mp-input-code" placeholder="ROOM CODE (e.g. IRON-42)" maxlength="12" onkeyup="if(event.key==='Enter') window.joinCustomRoom()">
+                    <button id="btn-mp-join-room" class="btn-sketch btn-accent" onclick="window.joinCustomRoom()">
+                      Join
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Searching Radar View (Shown while queueing) -->
+          <div id="mp-searching-view" class="mp-flow-section" style="display: none;">
+            <div class="mp-radar-container">
+              <div class="mp-radar-sweep"></div>
+              <div class="mp-radar-blip"></div>
+            </div>
+            <div class="mp-searching-meta">
+              <h3 id="mp-searching-status-title" class="mp-searching-title">SEARCHING FOR ENEMY COMMANDER</h3>
+              <p id="mp-searching-status-sub" class="mp-searching-sub">Scanning global theater for open frequencies...</p>
+              <div id="mp-searching-timer" class="mp-searching-timer">00:05</div>
+              <button class="btn-sketch btn-danger mp-btn-cancel" onclick="window.cancelQuickMatch()">
+                Cancel Matchmaking
+              </button>
+            </div>
+          </div>
+
+          <!-- 3. Live Room Lobby View -->
+          <div id="mp-lobby-view" class="mp-flow-section" style="display: none;">
+            <div class="mp-lobby-top-bar">
+              <div class="mp-room-code-tag">
+                <span>ROOM CODE:</span>
+                <strong id="mp-lobby-room-code">IRON-4821</strong>
+                <button class="mp-copy-btn" title="Copy Room Code" onclick="window.copyRoomCode()">Copy Code</button>
+              </div>
+              <button class="btn-sketch btn-danger" style="font-size: 0.75rem; padding: 4px 10px;" onclick="window.leaveCurrentRoom()">
+                Leave Lobby
+              </button>
+            </div>
+
+            <div class="mp-players-row">
+              <!-- Player 1 (Host) Card -->
+              <div class="mp-player-card" id="mp-card-p1">
+                <div class="mp-card-role">HOST COMMANDER (P1)</div>
+                <div class="mp-player-avatar" id="mp-p1-avatar">C1</div>
+                <div class="mp-player-name" id="mp-p1-name">Commander 1</div>
+                <div class="mp-player-rank" id="mp-p1-rank">Rank: Recruit</div>
+                <div class="mp-player-faction-box">
+                  <label class="mp-faction-label">Faction:</label>
+                  <select id="mp-p1-faction-select" class="btn-sketch mp-select-sm" onchange="window.setLobbyFaction(1, this.value)">
+                    <option value="IRON_CORPS">Iron Corps</option>
+                    <option value="VANGUARD_LEGION">Vanguard Legion</option>
+                  </select>
+                </div>
+                <div id="mp-p1-ready-badge" class="mp-ready-badge ready">READY</div>
+              </div>
+
+              <!-- VS Badge -->
+              <div class="mp-vs-badge">VS</div>
+
+              <!-- Player 2 (Guest) Card -->
+              <div class="mp-player-card" id="mp-card-p2">
+                <div class="mp-card-role">GUEST COMMANDER (P2)</div>
+                <div class="mp-player-avatar" id="mp-p2-avatar">?</div>
+                <div class="mp-player-name" id="mp-p2-name">Waiting for Player...</div>
+                <div class="mp-player-rank" id="mp-p2-rank">--</div>
+                <div class="mp-player-faction-box">
+                  <label class="mp-faction-label">Faction:</label>
+                  <select id="mp-p2-faction-select" class="btn-sketch mp-select-sm" onchange="window.setLobbyFaction(2, this.value)" disabled>
+                    <option value="VANGUARD_LEGION">Vanguard Legion</option>
+                    <option value="IRON_CORPS">Iron Corps</option>
+                  </select>
+                </div>
+                <div id="mp-p2-ready-badge" class="mp-ready-badge not-ready">WAITING</div>
+              </div>
+            </div>
+
+            <!-- Room Configuration (Host Only controls) -->
+            <div class="mp-lobby-settings-grid">
+              <div class="mp-setting-col">
+                <label class="setup-label">Battlefield Map</label>
+                <select id="mp-select-map" class="btn-sketch" onchange="window.updateLobbyConfig()">
+                  <option value="PRESET_1">Divided Valley</option>
+                  <option value="PRESET_2">Crossfire Swamps</option>
+                  <option value="PRESET_3">Iron Pass (Chokepoints)</option>
+                  <option value="PROCEDURAL">Procedural Symmetrical</option>
+                </select>
+              </div>
+              <div class="mp-setting-col">
+                <label class="setup-label">Planning Phase Duration</label>
+                <select id="mp-select-duration" class="btn-sketch" onchange="window.updateLobbyConfig()">
+                  <option value="40" selected>Standard (40s Planning)</option>
+                  <option value="20">Blitz (20s Planning)</option>
+                  <option value="60">Relaxed (60s Planning)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Lobby Action Bar -->
+            <div class="mp-lobby-action-bar">
+              <button id="btn-mp-toggle-ready" class="btn-sketch btn-sketch-lg mp-btn-ready" onclick="window.toggleLobbyReady()">
+                Ready Up
+              </button>
+              <button id="btn-mp-start-battle" class="btn-sketch btn-sketch-lg btn-accent mp-btn-deploy" onclick="window.startLobbyMatch()" style="display: none;">
+                Deploy into Battle
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- TAB: OFFICER BOOTCAMP -->
@@ -1878,6 +2022,7 @@
 
   <script src="src/ui/UnitIcons.js?v=2.10.11"></script>
   <script src="src/firebase-config.js"></script>
+  <script type="module" src="src/net/MultiplayerManager.js"></script>
   <script src="src/game.js?v=2.10.11"></script>
 </body>
 </html>
