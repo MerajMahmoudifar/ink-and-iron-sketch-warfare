@@ -6142,10 +6142,38 @@ window.updateMultiplayerLobbyUI = function(room) {
 
   // If match started in room:
   if (room.status === 'IN_BATTLE') {
+    if (window.gMpSearchTimer) {
+      clearInterval(window.gMpSearchTimer);
+      window.gMpSearchTimer = null;
+    }
+    if (window.gMultiplayer) {
+      window.gMultiplayer.isSearchingQuickMatch = false;
+    }
     if (window.gApp && (!window.gApp.engine || !window.gApp.engine.isMultiplayer || window.gApp.engine.roomId !== room.id)) {
       window.gApp.launchMultiplayerMatch(room);
     }
     return;
+  }
+
+  // If waiting for opponent in Quick Match queue:
+  const hasOpponent = !!(room.players?.p2?.uid);
+  if (window.gMultiplayer?.isSearchingQuickMatch && !hasOpponent) {
+    if (selectView) selectView.style.display = 'none';
+    if (searchingView) searchingView.style.display = 'flex';
+    if (lobbyView) lobbyView.style.display = 'none';
+    return;
+  }
+
+  // When opponent connects during quick match:
+  if (window.gMultiplayer?.isSearchingQuickMatch && hasOpponent) {
+    window.gMultiplayer.isSearchingQuickMatch = false;
+    if (window.gMpSearchTimer) {
+      clearInterval(window.gMpSearchTimer);
+      window.gMpSearchTimer = null;
+    }
+    if (window.gApp?.ui?.showToast) {
+      window.gApp.ui.showToast('Enemy Commander Located', 'Opponent synchronized! Entering tactical lobby.');
+    }
   }
 
   // Otherwise in LOBBY view:

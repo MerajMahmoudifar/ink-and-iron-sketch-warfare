@@ -252,7 +252,7 @@ export class MultiplayerManager {
           const qEntryRef = ref(this.rtdb, `matchmaking/queue/${roomId}`);
           onDisconnect(qEntryRef).remove();
 
-          this.isSearchingQuickMatch = false;
+          this.isSearchingQuickMatch = true;
           return await this.createRoom(roomId, { isQuickMatch: true });
         }
       } catch (err) {
@@ -297,7 +297,7 @@ export class MultiplayerManager {
       this._saveLocalQueue(queue);
       this._broadcastMeshEvent('QUEUE_UPDATED', {});
 
-      this.isSearchingQuickMatch = false;
+      this.isSearchingQuickMatch = true;
       return this.createRoomLocal(roomId, { isQuickMatch: true });
     }
   }
@@ -314,6 +314,7 @@ export class MultiplayerManager {
         try {
           const { ref, remove } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
           await remove(ref(this.rtdb, `matchmaking/queue/${this.currentRoomId}`));
+          await remove(ref(this.rtdb, `rooms/${this.currentRoomId}`));
         } catch(e){}
       }
       const queue = this._getLocalQueue();
@@ -321,6 +322,12 @@ export class MultiplayerManager {
         delete queue[this.currentRoomId];
         this._saveLocalQueue(queue);
         this._broadcastMeshEvent('QUEUE_UPDATED', {});
+      }
+      const rooms = this._getLocalRooms();
+      if (rooms[this.currentRoomId]) {
+        delete rooms[this.currentRoomId];
+        this._saveLocalRooms(rooms);
+        this._broadcastMeshEvent('ROOM_UPDATED', { id: this.currentRoomId, deleted: true });
       }
     }
     this.leaveRoom();
