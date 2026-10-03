@@ -224,6 +224,9 @@ export class GameEngine {
   }
 
   buyUnit(playerId, typeKey, spawnX, spawnY, isRemote = false, customId = null) {
+    if (!isRemote && this.isWaitingForOpponentTurn) {
+      return { success: false, reason: 'Turn orders committed. Waiting for turn execution.' };
+    }
     const player = this.players[playerId];
     const unitTemplate = UNIT_TYPES[typeKey];
 
@@ -261,6 +264,7 @@ export class GameEngine {
   }
 
   setUnitWaypoints(unitId, waypoints) {
+    if (this.isWaitingForOpponentTurn) return;
     const unit = this.getUnitById(unitId);
     if (unit) {
       unit.waypoints = waypoints;
@@ -268,6 +272,7 @@ export class GameEngine {
   }
 
   setUnitStance(unitId, stanceId) {
+    if (this.isWaitingForOpponentTurn) return;
     const unit = this.getUnitById(unitId);
     if (unit) {
       unit.setStance(stanceId);

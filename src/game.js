@@ -1060,7 +1060,7 @@ class GameEngine {
   }
 
   endPlanningPhase() {
-    if (this.isStopped || this.phase === 'MENU' || this.phase === GAME_PHASES.GAME_OVER) return;
+    if (this.isStopped || this.phase === 'MENU' || this.phase === GAME_PHASES.GAME_OVER || this.isWaitingForOpponentTurn) return;
 
     if (this.isMultiplayer) {
       const slot = this.localPlayerSlot || 1;
@@ -1170,6 +1170,9 @@ class GameEngine {
 
   // SPECIAL ABILITY CASTING LOGIC
   useAbility(playerId, abilityKey, targetX, targetY, isRemote = false) {
+    if (!isRemote && (this.isWaitingForOpponentTurn || this.isReconPhase)) {
+      return { success: false, reason: 'Orders locked while awaiting turn execution.' };
+    }
     const player = this.players[playerId];
     const ability = ABILITIES[abilityKey];
     if (!ability) return { success: false, reason: 'Unknown ability' };
@@ -1229,15 +1232,15 @@ class GameEngine {
   }
 
   hasRefundableAbilities(playerId = 1) {
-    if (this.phase !== 'PLANNING') return false;
+    if (this.phase !== 'PLANNING' || this.isWaitingForOpponentTurn) return false;
     const artCount = this.activeArtilleryStrikes.some(a => a.owner === playerId && a.targetTurn === this.turnNumber);
     const smokeCount = this.activeSmokes.some(s => s.owner === playerId && s.turnPlaced === this.turnNumber);
     return artCount || smokeCount;
   }
 
   cancelPlayerAbilities(playerId = 1) {
-    if (this.phase !== 'PLANNING') {
-      return { success: false, reason: 'Can only cancel abilities during the Planning phase.' };
+    if (this.phase !== 'PLANNING' || this.isWaitingForOpponentTurn) {
+      return { success: false, reason: 'Can only cancel abilities before committing turn orders.' };
     }
     const artStrikes = this.activeArtilleryStrikes.filter(a => a.owner === playerId && a.targetTurn === this.turnNumber);
     const smokes = this.activeSmokes.filter(s => s.owner === playerId && s.turnPlaced === this.turnNumber);
@@ -1362,6 +1365,9 @@ class GameEngine {
   }
 
   buyUnit(playerId, typeKey, spawnX, spawnY, isRemote = false, customId = null) {
+    if (!isRemote && this.isWaitingForOpponentTurn) {
+      return { success: false, reason: 'Turn orders already committed. Waiting for turn execution.' };
+    }
     const player = this.players[playerId];
     const template = UNIT_TYPES[typeKey];
     if (!template) return { success: false, reason: 'Unknown unit type' };
@@ -1412,11 +1418,13 @@ class GameEngine {
   }
 
   setUnitWaypoints(unitId, waypoints) {
+    if (this.isWaitingForOpponentTurn) return;
     const u = this.getUnitById(unitId);
     if (u) u.waypoints = waypoints;
   }
 
   setUnitStance(unitId, stanceId) {
+    if (this.isWaitingForOpponentTurn) return;
     const u = this.getUnitById(unitId);
     if (u) {
       const tile = this.grid[u.y][u.x];
@@ -4249,18 +4257,20 @@ class UIManager {
 
     document.getElementById('btn-halt-all')?.addEventListener('click', (e) => {
       e.preventDefault();
-      if (this.app.engine) {
-        this.app.engine.players[1].units.forEach(u => u.setWaypoints([]));
+      if (this.app.engine && this.app.engine.phase === 'PLANNING' && !this.app.engine.isWaitingForOpponentTurn && !this.app.engine.isReconPhase) {
+        const localSlot = this.app.engine.localPlayerSlot || 1;
+        this.app.engine.players[localSlot].units.forEach(u => u.setWaypoints([]));
         this.showToast('Troops Halted', 'All unit movement plans canceled!');
         this.updateHUD(this.app.engine);
+        try { this.app.audio.playEraserSmudge(); } catch(err){}
       }
-      try { this.app.audio.playEraserSmudge(); } catch(err){}
     });
 
     document.getElementById('btn-cancel-abilities')?.addEventListener('click', (e) => {
       e.preventDefault();
-      if (this.app.engine) {
-        const res = this.app.engine.cancelPlayerAbilities(1);
+      if (this.app.engine && this.app.engine.phase === 'PLANNING' && !this.app.engine.isWaitingForOpponentTurn && !this.app.engine.isReconPhase) {
+        const localSlot = this.app.engine.localPlayerSlot || 1;
+        const res = this.app.engine.cancelPlayerAbilities(localSlot);
         if (res.success) {
           this.showToast('Abilities Cancelled', `Cancelled ${res.artCount + res.smokeCount} ability(s). Refunded ${res.refundedCP} CP!`);
           try { this.app.audio.playEraserSmudge(); } catch(err){}
@@ -4326,7 +4336,7 @@ class UIManager {
   }
 
   handleAbilityClick(abilityKey) {
-    if (!this.app.engine || this.app.engine.phase !== 'PLANNING') return;
+    if (!this.app.engine || this.app.engine.phase !== 'PLANNING' || this.app.engine.isWaitingForOpponentTurn || this.app.engine.isReconPhase) return;
     const localSlot = this.app.engine.localPlayerSlot || 1;
     const ability = ABILITIES[abilityKey];
     if (this.app.engine.players[localSlot].cp < ability.cpCost) {
@@ -4499,6 +4509,10 @@ class UIManager {
         endTurnBtn.style.pointerEvents = 'auto';
       }
     } else if (engine.isWaitingForOpponentTurn) {
+      actionBtnIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.disabled = true; el.style.opacity = '0.4'; el.style.pointerEvents = 'none'; }
+      });
       this.phaseBadge.textContent = `Orders Committed — Transmitting (SHA-256)...`;
       this.phaseBadge.style.background = 'rgba(234, 179, 8, 0.25)';
       const endTurnBtn = document.getElementById('btn-end-turn');
@@ -4751,6 +4765,7 @@ class UIManager {
     if (engine.phase === 'GAME_OVER') return;
     const localSlot = engine.localPlayerSlot || 1;
     const p1 = engine.players[localSlot];
+    const isLocked = engine.isWaitingForOpponentTurn;
 
     Object.keys(UNIT_TYPES).filter(k => !UNIT_TYPES[k].factionLock || UNIT_TYPES[k].factionLock === p1.faction.id).forEach(key => {
       const u = UNIT_TYPES[key];
@@ -4761,11 +4776,17 @@ class UIManager {
         ? UnitIcons.getBadgeHtml(key, { size: 'md', owner: localSlot })
         : `<span class="unit-card-symbol">${u.symbol || '⬚'}</span>`;
 
-      const canAfford = p1.ink >= u.cost;
+      const canAfford = p1.ink >= u.cost && !isLocked;
       const neededInk = u.cost - p1.ink;
 
       btn.id = 'store-card-' + key;
       btn.className = `unit-card-btn ${canAfford ? '' : 'unit-card-unaffordable'}`;
+      if (isLocked) {
+        btn.disabled = true;
+        btn.style.opacity = '0.45';
+        btn.style.pointerEvents = 'none';
+        btn.title = 'Orders committed. Waiting for turn execution.';
+      }
       btn.innerHTML = `
         <div class="unit-card-header">
           ${badgeHtml}
@@ -4773,7 +4794,7 @@ class UIManager {
             <div class="unit-card-top-row">
               <span class="unit-card-title">${u.name}</span>
               <div style="display:flex; align-items:center; gap:4px;">
-                ${!canAfford ? `<span class="ink-needed-tag">Need +${neededInk}</span>` : ''}
+                ${!canAfford && !isLocked ? `<span class="ink-needed-tag">Need +${neededInk}</span>` : ''}
                 <span class="unit-card-cost ${canAfford ? 'affordable' : 'unaffordable'}">${u.cost} Ink</span>
               </div>
             </div>
@@ -4791,6 +4812,7 @@ class UIManager {
         <div class="unit-card-desc">${u.description}</div>`;
       
       btn.addEventListener('click', () => {
+        if (engine.isWaitingForOpponentTurn) return;
         const availableSpawns = engine.getOwnedSpawnPoints(localSlot);
         const unContestedSpawns = availableSpawns.filter(sp => !sp.isContested && !engine.getAllUnits().some(u => u.x === sp.x && u.y === sp.y && u.isAlive()));
 
@@ -5127,21 +5149,31 @@ class UIManager {
           ${(isFriendly && waypointsCount > 0) ? `<div class="dossier-orders-tag">ORDERS: ${waypointsCount} WAYPOINTS QUEUED</div>` : ''}
       `;
 
-      if (unitOnTile.owner === localSlot && engine.phase === 'PLANNING' && !engine.isWaitingForOpponentTurn) {
-        const canAmbush = unitOnTile.category === 'INFANTRY' && tile.id === 'FOREST';
-        html += `
-          <div class="dossier-stance-block">
-            <label class="dossier-stance-label">TACTICAL STANCE</label>
-            <div class="dossier-stance-btns">
-              <button id="stance-adv" class="btn-sketch dossier-stance-btn ${unitOnTile.stance === 'ADVANCE' ? 'active' : ''}">Advance</button>
-              <button id="stance-def" class="btn-sketch dossier-stance-btn ${unitOnTile.stance === 'DEFEND' ? 'active' : ''}">Defend</button>
-              <button id="stance-amb" class="btn-sketch dossier-stance-btn ${unitOnTile.stance === 'AMBUSH' ? 'active' : ''}" ${!canAmbush ? 'disabled title="Ambush: Infantry in Forest only"' : ''}>Ambush</button>
+      if (unitOnTile.owner === localSlot && engine.phase === 'PLANNING') {
+        if (engine.isWaitingForOpponentTurn) {
+          html += `
+            <div class="dossier-stance-block" style="opacity:0.85; text-align:center;">
+              <div style="font-size:0.75rem; font-family:var(--font-mono); color:#fbbf24; font-weight:700; padding:6px 10px; background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.3); border-radius:4px; letter-spacing:0.5px;">
+                [ORDERS TRANSMITTED &bull; LOCKED]
+              </div>
             </div>
-            <button id="btn-cancel-unit-plan" class="btn-sketch btn-danger dossier-cancel-btn">
-              Cancel Unit Orders
-            </button>
-          </div>
-        `;
+          `;
+        } else {
+          const canAmbush = unitOnTile.category === 'INFANTRY' && tile.id === 'FOREST';
+          html += `
+            <div class="dossier-stance-block">
+              <label class="dossier-stance-label">TACTICAL STANCE</label>
+              <div class="dossier-stance-btns">
+                <button id="stance-adv" class="btn-sketch dossier-stance-btn ${unitOnTile.stance === 'ADVANCE' ? 'active' : ''}">Advance</button>
+                <button id="stance-def" class="btn-sketch dossier-stance-btn ${unitOnTile.stance === 'DEFEND' ? 'active' : ''}">Defend</button>
+                <button id="stance-amb" class="btn-sketch dossier-stance-btn ${unitOnTile.stance === 'AMBUSH' ? 'active' : ''}" ${!canAmbush ? 'disabled title="Ambush: Infantry in Forest only"' : ''}>Ambush</button>
+              </div>
+              <button id="btn-cancel-unit-plan" class="btn-sketch btn-danger dossier-cancel-btn">
+                Cancel Unit Orders
+              </button>
+            </div>
+          `;
+        }
       }
       html += `</div>`;
     }
@@ -7123,6 +7155,25 @@ class App {
 
       const localSlot = this.engine.localPlayerSlot || 1;
 
+      // In WAITING FOR OPPONENT state: only allow tile selection for inspection, block commands
+      if (this.engine.isWaitingForOpponentTurn) {
+        const prevSelected = this.renderer.selectedTile;
+        if (prevSelected && prevSelected.x === gridCoords.x && prevSelected.y === gridCoords.y) {
+          this.renderer.selectedTile = null;
+          try { this.audio.playEraserSmudge(); } catch(err){}
+        } else {
+          this.renderer.selectedTile = gridCoords;
+          const clickedUnit = this.engine.getAllUnits().find(u => u.x === gridCoords.x && u.y === gridCoords.y && u.isAlive());
+          if (clickedUnit && clickedUnit.owner === localSlot) {
+            try { this.audio.playUnitSelect(); } catch(err){}
+          } else {
+            try { this.audio.playClick(); } catch(err){}
+          }
+        }
+        this.ui.updateHUD(this.engine);
+        return;
+      }
+
       if (this.engine.phase === 'PLANNING' && this.ui.pendingAbilityKey) {
         const abilityKey = this.ui.pendingAbilityKey;
         const ability = ABILITIES[abilityKey];
@@ -8565,7 +8616,8 @@ document.addEventListener('keydown', (e) => {
     const eng = window.gApp.engine;
     const ui = window.gApp.ui;
 
-    if (eng.phase === 'PLANNING' && !eng.isReconPhase) {
+    if (eng.phase === 'PLANNING' && !eng.isReconPhase && !eng.isWaitingForOpponentTurn) {
+      const localSlot = eng.localPlayerSlot || 1;
       // Hotkey 1: Recon Flare
       if (e.key === '1') {
         e.preventDefault();
@@ -8587,7 +8639,7 @@ document.addEventListener('keydown', (e) => {
       // Hotkey H: Halt All Friendly Troops
       if (e.key === 'h' || e.key === 'H') {
         e.preventDefault();
-        eng.players[1].units.forEach(u => u.setWaypoints([]));
+        eng.players[localSlot].units.forEach(u => u.setWaypoints([]));
         if (ui) {
           ui.showToast('Troops Halted', 'All unit movement plans canceled! [H]');
           ui.updateHUD(eng);
@@ -8598,7 +8650,7 @@ document.addEventListener('keydown', (e) => {
       // Hotkey C: Cancel Queued Strikes & Refund CP
       if (e.key === 'c' || e.key === 'C') {
         e.preventDefault();
-        const res = eng.cancelPlayerAbilities(1);
+        const res = eng.cancelPlayerAbilities(localSlot);
         if (res.success) {
           if (ui) {
             ui.showToast('Abilities Cancelled', `Cancelled ${res.artCount + res.smokeCount} ability(s). Refunded ${res.refundedCP} CP! [C]`);
