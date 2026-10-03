@@ -4308,7 +4308,6 @@ class UIManager {
       { btn: 'tab-btn-play', pane: 'tab-pane-play' },
       { btn: 'tab-btn-multiplayer', pane: 'tab-pane-multiplayer' },
       { btn: 'tab-btn-bootcamp', pane: 'tab-pane-bootcamp' },
-      { btn: 'tab-btn-factions', pane: 'tab-pane-factions' },
       { btn: 'tab-btn-codex', pane: 'tab-pane-codex' },
       { btn: 'tab-btn-account', pane: 'tab-pane-account' },
       { btn: 'tab-btn-settings', pane: 'tab-pane-settings' }
@@ -7476,7 +7475,7 @@ window.toggleMapLegend = function() {
 };
 
 window.switchCodexSubtab = function(subtabKey, btnEl) {
-  const subpanes = ['quickstart', 'rules', 'matrix'];
+  const subpanes = ['factions', 'quickstart', 'rules', 'matrix'];
   subpanes.forEach(key => {
     const pane = document.getElementById(`codex-subpane-${key}`);
     if (pane) pane.style.display = key === subtabKey ? 'block' : 'none';

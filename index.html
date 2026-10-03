@@ -96,7 +96,6 @@
           <button id="tab-btn-play" class="menu-tab-btn active" onclick="window.switchMenuTab('tab-btn-play', 'tab-pane-play')">Deploy</button>
           <button id="tab-btn-multiplayer" class="menu-tab-btn" onclick="window.switchMenuTab('tab-btn-multiplayer', 'tab-pane-multiplayer')">Online Warfare</button>
           <button id="tab-btn-bootcamp" class="menu-tab-btn" onclick="window.switchMenuTab('tab-btn-bootcamp', 'tab-pane-bootcamp')">Officer Bootcamp</button>
-          <button id="tab-btn-factions" class="menu-tab-btn" onclick="window.switchMenuTab('tab-btn-factions', 'tab-pane-factions')">Factions</button>
           <button id="tab-btn-codex" class="menu-tab-btn" onclick="window.switchMenuTab('tab-btn-codex', 'tab-pane-codex')">Field Manual</button>
           <button id="tab-btn-account" class="menu-tab-btn" onclick="window.switchMenuTab('tab-btn-account', 'tab-pane-account')">Profile</button>
           <button id="tab-btn-settings" class="menu-tab-btn" onclick="window.switchMenuTab('tab-btn-settings', 'tab-pane-settings')">Settings</button>
@@ -465,59 +464,60 @@
           </div>
         </div>
 
-        <!-- TAB 2: FACTIONS -->
-        <div id="tab-pane-factions" class="tab-pane" style="display: none;">
-          <div class="codex-grid">
-            <div class="faction-preview-card iron-corps-card">
-              <div class="faction-card-header">
-                <div class="faction-icon">IC</div>
-                <div>
-                  <h3>Iron Corps</h3>
-                  <p class="faction-tagline">Heavy Armor &amp; Defensive Fortifications</p>
-                </div>
-              </div>
-              <ul class="faction-perks-list">
-                <li><b>Passive:</b> +20% defense bonus on Supply Zones, Forests &amp; Bases.</li>
-                <li style="display: flex; align-items: center; gap: 10px;">
-                  <span data-unit-badge="HEAVY_SIEGE_TANK" data-badge-size="md"></span>
-                  <div><b>Exclusive War Machine:</b> Heavy Siege Tank &mdash; massive HP &amp; crushing firepower.</div>
-                </li>
-                <li><b>Doctrine:</b> Defensive choke points and holding victory centers.</li>
-              </ul>
-            </div>
-
-            <div class="faction-preview-card vanguard-legion-card">
-              <div class="faction-card-header">
-                <div class="faction-icon">VL</div>
-                <div>
-                  <h3>Vanguard Legion</h3>
-                  <p class="faction-tagline">Blitz Mobility &amp; Stealth Ambush</p>
-                </div>
-              </div>
-              <ul class="faction-perks-list">
-                <li><b>Passive:</b> +1 movement on open terrain &amp; ambush bonus in forests.</li>
-                <li style="display: flex; align-items: center; gap: 10px;">
-                  <span data-unit-badge="BLITZ_RECON" data-badge-size="md"></span>
-                  <div><b>Exclusive War Machine:</b> Blitz Recon Vehicle &mdash; 4-tile rapid raider.</div>
-                </li>
-                <li><b>Doctrine:</b> Fast flanks and surprise forest strikes.</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB 3: FIELD MANUAL -->
+        <!-- TAB: FIELD MANUAL & FACTIONS -->
         <div id="tab-pane-codex" class="tab-pane" style="display: none;">
           
           <!-- SUB-TAB NAVIGATION BAR -->
           <div class="codex-subtab-bar">
-            <button class="subtab-btn active" onclick="window.switchCodexSubtab('quickstart', this)">Quick-Start &amp; FAQ</button>
+            <button class="subtab-btn active" onclick="window.switchCodexSubtab('factions', this)">Factions &amp; Doctrines</button>
+            <button class="subtab-btn" onclick="window.switchCodexSubtab('quickstart', this)">Quick-Start &amp; FAQ</button>
             <button class="subtab-btn" onclick="window.switchCodexSubtab('rules', this)">Battle Rules &amp; Doctrines</button>
             <button class="subtab-btn" onclick="window.switchCodexSubtab('matrix', this)">Unit Counter Matrix</button>
           </div>
 
-          <!-- SUBTAB 1: QUICK-START & FAQ -->
-          <div id="codex-subpane-quickstart" class="codex-subpane">
+          <!-- SUBTAB 1: FACTIONS & DOCTRINES -->
+          <div id="codex-subpane-factions" class="codex-subpane">
+            <div class="codex-grid">
+              <div class="faction-preview-card iron-corps-card">
+                <div class="faction-card-header">
+                  <div class="faction-icon">IC</div>
+                  <div>
+                    <h3>Iron Corps</h3>
+                    <p class="faction-tagline">Heavy Armor &amp; Defensive Fortifications</p>
+                  </div>
+                </div>
+                <ul class="faction-perks-list">
+                  <li><b>Passive:</b> +20% defense bonus on Supply Zones, Forests &amp; Bases.</li>
+                  <li style="display: flex; align-items: center; gap: 10px;">
+                    <span data-unit-badge="HEAVY_SIEGE_TANK" data-badge-size="md"></span>
+                    <div><b>Exclusive War Machine:</b> Heavy Siege Tank &mdash; massive HP &amp; crushing firepower.</div>
+                  </li>
+                  <li><b>Doctrine:</b> Defensive choke points and holding victory centers.</li>
+                </ul>
+              </div>
+
+              <div class="faction-preview-card vanguard-legion-card">
+                <div class="faction-card-header">
+                  <div class="faction-icon">VL</div>
+                  <div>
+                    <h3>Vanguard Legion</h3>
+                    <p class="faction-tagline">Blitz Mobility &amp; Stealth Ambush</p>
+                  </div>
+                </div>
+                <ul class="faction-perks-list">
+                  <li><b>Passive:</b> +1 movement on open terrain &amp; ambush bonus in forests.</li>
+                  <li style="display: flex; align-items: center; gap: 10px;">
+                    <span data-unit-badge="BLITZ_RECON" data-badge-size="md"></span>
+                    <div><b>Exclusive War Machine:</b> Blitz Recon Vehicle &mdash; 4-tile rapid raider.</div>
+                  </li>
+                  <li><b>Doctrine:</b> Fast flanks and surprise forest strikes.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- SUBTAB 2: QUICK-START & FAQ -->
+          <div id="codex-subpane-quickstart" class="codex-subpane" style="display: none;">
             <div style="background:rgba(30,41,59,0.7); border:1px solid var(--border-glowing); padding:14px; border-radius:10px;">
               <h3 style="font-family:var(--font-display); font-size:1.05rem; color:var(--gold-400); margin-bottom:6px;">
                 Quick-Start Commander Guide &amp; FAQ
