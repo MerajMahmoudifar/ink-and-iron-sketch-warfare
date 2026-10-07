@@ -3273,6 +3273,102 @@ class SketchRenderer {
       }
     });
 
+    // 13. DIRECT MAP DEPLOYMENT BLUEPRINT OVERLAYS & GHOST PREVIEWS
+    if (engine.phase === 'PLANNING' && !engine.isWaitingForOpponentTurn && window.gApp && window.gApp.ui && window.gApp.ui.pendingDeployUnitKey) {
+      const deployUnitKey = window.gApp.ui.pendingDeployUnitKey;
+      const template = (typeof UNIT_TYPES !== 'undefined') ? UNIT_TYPES[deployUnitKey] : null;
+      const spawnPoints = engine.getOwnedSpawnPoints ? engine.getOwnedSpawnPoints(localSlot) : [];
+      const pulse = (Math.sin(Date.now() / 180) + 1) / 2;
+
+      spawnPoints.forEach(sp => {
+        const pos = this.getScreenCoords(sp.x, sp.y);
+        const occ = engine.getAllUnits().find(u => u.x === sp.x && u.y === sp.y && u.isAlive());
+        const isHovered = this.hoveredTile && this.hoveredTile.x === sp.x && this.hoveredTile.y === sp.y;
+
+        this.ctx.save();
+        if (sp.isContested) {
+          // UNDER SIEGE / BLOCKED (Enemy adjacent)
+          this.ctx.strokeStyle = 'rgba(239, 68, 68, 0.75)';
+          this.ctx.lineWidth = 1.8;
+          this.ctx.setLineDash([4, 3]);
+          this.ctx.strokeRect(pos.x + 3, pos.y + 3, 64, 64);
+          this.ctx.setLineDash([]);
+          
+          this.ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+          this.ctx.fillRect(pos.x + 4, pos.y + 48, 62, 16);
+          this.ctx.font = 'bold 7.5px "JetBrains Mono", monospace';
+          this.ctx.fillStyle = '#f87171';
+          this.ctx.textAlign = 'center';
+          this.ctx.fillText('[UNDER SIEGE]', pos.x + 35, pos.y + 59);
+        } else if (occ) {
+          // OCCUPIED (Tile must be empty)
+          this.ctx.strokeStyle = 'rgba(245, 158, 11, 0.75)';
+          this.ctx.lineWidth = 1.8;
+          this.ctx.setLineDash([4, 3]);
+          this.ctx.strokeRect(pos.x + 3, pos.y + 3, 64, 64);
+          this.ctx.setLineDash([]);
+
+          this.ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+          this.ctx.fillRect(pos.x + 4, pos.y + 48, 62, 16);
+          this.ctx.font = 'bold 7.5px "JetBrains Mono", monospace';
+          this.ctx.fillStyle = '#fbbf24';
+          this.ctx.textAlign = 'center';
+          this.ctx.fillText('[OCCUPIED]', pos.x + 35, pos.y + 59);
+        } else {
+          // VALID CLEAR SPAWN POINT
+          // Animated Emerald Pulsing Blueprint Wash
+          this.ctx.fillStyle = `rgba(16, 185, 129, ${0.12 + pulse * 0.1})`;
+          this.ctx.fillRect(pos.x + 2, pos.y + 2, 66, 66);
+
+          // Emerald Dashed Outer Border
+          this.ctx.strokeStyle = `rgba(16, 185, 129, ${0.75 + pulse * 0.25})`;
+          this.ctx.lineWidth = isHovered ? 2.5 : 1.8;
+          this.ctx.setLineDash([5, 3]);
+          this.ctx.strokeRect(pos.x + 3, pos.y + 3, 64, 64);
+          this.ctx.setLineDash([]);
+
+          // Corner Precision Brackets
+          const bLen = 10;
+          this.ctx.strokeStyle = '#10b981';
+          this.ctx.lineWidth = isHovered ? 2.5 : 2;
+          this.ctx.beginPath();
+          this.ctx.moveTo(pos.x + 3, pos.y + 3 + bLen); this.ctx.lineTo(pos.x + 3, pos.y + 3); this.ctx.lineTo(pos.x + 3 + bLen, pos.y + 3);
+          this.ctx.moveTo(pos.x + 67 - bLen, pos.y + 3); this.ctx.lineTo(pos.x + 67, pos.y + 3); this.ctx.lineTo(pos.x + 67, pos.y + 3 + bLen);
+          this.ctx.moveTo(pos.x + 3, pos.y + 67 - bLen); this.ctx.lineTo(pos.x + 3, pos.y + 67); this.ctx.lineTo(pos.x + 3 + bLen, pos.y + 67);
+          this.ctx.moveTo(pos.x + 67 - bLen, pos.y + 67); this.ctx.lineTo(pos.x + 67, pos.y + 67); this.ctx.lineTo(pos.x + 67, pos.y + 67 - bLen);
+          this.ctx.stroke();
+
+          // Bottom Label Pill
+          this.ctx.fillStyle = isHovered ? '#10b981' : 'rgba(15, 23, 42, 0.9)';
+          this.ctx.fillRect(pos.x + 4, pos.y + 48, 62, 16);
+          this.ctx.font = 'bold 8px "JetBrains Mono", monospace';
+          this.ctx.fillStyle = isHovered ? '#022c22' : '#34d399';
+          this.ctx.textAlign = 'center';
+          this.ctx.fillText(isHovered ? 'CLICK TO DEPLOY' : '[DEPLOY HERE]', pos.x + 35, pos.y + 59);
+
+          // Ghost Unit Blueprint Silhouette on Hover
+          if (isHovered && template) {
+            const mockUnit = {
+              typeKey: deployUnitKey,
+              id: deployUnitKey,
+              owner: localSlot,
+              hp: template.maxHp,
+              maxHp: template.maxHp,
+              stance: 'ADVANCE',
+              waypoints: []
+            };
+            this.ctx.save();
+            this.ctx.globalAlpha = 0.7;
+            if (typeof UnitIcons !== 'undefined') {
+              UnitIcons.drawCanvasToken(this.ctx, mockUnit, pos.x + 35, pos.y + 28, engine);
+            }
+            this.ctx.restore();
+          }
+        }
+        this.ctx.restore();
+      });
+    }
+
     this.ctx.restore();
   }
 
@@ -4116,7 +4212,6 @@ class UIManager {
     this.gameContainer = document.getElementById('game-container');
     this.mainMenuOverlay = document.getElementById('main-menu-overlay');
     this.inGameMenuModal = document.getElementById('in-game-menu-modal');
-    this.deployPickerModal = document.getElementById('deploy-picker-modal');
 
     this.phaseBadge = document.getElementById('phase-badge');
     this.timerBarFill = document.getElementById('timer-bar-fill');
@@ -4129,6 +4224,7 @@ class UIManager {
     this.actionLogBox = document.getElementById('action-log-box');
 
     this.pendingAbilityKey = null;
+    this.pendingDeployUnitKey = null;
 
     this.setupListeners();
     this.setupMenuTabs();
@@ -4282,12 +4378,6 @@ class UIManager {
       }
     });
 
-    document.getElementById('btn-cancel-deploy')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      if (this.deployPickerModal) this.deployPickerModal.style.display = 'none';
-      try { this.app.audio.playClick(); } catch(err){}
-    });
-
     document.getElementById('btn-victory-main-menu')?.addEventListener('click', (e) => {
       e.preventDefault();
       if (this.app) {
@@ -4346,6 +4436,7 @@ class UIManager {
 
     // Always deselect current unit/tile first, then prompt to choose target
     this.app.renderer.selectedTile = null;
+    this.pendingDeployUnitKey = null;
     this.pendingAbilityKey = abilityKey;
     this.showToast('Select Target Tile', `${ability.name} active (${ability.cpCost} CP)! Click any grid square to target, or Right-Click / Esc to cancel.`);
     this.updateHUD(this.app.engine);
@@ -4470,6 +4561,17 @@ class UIManager {
         this.p2InkDisplay.innerHTML = `${oppPlayer.name}: ${oppPlayer.ink} <span class="opp-ready-indicator"><span class="opp-ready-dot"></span>READY</span>`;
       } else {
         this.p2InkDisplay.textContent = `${oppPlayer.name}: ${oppPlayer.ink}`;
+      }
+    }
+
+    // Auto-validate active recruitment deployment targeting state
+    if (this.pendingDeployUnitKey) {
+      const uKey = this.pendingDeployUnitKey;
+      const uObj = (typeof UNIT_TYPES !== 'undefined') ? UNIT_TYPES[uKey] : null;
+      const canAfford = uObj && localPlayer && localPlayer.ink >= uObj.cost;
+      const availableSpawns = engine.getOwnedSpawnPoints ? engine.getOwnedSpawnPoints(localSlot).filter(sp => !sp.isContested && !engine.getAllUnits().some(u => u.x === sp.x && u.y === sp.y && u.isAlive())) : [];
+      if (!canAfford || availableSpawns.length === 0 || engine.phase !== 'PLANNING' || engine.isWaitingForOpponentTurn) {
+        this.pendingDeployUnitKey = null;
       }
     }
 
@@ -4778,9 +4880,10 @@ class UIManager {
 
       const canAfford = p1.ink >= u.cost && !isLocked;
       const neededInk = u.cost - p1.ink;
+      const isTargetingThis = this.pendingDeployUnitKey === key;
 
       btn.id = 'store-card-' + key;
-      btn.className = `unit-card-btn ${canAfford ? '' : 'unit-card-unaffordable'}`;
+      btn.className = `unit-card-btn ${canAfford ? '' : 'unit-card-unaffordable'} ${isTargetingThis ? 'active-targeting' : ''}`;
       if (isLocked) {
         btn.disabled = true;
         btn.style.opacity = '0.45';
@@ -4813,125 +4916,35 @@ class UIManager {
       
       btn.addEventListener('click', () => {
         if (engine.isWaitingForOpponentTurn) return;
+
+        // Click-to-toggle off if already active
+        if (this.pendingDeployUnitKey === key) {
+          this.pendingDeployUnitKey = null;
+          try { this.app.audio.playEraserSmudge(); } catch(err){}
+          this.updateHUD(engine);
+          return;
+        }
+
         const availableSpawns = engine.getOwnedSpawnPoints(localSlot);
         const unContestedSpawns = availableSpawns.filter(sp => !sp.isContested && !engine.getAllUnits().some(u => u.x === sp.x && u.y === sp.y && u.isAlive()));
 
         if (unContestedSpawns.length === 0) {
           try { this.app.audio.playDenied(); } catch(err){}
-          this.showToast('Deployment Failed', 'All your Base & Supply Zone tiles are UNDER SIEGE or occupied!');
+          this.showToast('Deployment Blocked', 'All your Bases & captured Depots are occupied or under siege!');
           return;
         }
 
-        const selTile = this.app.renderer.selectedTile;
-        if (selTile) {
-          const isSelectedValid = unContestedSpawns.some(sp => sp.x === selTile.x && sp.y === selTile.y);
-          if (isSelectedValid) {
-            const res = engine.buyUnit(localSlot, key, selTile.x, selTile.y);
-            if (res.success) {
-              try { this.app.audio.playSpawnSound(); } catch(err){}
-            } else {
-              try { this.app.audio.playDenied(); } catch(err){}
-              this.showToast('Deployment Error', res.reason);
-            }
-            return;
-          } else {
-            const isOwnedSpawn = availableSpawns.some(sp => sp.x === selTile.x && sp.y === selTile.y);
-            if (isOwnedSpawn) {
-              const occ = engine.getAllUnits().find(u => u.x === selTile.x && u.y === selTile.y && u.isAlive());
-              if (occ) {
-                try { this.app.audio.playDenied(); } catch(err){}
-                this.showToast('Tile Occupied', `Cannot deploy at ${formatCoord(selTile.x, selTile.y)}! Depots & Bases must be completely EMPTY to spawn new units.`);
-              }
-            }
-          }
-        }
+        // Activate Direct Map Deployment Targeting Mode
+        this.pendingDeployUnitKey = key;
+        this.pendingAbilityKey = null;
+        this.app.renderer.selectedTile = null;
 
         try { this.app.audio.playClick(); } catch(err){}
-        this.openDeploymentPicker(engine, key, u);
+        this.showToast('Select Spawn Point', `Recruiting ${u.name} (${u.cost} Ink). Click any green highlighted Base or Depot on the map!`);
+        this.updateHUD(engine);
       });
       this.storeContainer.appendChild(btn);
     });
-  }
-
-  openDeploymentPicker(engine, unitTypeKey, unitObj) {
-    const titleEl = document.getElementById('deploy-picker-title');
-    if (titleEl && unitObj) titleEl.textContent = `Deploy ${unitObj.symbol} ${unitObj.name}`;
-    const localSlot = engine.localPlayerSlot || 1;
-    const spawnPoints = engine.getOwnedSpawnPoints(localSlot);
-    const listEl = document.getElementById('deploy-picker-list');
-    if (!listEl) return;
-    listEl.innerHTML = '';
-
-    if (spawnPoints.length === 0) {
-      listEl.innerHTML = `<p style="color:#f87171; font-size:0.85rem;">No active spawn points owned!</p>`;
-      if (this.deployPickerModal) this.deployPickerModal.style.display = 'flex';
-      return;
-    }
-
-    // Explainer Callout: Teaches all players that depots must be empty
-    const infoNotice = document.createElement('div');
-    infoNotice.style.cssText = 'font-size:0.78rem; color:#cbd5e1; margin-bottom:10px; padding:6px 10px; background:rgba(30,41,59,0.85); border-radius:4px; border-left:3px solid #f59e0b; line-height:1.35;';
-    infoNotice.innerHTML = `<b>[DEPLOYMENT DIRECTIVE]</b> Bases and captured Depots can spawn units, but <b>the tile must be completely EMPTY</b> (unoccupied).`;
-    listEl.appendChild(infoNotice);
-
-    spawnPoints.forEach((sp, idx) => {
-      const btn = document.createElement('button');
-      btn.className = 'spawn-picker-btn';
-      btn.id = `deploy-picker-sp-${idx}`;
-      const occupyingUnit = engine.getAllUnits().find(u => u.x === sp.x && u.y === sp.y && u.isAlive());
-
-      if (sp.isContested) {
-        btn.innerHTML = `
-          <div style="display:flex; flex-direction:column; text-align:left;">
-            <span style="font-weight:700;">${sp.name} ${formatCoord(sp.x, sp.y)}</span>
-            <span style="font-size:0.72rem; color:#f87171; font-weight:700; letter-spacing:0.04em;">[UNDER SIEGE] &mdash; Enemy adjacent!</span>
-          </div>
-          <span style="font-size:0.75rem; color:#ef4444; border:1px solid rgba(239,68,68,0.5); padding:2px 6px; border-radius:3px; background:rgba(239,68,68,0.1);">BLOCKED</span>
-        `;
-        btn.style.opacity = '0.5';
-        btn.style.cursor = 'not-allowed';
-        btn.addEventListener('click', () => {
-          this.showToast('Under Siege', `Cannot deploy at ${formatCoord(sp.x, sp.y)} while enemy is adjacent!`);
-          if (engine.bootcampLesson === 7 && engine.bootcampManager) {
-            engine.bootcampManager.triggerLessonEasterEgg(7, "You can't deploy through enemy bayonets, Rookie! Clear out the hostiles first!");
-          }
-        });
-      } else if (occupyingUnit) {
-        btn.innerHTML = `
-          <div style="display:flex; flex-direction:column; text-align:left;">
-            <span style="font-weight:700; color:#e2e8f0;">${sp.name} ${formatCoord(sp.x, sp.y)}</span>
-            <span style="font-size:0.72rem; color:#f59e0b; font-weight:700; letter-spacing:0.04em;">[OCCUPIED] by ${occupyingUnit.name} &mdash; Tile must be empty!</span>
-          </div>
-          <span style="font-size:0.75rem; color:#ef4444; border:1px solid rgba(239,68,68,0.5); padding:2px 6px; border-radius:3px; background:rgba(239,68,68,0.1);">BLOCKED</span>
-        `;
-        btn.style.opacity = '0.7';
-        btn.addEventListener('click', () => {
-          this.showToast('Tile Occupied', `Cannot deploy at ${formatCoord(sp.x, sp.y)}! Depots and Bases must be EMPTY to spawn new units. Move occupying troops off first.`);
-        });
-      } else {
-        btn.innerHTML = `
-          <div style="display:flex; flex-direction:column; text-align:left;">
-            <span style="font-weight:700; color:#ffffff;">${sp.name} ${formatCoord(sp.x, sp.y)}</span>
-            <span style="font-size:0.72rem; color:#4ade80; font-weight:700; letter-spacing:0.04em;">[CLEAR] &mdash; Ready for deployment</span>
-          </div>
-          <span style="font-size:0.75rem; color:#60a5fa; border:1px solid rgba(96,165,250,0.5); padding:2px 8px; border-radius:3px; background:rgba(59,130,246,0.15); font-weight:700;">DEPLOY HERE</span>
-        `;
-        btn.addEventListener('click', () => {
-          if (this.deployPickerModal) this.deployPickerModal.style.display = 'none';
-          const res = engine.buyUnit(localSlot, unitTypeKey, sp.x, sp.y);
-          if (res.success) {
-            try { this.app.audio.playSpawnSound(); } catch(err){}
-          } else {
-            try { this.app.audio.playDenied(); } catch(err){}
-            this.showToast('Deployment Error', res.reason);
-          }
-        });
-      }
-
-      listEl.appendChild(btn);
-    });
-
-    this.deployPickerModal.style.display = 'flex';
   }
 
   renderInspector(engine) {
@@ -7174,6 +7187,56 @@ class App {
         return;
       }
 
+      // 1. RECRUITMENT DEPLOYMENT TARGETING CLICK HANDLER
+      if (this.engine.phase === 'PLANNING' && this.ui.pendingDeployUnitKey) {
+        const unitTypeKey = this.ui.pendingDeployUnitKey;
+        const uTemplate = (typeof UNIT_TYPES !== 'undefined') ? UNIT_TYPES[unitTypeKey] : null;
+        const availableSpawns = this.engine.getOwnedSpawnPoints ? this.engine.getOwnedSpawnPoints(localSlot) : [];
+        const unContestedSpawns = availableSpawns.filter(sp => !sp.isContested && !this.engine.getAllUnits().some(u => u.x === sp.x && u.y === sp.y && u.isAlive()));
+        const isTargetSpawn = unContestedSpawns.some(sp => sp.x === gridCoords.x && sp.y === gridCoords.y);
+
+        if (isTargetSpawn) {
+          const res = this.engine.buyUnit(localSlot, unitTypeKey, gridCoords.x, gridCoords.y);
+          if (res.success) {
+            try { this.audio.playSpawnSound(); } catch(err){}
+            this.ui.showToast('Unit Deployed', `${uTemplate ? uTemplate.name : 'Unit'} deployed at ${formatCoord(gridCoords.x, gridCoords.y)}!`);
+
+            // Rapid-Spawn Chain Mode: Keep active if enough Ink & valid empty spawns remain
+            const p = this.engine.players[localSlot];
+            const remainingSpawns = this.engine.getOwnedSpawnPoints(localSlot).filter(sp => !sp.isContested && !this.engine.getAllUnits().some(u => u.x === sp.x && u.y === sp.y && u.isAlive()));
+            if (!p || !uTemplate || p.ink < uTemplate.cost || remainingSpawns.length === 0) {
+              this.ui.pendingDeployUnitKey = null;
+            }
+          } else {
+            try { this.audio.playDenied(); } catch(err){}
+            this.ui.showToast('Deployment Error', res.reason);
+          }
+        } else {
+          // Check reason if clicked on an owned base / depot
+          const isOwned = availableSpawns.some(sp => sp.x === gridCoords.x && sp.y === gridCoords.y);
+          if (isOwned) {
+            const isBesieged = availableSpawns.some(sp => sp.x === gridCoords.x && sp.y === gridCoords.y && sp.isContested);
+            if (isBesieged) {
+              try { this.audio.playDenied(); } catch(err){}
+              this.ui.showToast('Under Siege', `Cannot deploy at ${formatCoord(gridCoords.x, gridCoords.y)} while enemy forces are adjacent!`);
+              if (this.engine.bootcampLesson === 7 && this.bootcampManager) {
+                this.bootcampManager.triggerLessonEasterEgg(7, "You can't deploy through enemy bayonets, Rookie! Clear out the hostiles first!");
+              }
+            } else {
+              try { this.audio.playDenied(); } catch(err){}
+              this.ui.showToast('Tile Occupied', `Cannot deploy at ${formatCoord(gridCoords.x, gridCoords.y)}! Bases and Depots must be EMPTY to spawn.`);
+            }
+          } else {
+            // Clicked off-spawn tile: cancel deployment mode and select tile normally
+            this.ui.pendingDeployUnitKey = null;
+            this.renderer.selectedTile = gridCoords;
+            try { this.audio.playClick(); } catch(err){}
+          }
+        }
+        this.ui.updateHUD(this.engine);
+        return;
+      }
+
       if (this.engine.phase === 'PLANNING' && this.ui.pendingAbilityKey) {
         const abilityKey = this.ui.pendingAbilityKey;
         const ability = ABILITIES[abilityKey];
@@ -7260,6 +7323,12 @@ class App {
     this.canvas.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       let handled = false;
+      if (this.ui && this.ui.pendingDeployUnitKey) {
+        const uTemplate = (typeof UNIT_TYPES !== 'undefined') ? UNIT_TYPES[this.ui.pendingDeployUnitKey] : null;
+        this.ui.pendingDeployUnitKey = null;
+        this.ui.showToast('Deployment Cancelled', `${uTemplate ? uTemplate.name : 'Unit'} recruitment targeting cancelled.`);
+        handled = true;
+      }
       if (this.ui && this.ui.pendingAbilityKey) {
         const ab = (typeof ABILITIES !== 'undefined') ? ABILITIES[this.ui.pendingAbilityKey] : null;
         this.ui.pendingAbilityKey = null;
@@ -7292,6 +7361,11 @@ class App {
   updateCanvasSitrep(hoveredTile) {
     const el = document.getElementById('canvas-sitrep-text');
     if (!el) return;
+    if (this.ui && this.ui.pendingDeployUnitKey) {
+      const u = (typeof UNIT_TYPES !== 'undefined') ? UNIT_TYPES[this.ui.pendingDeployUnitKey] : null;
+      el.innerHTML = `<span style="color:#10b981; font-weight:700;">[DEPLOYMENT DIRECTIVE]</span> &bull; RECRUITING <strong>${u ? u.name.toUpperCase() : 'UNIT'}</strong> &bull; CLICK ANY HIGHLIGHTED SPAWN POINT &bull; <span style="color:#94a3b8;">[ESC / RIGHT-CLICK TO CANCEL]</span>`;
+      return;
+    }
     if (!hoveredTile || !this.engine || !this.engine.grid[hoveredTile.y] || !this.engine.grid[hoveredTile.y][hoveredTile.x]) {
       if (this.bootcampManager && this.bootcampManager.activeLesson) {
         el.innerHTML = 'TACTICAL TELEMETRY &bull; HOVER SECTOR TO INSPECT TERRAIN &amp; TROOPS';
@@ -8604,6 +8678,30 @@ document.addEventListener('keydown', (e) => {
     if (window.skipReconPhase) {
       e.preventDefault();
       window.skipReconPhase();
+      return;
+    }
+  }
+
+  // Escape key: Cancel active deployment, ability targeting, or selection
+  if (e.key === 'Escape' && window.gApp) {
+    let handled = false;
+    if (window.gApp.ui && window.gApp.ui.pendingDeployUnitKey) {
+      window.gApp.ui.pendingDeployUnitKey = null;
+      window.gApp.ui.showToast('Deployment Cancelled', 'Unit recruitment cancelled.');
+      handled = true;
+    }
+    if (window.gApp.ui && window.gApp.ui.pendingAbilityKey) {
+      window.gApp.ui.pendingAbilityKey = null;
+      window.gApp.ui.showToast('Ability Cancelled', 'Targeting cancelled.');
+      handled = true;
+    }
+    if (window.gApp.renderer && window.gApp.renderer.selectedTile) {
+      window.gApp.renderer.selectedTile = null;
+      handled = true;
+    }
+    if (handled) {
+      try { window.gApp.audio.playEraserSmudge(); } catch(err){}
+      if (window.gApp.engine && window.gApp.ui) window.gApp.ui.updateHUD(window.gApp.engine);
       return;
     }
   }
