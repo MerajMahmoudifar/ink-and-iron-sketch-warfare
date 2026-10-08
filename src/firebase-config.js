@@ -68,19 +68,31 @@ class AuthManager {
       onAuthStateChanged(this.auth, async (user) => {
         if (user) {
           window.gAuth.user = user;
-          window.gAuth.isGuest = false;
-          window.gAuth.profile = await this.fetchUserProfile(user.uid, user.displayName, user.email);
-
-          // Sync Firebase User to Cloudflare D1 Database
-          if (window.d1Service) {
-            window.d1Service.syncSettings({
-              id: user.uid,
-              username: user.displayName || (user.email ? user.email.split('@')[0] : 'Commander'),
-              email: user.email || ''
-            });
+          window.gAuth.isGuest = user.isAnonymous === true;
+          if (user.isAnonymous) {
+            this.setGuestState(user);
+          } else {
+            window.gAuth.profile = await this.fetchUserProfile(user.uid, user.displayName, user.email);
+            // Sync Firebase User to Cloudflare D1 Database
+            if (window.d1Service) {
+              window.d1Service.syncSettings({
+                id: user.uid,
+                username: user.displayName || (user.email ? user.email.split('@')[0] : 'Commander'),
+                email: user.email || ''
+              });
+            }
           }
         } else {
-          this.setGuestState();
+          // Automatic Anonymous Sign-in for immediate Realtime presence & multiplayer readiness
+          try {
+            const { signInAnonymously } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
+            const cred = await signInAnonymously(this.auth);
+            window.gAuth.user = cred.user;
+            window.gAuth.isGuest = true;
+            this.setGuestState(cred.user);
+          } catch(anonErr) {
+            this.setGuestState();
+          }
         }
         window.gAuth.isInitialized = true;
         this.notifyListeners();
@@ -93,9 +105,14 @@ class AuthManager {
     }
   }
 
-  setGuestState() {
-    window.gAuth.user = null;
-    window.gAuth.isGuest = true;
+  setGuestState(user = null) {
+    if (user) {
+      window.gAuth.user = user;
+      window.gAuth.isGuest = true;
+    } else {
+      window.gAuth.user = null;
+      window.gAuth.isGuest = true;
+    }
     const localStats = JSON.parse(localStorage.getItem('sketch_warfare_guest_stats') || '{}');
     const wins = localStats.wins || 0;
     const losses = localStats.losses || 0;
@@ -104,6 +121,7 @@ class AuthManager {
 
     window.gAuth.profile = {
       ...GUEST_PROFILE,
+      uid: user ? user.uid : 'guest',
       totalMatches: total,
       wins,
       losses,

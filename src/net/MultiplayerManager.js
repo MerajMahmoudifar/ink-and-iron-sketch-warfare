@@ -875,15 +875,18 @@ export class MultiplayerManager {
       window.addEventListener('pagehide', cleanup);
     }
 
-    // Subscribe to Auth state changes to seamlessly migrate session IDs (guest -> signed-in)
+    // Subscribe to Auth state changes to seamlessly connect RTDB & migrate session IDs
     if (typeof window !== 'undefined' && window.gAuthManager) {
       window.gAuthManager.subscribe(() => {
-        if (this.lastPresenceSessionId && this.lastPresenceSessionId !== this.presenceSessionId) {
-          const oldSession = this.lastPresenceSessionId;
-          this.lastPresenceSessionId = this.presenceSessionId;
-          this._cleanupOldSession(oldSession);
+        this.ensureAuthenticated().then(() => {
+          this.initFirebasePresence();
+          if (this.lastPresenceSessionId && this.lastPresenceSessionId !== this.presenceSessionId) {
+            const oldSession = this.lastPresenceSessionId;
+            this.lastPresenceSessionId = this.presenceSessionId;
+            this._cleanupOldSession(oldSession);
+          }
           this.heartbeatPresence();
-        }
+        }).catch(() => {});
       });
     }
 
