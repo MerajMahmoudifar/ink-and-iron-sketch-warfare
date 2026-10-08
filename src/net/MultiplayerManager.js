@@ -880,6 +880,10 @@ export class MultiplayerManager {
     this.onlineStats = { total: 1, inLobby: 1, inMatchmaking: 0, inRoom: 0, inBattle: 0, users: [] };
     this.isFirebaseConnected = false;
     this.isFirebasePresenceInit = false;
+    this.lastPresenceSessionId = this.presenceSessionId;
+
+    // Prune stale / legacy presence records on startup
+    this._pruneLocalPresence();
 
     // Browser unload hooks
     if (typeof window !== 'undefined') {
@@ -888,19 +892,66 @@ export class MultiplayerManager {
       window.addEventListener('pagehide', cleanup);
     }
 
-    // Local mesh presence heartbeat (every 6s for snappy multi-tab sync)
+    // Subscribe to Auth state changes to seamlessly migrate session IDs (guest -> signed-in)
+    if (typeof window !== 'undefined' && window.gAuthManager) {
+      window.gAuthManager.subscribe(() => {
+        if (this.lastPresenceSessionId && this.lastPresenceSessionId !== this.presenceSessionId) {
+          const oldSession = this.lastPresenceSessionId;
+          this.lastPresenceSessionId = this.presenceSessionId;
+          this._cleanupOldSession(oldSession);
+          this.heartbeatPresence();
+        }
+      });
+    }
+
+    // Local mesh presence heartbeat (every 5s for snappy real-time sync)
     this.presenceHeartbeatTimer = setInterval(() => {
       this.heartbeatPresence();
       if (!this.isFirebasePresenceInit) {
         this.ensureAuthenticated().then(() => this.initFirebasePresence()).catch(() => {});
       }
-    }, 6000);
+    }, 5000);
 
     // Initial immediate heartbeat & auth check
     this.heartbeatPresence();
     setTimeout(() => {
       this.ensureAuthenticated().then(() => this.initFirebasePresence()).catch(() => {});
     }, 500);
+  }
+
+  _cleanupOldSession(oldSessionId) {
+    if (!oldSessionId) return;
+    // 1. Remove from Firebase RTDB
+    if (this.rtdb && this.isFirebaseConnected) {
+      try {
+        import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js').then(({ ref, remove }) => {
+          remove(ref(this.rtdb, `presence/${oldSessionId}`)).catch(() => {});
+        }).catch(() => {});
+      } catch (e) {}
+    }
+    // 2. Remove from Local Mesh
+    const localPres = this._getLocalPresence();
+    if (localPres[oldSessionId]) {
+      delete localPres[oldSessionId];
+      this._saveLocalPresence(localPres);
+      this._broadcastMeshEvent('PRESENCE_LEAVE', { sessionId: oldSessionId, uid: this.myUid });
+    }
+  }
+
+  _pruneLocalPresence() {
+    const now = Date.now();
+    const localPres = this._getLocalPresence();
+    let modified = false;
+    for (const [k, v] of Object.entries(localPres)) {
+      // Remove entries older than 15s or obsolete entries belonging to this exact tab
+      if (!v || (now - (v.lastSeen || 0)) > 15000 || (k.includes(this.tabId) && k !== this.presenceSessionId)) {
+        delete localPres[k];
+        modified = true;
+      }
+    }
+    if (modified) {
+      this._saveLocalPresence(localPres);
+    }
   }
 
   async initFirebasePresence() {
@@ -945,14 +996,17 @@ export class MultiplayerManager {
 
   processPresence(cloudData = null) {
     const now = Date.now();
-    const activeMap = new Map(); // sessionId -> user
+    const rawMap = new Map(); // sessionId -> user
+
+    const CLOUD_TTL = 20000; // 20s
+    const LOCAL_TTL = 12000; // 12s
 
     // 1. Ingest Cloud Presence (if available)
     if (cloudData && typeof cloudData === 'object') {
       for (const [key, user] of Object.entries(cloudData)) {
-        if (user && (now - (user.lastSeen || 0)) < 75000) {
+        if (user && user.lastSeen && (now - user.lastSeen) < CLOUD_TTL) {
           const sId = user.sessionId || key;
-          activeMap.set(sId, { ...user, sessionId: sId });
+          rawMap.set(sId, { ...user, sessionId: sId });
         }
       }
     }
@@ -960,31 +1014,48 @@ export class MultiplayerManager {
     // 2. Ingest Local Mesh Presence (multi-tab / cross-window)
     const localPres = this._getLocalPresence();
     for (const [key, user] of Object.entries(localPres || {})) {
-      if (user && (now - (user.lastSeen || 0)) < 30000) {
+      if (user && user.lastSeen && (now - user.lastSeen) < LOCAL_TTL) {
         const sId = user.sessionId || key;
-        if (!activeMap.has(sId) || (user.lastSeen || 0) > (activeMap.get(sId).lastSeen || 0)) {
-          activeMap.set(sId, { ...user, sessionId: sId });
+        const existing = rawMap.get(sId);
+        if (!existing || (user.lastSeen || 0) > (existing.lastSeen || 0)) {
+          rawMap.set(sId, { ...user, sessionId: sId });
         }
       }
     }
 
     // 3. Ensure Self is present
-    activeMap.set(this.presenceSessionId, {
+    const selfUser = {
       sessionId: this.presenceSessionId,
+      tabId: this.tabId,
       uid: this.myUid,
       name: this.currentProfile.displayName || 'Commander',
       state: this.presenceState,
+      roomId: this.currentRoomId || null,
       lastSeen: now
-    });
+    };
+    rawMap.set(this.presenceSessionId, selfUser);
 
-    // 4. Calculate tallies
+    // 4. Deduplicate by unique Commander / Tab Key to eliminate ghost transitions
+    const dedupeMap = new Map(); // tabKey -> user
+    for (const u of rawMap.values()) {
+      // Extract tabId if embedded in sessionId (${uid}_${tabId})
+      const tabMatch = u.sessionId ? u.sessionId.match(/(tab_[a-z0-9]+)/) : null;
+      const tabKey = tabMatch ? tabMatch[1] : (u.tabId || u.sessionId || u.uid);
+
+      if (!dedupeMap.has(tabKey) || (u.lastSeen || 0) > (dedupeMap.get(tabKey).lastSeen || 0)) {
+        dedupeMap.set(tabKey, u);
+      }
+    }
+
+    const uniqueUsers = Array.from(dedupeMap.values());
+
+    // 5. Calculate tallies
     let inLobby = 0;
     let inMatchmaking = 0;
     let inRoom = 0;
     let inBattle = 0;
-    const users = Array.from(activeMap.values());
 
-    for (const u of users) {
+    for (const u of uniqueUsers) {
       const state = u.state || 'LOBBY';
       if (state === 'MATCHMAKING') inMatchmaking++;
       else if (state === 'IN_BATTLE') inBattle++;
@@ -993,12 +1064,12 @@ export class MultiplayerManager {
     }
 
     this.onlineStats = {
-      total: Math.max(1, users.length),
+      total: Math.max(1, uniqueUsers.length),
       inLobby,
       inMatchmaking,
       inRoom,
       inBattle,
-      users
+      users: uniqueUsers
     };
 
     this.notifyPresenceListeners();
@@ -1020,8 +1091,17 @@ export class MultiplayerManager {
 
   heartbeatPresence() {
     const now = Date.now();
+
+    // Check if session ID changed (e.g. auth login happened)
+    if (this.lastPresenceSessionId && this.lastPresenceSessionId !== this.presenceSessionId) {
+      const oldSession = this.lastPresenceSessionId;
+      this.lastPresenceSessionId = this.presenceSessionId;
+      this._cleanupOldSession(oldSession);
+    }
+
     const payload = {
       sessionId: this.presenceSessionId,
+      tabId: this.tabId,
       uid: this.myUid,
       name: this.currentProfile.displayName || 'Commander',
       state: this.presenceState,
@@ -1041,7 +1121,7 @@ export class MultiplayerManager {
     // 2. Local Mesh (localStorage + BroadcastChannel)
     const localPres = this._getLocalPresence();
     for (const [k, v] of Object.entries(localPres)) {
-      if (!v || (now - (v.lastSeen || 0)) > 30000) {
+      if (!v || (now - (v.lastSeen || 0)) > 15000 || (k.includes(this.tabId) && k !== this.presenceSessionId)) {
         delete localPres[k];
       }
     }
