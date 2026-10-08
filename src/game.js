@@ -6106,44 +6106,6 @@ window.cancelQuickMatch = function() {
   if (lobbyView) lobbyView.style.display = 'none';
 };
 
-window.openFirebaseRulesModal = function() {
-  const modal = document.getElementById('modal-firebase-rules');
-  if (modal) modal.style.display = 'flex';
-};
-
-window.closeFirebaseRulesModal = function() {
-  const modal = document.getElementById('modal-firebase-rules');
-  if (modal) modal.style.display = 'none';
-};
-
-window.copyFirebaseRules = function() {
-  const rules = `{
-  "rules": {
-    "matchmaking": {
-      ".read": true,
-      ".write": true
-    },
-    "rooms": {
-      ".read": true,
-      ".write": true
-    }
-  }
-}`;
-  navigator.clipboard.writeText(rules).then(() => {
-    const btn = document.getElementById('btn-copy-firebase-rules');
-    if (btn) {
-      const orig = btn.textContent;
-      btn.textContent = 'Copied to Clipboard!';
-      setTimeout(() => { btn.textContent = orig; }, 2500);
-    }
-    if (window.gApp?.ui) {
-      window.gApp.ui.showToast('Rules Copied', 'Firebase Realtime Database rules copied! Paste in Firebase Console > Rules.');
-    }
-  }).catch(() => {
-    prompt('Copy Security Rules JSON:', rules);
-  });
-};
-
 window.updateNetworkBadge = function(mode, message) {
   const badge = document.getElementById('mp-network-status-badge');
   if (!badge) return;
