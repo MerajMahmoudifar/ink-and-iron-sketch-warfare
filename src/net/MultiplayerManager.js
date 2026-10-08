@@ -13,13 +13,19 @@ export class MultiplayerManager {
     this.roomData = null;
     this.roomUnsubscribe = null;
     this.queueUnsubscribe = null;
+    this.presenceUnsubscribe = null;
+    this.pendingTurnCommit = null;
+    this.listeners = [];
+    this.statusListeners = [];
     this.presenceListeners = [];
     this.presenceState = 'LOBBY';
     this.onlineStats = { total: 1, inLobby: 1, inMatchmaking: 0, inRoom: 0, inBattle: 0, users: [] };
     this.isFirebaseConnected = false;
     this.isFirebasePresenceInit = false;
     this.presenceHeartbeatTimer = null;
+    this.transportMode = 'CLOUD'; // 'CLOUD' (Firebase RTDB) or 'LOCAL_MESH' (BroadcastChannel + localStorage)
 
+    this.tabId = this.getOrCreateTabId();
     this.guestUid = this.getOrCreateGuestUid();
     this.initBroadcastChannel();
     this.initPresence();
@@ -32,11 +38,15 @@ export class MultiplayerManager {
     return this.guestUid;
   }
 
+  get presenceSessionId() {
+    return `${this.myUid}_${this.tabId}`;
+  }
+
   get currentUser() {
     if (window.gAuth && window.gAuth.user) {
       return window.gAuth.user;
     }
-    return { uid: this.guestUid, isGuest: true };
+    return { uid: this.myUid, isGuest: true };
   }
 
   get currentProfile() {
@@ -51,13 +61,30 @@ export class MultiplayerManager {
     };
   }
 
-  getOrCreateGuestUid() {
-    let uid = localStorage.getItem('sketch_guest_uid');
-    if (!uid) {
-      uid = 'guest_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36).substring(4);
-      localStorage.setItem('sketch_guest_uid', uid);
+  getOrCreateTabId() {
+    try {
+      let tabId = sessionStorage.getItem('sketch_mp_tab_id');
+      if (!tabId) {
+        tabId = 'tab_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36).substring(4);
+        sessionStorage.setItem('sketch_mp_tab_id', tabId);
+      }
+      return tabId;
+    } catch (e) {
+      return 'tab_' + Math.random().toString(36).substring(2, 9);
     }
-    return uid;
+  }
+
+  getOrCreateGuestUid() {
+    try {
+      let uid = sessionStorage.getItem('sketch_guest_uid');
+      if (!uid) {
+        uid = 'guest_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36).substring(4);
+        sessionStorage.setItem('sketch_guest_uid', uid);
+      }
+      return uid;
+    } catch (e) {
+      return 'guest_' + Math.random().toString(36).substring(2, 10);
+    }
   }
 
   // ─── LOCAL MESH & BROADCAST CHANNEL SUBSYSTEM ────────────────────────────
@@ -873,7 +900,11 @@ export class MultiplayerManager {
   }
 
   async initFirebasePresence() {
-    if (this.isFirebasePresenceInit || !this.rtdb) return;
+    if (this.isFirebasePresenceInit) return;
+    if (!this.rtdb && window.gAuthManager?.rtdb) {
+      this.rtdb = window.gAuthManager.rtdb;
+    }
+    if (!this.rtdb) return;
 
     try {
       const { ref, onValue, set, onDisconnect } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
@@ -882,7 +913,7 @@ export class MultiplayerManager {
       onValue(connectedRef, async (snap) => {
         if (snap.val() === true) {
           this.isFirebaseConnected = true;
-          const myPresenceRef = ref(this.rtdb, `presence/${this.myUid}`);
+          const myPresenceRef = ref(this.rtdb, `presence/${this.presenceSessionId}`);
           try {
             await onDisconnect(myPresenceRef).remove();
           } catch(e) {}
@@ -915,9 +946,11 @@ export class MultiplayerManager {
     let inBattle = 0;
     let foundSelf = false;
 
-    for (const [uid, user] of Object.entries(presenceData || {})) {
+    for (const [sessionId, user] of Object.entries(presenceData || {})) {
       if (user && (now - (user.lastSeen || 0)) < 75000) {
-        if (uid === this.myUid) foundSelf = true;
+        if (sessionId === this.presenceSessionId || user.sessionId === this.presenceSessionId) {
+          foundSelf = true;
+        }
         activeUsers.push(user);
         const state = user.state || 'LOBBY';
         if (state === 'MATCHMAKING') inMatchmaking++;
@@ -929,6 +962,7 @@ export class MultiplayerManager {
 
     if (!foundSelf) {
       activeUsers.push({
+        sessionId: this.presenceSessionId,
         uid: this.myUid,
         name: this.currentProfile.displayName || 'Commander',
         state: this.presenceState,
@@ -973,9 +1007,11 @@ export class MultiplayerManager {
     let inLobby = 0, inMatchmaking = 0, inRoom = 0, inBattle = 0;
     let foundSelf = false;
 
-    for (const [uid, user] of Object.entries(localPres)) {
+    for (const [sessionId, user] of Object.entries(localPres || {})) {
       if (user && (now - (user.lastSeen || 0)) < 45000) {
-        if (uid === this.myUid) foundSelf = true;
+        if (sessionId === this.presenceSessionId || user.sessionId === this.presenceSessionId) {
+          foundSelf = true;
+        }
         activeUsers.push(user);
         const state = user.state || 'LOBBY';
         if (state === 'MATCHMAKING') inMatchmaking++;
@@ -987,6 +1023,7 @@ export class MultiplayerManager {
 
     if (!foundSelf) {
       activeUsers.push({
+        sessionId: this.presenceSessionId,
         uid: this.myUid,
         name: this.currentProfile.displayName || 'Commander',
         state: this.presenceState,
@@ -1013,6 +1050,7 @@ export class MultiplayerManager {
   heartbeatPresence() {
     const now = Date.now();
     const payload = {
+      sessionId: this.presenceSessionId,
       uid: this.myUid,
       name: this.currentProfile.displayName || 'Commander',
       state: this.presenceState,
@@ -1024,7 +1062,7 @@ export class MultiplayerManager {
     if (this.rtdb && this.isFirebaseConnected) {
       try {
         import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js').then(({ ref, set }) => {
-          set(ref(this.rtdb, `presence/${this.myUid}`), payload).catch(() => {});
+          set(ref(this.rtdb, `presence/${this.presenceSessionId}`), payload).catch(() => {});
         }).catch(() => {});
       } catch (e) {}
     }
@@ -1036,7 +1074,7 @@ export class MultiplayerManager {
         delete localPres[k];
       }
     }
-    localPres[this.myUid] = payload;
+    localPres[this.presenceSessionId] = payload;
     this._saveLocalPresence(localPres);
     this._broadcastMeshEvent('PRESENCE_PING', payload);
 
@@ -1049,16 +1087,16 @@ export class MultiplayerManager {
     if (this.rtdb && this.isFirebaseConnected) {
       try {
         import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js').then(({ ref, remove }) => {
-          remove(ref(this.rtdb, `presence/${this.myUid}`)).catch(() => {});
+          remove(ref(this.rtdb, `presence/${this.presenceSessionId}`)).catch(() => {});
         }).catch(() => {});
       } catch (e) {}
     }
 
     const localPres = this._getLocalPresence();
-    if (localPres[this.myUid]) {
-      delete localPres[this.myUid];
+    if (localPres[this.presenceSessionId]) {
+      delete localPres[this.presenceSessionId];
       this._saveLocalPresence(localPres);
-      this._broadcastMeshEvent('PRESENCE_LEAVE', { uid: this.myUid });
+      this._broadcastMeshEvent('PRESENCE_LEAVE', { sessionId: this.presenceSessionId, uid: this.myUid });
     }
   }
 
@@ -1094,20 +1132,28 @@ export class MultiplayerManager {
   }
 
   subscribe(fn) {
-    this.listeners.push(fn);
+    if (!this.listeners) this.listeners = [];
+    if (typeof fn === 'function') {
+      this.listeners.push(fn);
+    }
   }
 
   notifyListeners(data) {
+    if (!this.listeners) this.listeners = [];
     this.listeners.forEach(fn => {
       try { fn(data); } catch(e){}
     });
   }
 
   onNetworkStatus(fn) {
-    this.statusListeners.push(fn);
+    if (!this.statusListeners) this.statusListeners = [];
+    if (typeof fn === 'function') {
+      this.statusListeners.push(fn);
+    }
   }
 
   notifyNetworkStatus(mode, message) {
+    if (!this.statusListeners) this.statusListeners = [];
     this.statusListeners.forEach(fn => {
       try { fn(mode, message); } catch(e){}
     });
