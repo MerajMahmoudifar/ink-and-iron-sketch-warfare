@@ -1560,14 +1560,12 @@ class GameEngine {
       this.activeArtilleryStrikes = this.activeArtilleryStrikes.filter(art => art.targetTurn !== this.turnNumber);
     }
 
-    const sortedUnits = [...allUnits].sort((a, b) => {
-      const pA = this.getUnitPriorityScore(a);
-      const pB = this.getUnitPriorityScore(b);
-      if (pB !== pA) return pB - pA;
-      return a.id.localeCompare(b.id);
-    });
-
-    sortedUnits.forEach(unit => {
+    // -------------------------------------------------------------
+    // WEGO SIMULTANEOUS MOVEMENT PIPELINE (Forward Slipstream & Yield)
+    // -------------------------------------------------------------
+    // 1. Determine moving candidates for this sub-step
+    const movingCandidates = [];
+    allUnits.forEach(unit => {
       let speedMax = unit.moveRange;
       if (this.players[unit.owner].faction.id === FACTIONS.VANGUARD_LEGION.id) {
         speedMax += FACTIONS.VANGUARD_LEGION.movementSpeedBonus;
@@ -1579,76 +1577,152 @@ class GameEngine {
         speedMax = 1;
       }
 
-      // If unit entered mud this turn, it is mired and must stay for the remainder of this turn!
-      if (unit.miredThisTurn) {
+      // If unit entered mud this turn or has no waypoints or speed limit reached
+      if (unit.miredThisTurn || !unit.waypoints || unit.waypoints.length === 0 || stepIndex >= speedMax) {
         return;
       }
 
-      if (unit.waypoints.length > 0 && unit.isAlive() && stepIndex < speedMax) {
-        const nextTile = unit.waypoints[0];
-        const tile = this.grid[nextTile.y][nextTile.x];
-        const canPass = unit.category === 'VEHICLE' ? tile.isVehiclePassable : tile.isInfantryPassable;
+      const nextTile = unit.waypoints[0];
+      const tile = this.grid[nextTile.y][nextTile.x];
+      const canPass = unit.category === 'VEHICLE' ? tile.isVehiclePassable : tile.isInfantryPassable;
+      if (!canPass) {
+        return;
+      }
 
-        // Enemy collision check: cannot step onto tile occupied by an enemy unit
-        const isEnemyOccupied = allUnits.some(other => other.id !== unit.id && other.owner !== unit.owner && other.x === nextTile.x && other.y === nextTile.y && other.isAlive());
-        
-        // Friendly destination conflict check:
-        // A friendly unit only blocks if this is the unit's final step and the other friendly unit is permanently ending its turn on nextTile
-        const isLastStepThisTurn = (stepIndex === speedMax - 1) || (unit.waypoints.length === 1);
-        const isFriendlyOccupiedFinal = isLastStepThisTurn && allUnits.some(other => {
-          if (other.id === unit.id || other.owner !== unit.owner || !other.isAlive()) return false;
-          if (other.x !== nextTile.x || other.y !== nextTile.y) return false;
-          // Blocked if other unit has no more moves this turn and will stay on nextTile
-          const otherHasMoves = (!other.miredThisTurn && other.waypoints.length > 0);
-          return !otherHasMoves;
-        });
+      movingCandidates.push({
+        unit: unit,
+        fromX: unit.x,
+        fromY: unit.y,
+        targetX: nextTile.x,
+        targetY: nextTile.y,
+        nextTile: nextTile,
+        tile: tile,
+        priority: this.getUnitPriorityScore(unit),
+        approved: true
+      });
+    });
 
-        if (canPass && !isEnemyOccupied && !isFriendlyOccupiedFinal) {
-          unit.prevX = unit.x;
-          unit.prevY = unit.y;
-          unit.waypoints.shift();
-          unit.x = nextTile.x;
-          unit.y = nextTile.y;
-          unit.targetX = nextTile.x;
-          unit.targetY = nextTile.y;
-          unit.hasMovedThisTurn = true;
-          this.evaluateAutoStances();
-          if (this.audio) this.audio.playMarching(unit.category === 'VEHICLE', unit.owner !== 1);
+    // 2. Iterative Clearance & Contention Resolution (Stabilizes in <= N passes)
+    let changed = true;
+    let iteration = 0;
+    while (changed && iteration < 10) {
+      changed = false;
+      iteration++;
 
-          // Check if infantry entered Deep Mud / Swamp / Pond
-          if (tile.id === 'SWAMP') {
-            unit.miredThisTurn = true;
-            this.actionLogs.push({
-              type: 'MIRED',
-              turn: this.turnNumber,
-              playerOwner: unit.owner,
-              playerName: this.players[unit.owner]?.name || 'Commander',
-              unitName: unit.name,
-              unitIcon: unit.icon,
-              x: unit.x,
-              y: unit.y,
-              message: `${unit.name} mired in Mud / Pond at ${formatCoord(unit.x, unit.y)}! Halted for 1 turn.`
-            });
-            if (this.audio) this.audio.playEraserSmudge();
+      // A. Contested Tile Resolution: If multiple approved units target the same tile, highest priority wins
+      const targetMap = new Map();
+      movingCandidates.forEach(cand => {
+        if (!cand.approved) return;
+        const key = `${cand.targetX},${cand.targetY}`;
+        if (!targetMap.has(key)) {
+          targetMap.set(key, []);
+        }
+        targetMap.get(key).push(cand);
+      });
+
+      targetMap.forEach((cands) => {
+        if (cands.length > 1) {
+          // Sort descending by priority, tiebreaker on unit id
+          cands.sort((a, b) => {
+            if (b.priority !== a.priority) return b.priority - a.priority;
+            return a.unit.id.localeCompare(b.unit.id);
+          });
+          // Highest priority commander takes the tile; others yield for this step
+          for (let i = 1; i < cands.length; i++) {
+            cands[i].approved = false;
+            changed = true;
           }
+        }
+      });
 
-          // Check if allied unit stepped onto enemy HQ during tutorial lessons 1-4 (Easter Egg)
-          const p2BasePos = this.players[2]?.basePos;
-          if (unit.owner === 1 && this.bootcampLesson && this.bootcampLesson < 8 && p2BasePos && unit.x === p2BasePos.x && unit.y === p2BasePos.y) {
-            unit.waypoints = [];
-            unit.x = (unit.prevX !== undefined && unit.prevX !== p2BasePos.x) ? unit.prevX : 6;
-            unit.y = (unit.prevY !== undefined && unit.prevY !== p2BasePos.y) ? unit.prevY : 7;
-            unit.targetX = unit.x;
-            unit.targetY = unit.y;
-            unit.renderX = unit.x;
-            unit.renderY = unit.y;
-            if (this.bootcampManager) {
-              this.bootcampManager.triggerEasterEgg(unit);
+      // B. Obstruction & Vacancy Check:
+      // A candidate can only move onto target (tx, ty) if:
+      // i) No enemy unit is stationed at (tx, ty)
+      // ii) No stationary friendly unit is at (tx, ty) (occupant must be an approved candidate vacating this step)
+      // iii) If two units attempt a direct head-on swap across the same edge, the lower priority unit yields
+      movingCandidates.forEach(cand => {
+        if (!cand.approved) return;
+
+        // Check if any unit is currently sitting at (cand.targetX, cand.targetY)
+        const currentOccupant = allUnits.find(u => u.id !== cand.unit.id && u.isAlive() && u.x === cand.targetX && u.y === cand.targetY);
+        if (currentOccupant) {
+          if (currentOccupant.owner !== cand.unit.owner) {
+            // Enemy unit blocks movement
+            cand.approved = false;
+            changed = true;
+          } else {
+            // Friendly unit is at target: Check if that friendly unit is successfully vacating in this step
+            const occupantCand = movingCandidates.find(c => c.unit.id === currentOccupant.id);
+            if (!occupantCand || !occupantCand.approved) {
+              // Occupant is stationary or yielded -> Target tile will not be vacant
+              cand.approved = false;
+              changed = true;
+            } else {
+              // Head-on swap check: both units trying to walk into each other's current tile
+              const isDirectSwap = occupantCand.targetX === cand.fromX && occupantCand.targetY === cand.fromY;
+              if (isDirectSwap) {
+                // Lower priority unit yields right-of-way
+                if (cand.priority < occupantCand.priority || (cand.priority === occupantCand.priority && cand.unit.id.localeCompare(occupantCand.unit.id) > 0)) {
+                  cand.approved = false;
+                  changed = true;
+                }
+              }
             }
           }
         }
-        // Note: When a mutual step is temporarily occupied by a moving friendly unit,
-        // the unit simply yields/waits for this step while preserving all remaining waypoints intact.
+      });
+    }
+
+    // 3. Execute approved movements in forward order
+    const approvedMoves = movingCandidates.filter(c => c.approved);
+    approvedMoves.sort((a, b) => b.priority - a.priority);
+
+    approvedMoves.forEach(cand => {
+      const unit = cand.unit;
+      const nextTile = cand.nextTile;
+      const tile = cand.tile;
+
+      unit.prevX = unit.x;
+      unit.prevY = unit.y;
+      unit.waypoints.shift();
+      unit.x = nextTile.x;
+      unit.y = nextTile.y;
+      unit.targetX = nextTile.x;
+      unit.targetY = nextTile.y;
+      unit.hasMovedThisTurn = true;
+      this.evaluateAutoStances();
+      if (this.audio) this.audio.playMarching(unit.category === 'VEHICLE', unit.owner !== 1);
+
+      // Check if infantry entered Deep Mud / Swamp / Pond
+      if (tile.id === 'SWAMP') {
+        unit.miredThisTurn = true;
+        this.actionLogs.push({
+          type: 'MIRED',
+          turn: this.turnNumber,
+          playerOwner: unit.owner,
+          playerName: this.players[unit.owner]?.name || 'Commander',
+          unitName: unit.name,
+          unitIcon: unit.icon,
+          x: unit.x,
+          y: unit.y,
+          message: `${unit.name} mired in Mud / Pond at ${formatCoord(unit.x, unit.y)}! Halted for 1 turn.`
+        });
+        if (this.audio) this.audio.playEraserSmudge();
+      }
+
+      // Check if allied unit stepped onto enemy HQ during tutorial lessons 1-4 (Easter Egg)
+      const p2BasePos = this.players[2]?.basePos;
+      if (unit.owner === 1 && this.bootcampLesson && this.bootcampLesson < 8 && p2BasePos && unit.x === p2BasePos.x && unit.y === p2BasePos.y) {
+        unit.waypoints = [];
+        unit.x = (unit.prevX !== undefined && unit.prevX !== p2BasePos.x) ? unit.prevX : 6;
+        unit.y = (unit.prevY !== undefined && unit.prevY !== p2BasePos.y) ? unit.prevY : 7;
+        unit.targetX = unit.x;
+        unit.targetY = unit.y;
+        unit.renderX = unit.x;
+        unit.renderY = unit.y;
+        if (this.bootcampManager) {
+          this.bootcampManager.triggerEasterEgg(unit);
+        }
       }
     });
 
