@@ -941,7 +941,6 @@ export class MultiplayerManager {
   }
 
   async initFirebasePresence() {
-    if (this.isFirebasePresenceInit) return;
     if (!this.rtdb && window.gAuthManager?.rtdb) {
       this.rtdb = window.gAuthManager.rtdb;
     }
@@ -950,21 +949,11 @@ export class MultiplayerManager {
     try {
       const { ref, onValue, onDisconnect } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
       
-      const connectedRef = ref(this.rtdb, '.info/connected');
-      onValue(connectedRef, async (snap) => {
-        if (snap.val() === true) {
-          this.isFirebaseConnected = true;
-          const myPresenceRef = ref(this.rtdb, `presence/${this.presenceSessionId}`);
-          try {
-            await onDisconnect(myPresenceRef).remove();
-          } catch(e) {}
-          this.heartbeatPresence();
-        } else {
-          this.isFirebaseConnected = false;
-        }
-      });
-
       const allPresenceRef = ref(this.rtdb, 'presence');
+      if (this.presenceUnsubscribe) {
+        this.presenceUnsubscribe();
+        this.presenceUnsubscribe = null;
+      }
       this.presenceUnsubscribe = onValue(allPresenceRef, (snap) => {
         this.latestCloudPresence = snap.exists() ? snap.val() : {};
         this.processPresence(this.latestCloudPresence);
@@ -975,6 +964,7 @@ export class MultiplayerManager {
       });
 
       this.isFirebasePresenceInit = true;
+      this.heartbeatPresence();
     } catch (err) {
       console.warn('[MultiplayerManager] Firebase presence init skipped:', err?.message || err);
     }
@@ -990,7 +980,7 @@ export class MultiplayerManager {
     // 1. Ingest Cloud Presence (if available)
     if (cloudData && typeof cloudData === 'object') {
       for (const [key, user] of Object.entries(cloudData)) {
-        if (user && user.lastSeen && Math.abs(now - user.lastSeen) < CLOUD_TTL) {
+        if (user && user.uid && user.lastSeen && Math.abs(now - user.lastSeen) < CLOUD_TTL) {
           const sId = user.sessionId || key;
           rawMap.set(sId, { ...user, sessionId: sId });
         }
@@ -1000,9 +990,9 @@ export class MultiplayerManager {
     // 2. Ingest Active Room Players (Guaranteed sync inside lobby/match)
     if (this.roomData && this.roomData.players && typeof this.roomData.players === 'object') {
       for (const [slot, player] of Object.entries(this.roomData.players)) {
-        if (player && player.connected !== false) {
-          const pUid = player.uid || `${this.roomData.id}_${slot}`;
-          const pSessionId = `room_${this.roomData.id}_${slot}_${pUid}`;
+        if (player && player.uid && player.connected !== false) {
+          const pUid = player.uid;
+          const pSessionId = `room_${this.roomData.id}_${pUid}`;
           rawMap.set(pSessionId, {
             sessionId: pSessionId,
             tabId: `room_${pUid}`,
@@ -1019,7 +1009,7 @@ export class MultiplayerManager {
     // 3. Ingest Local Mesh Presence (multi-tab / cross-window)
     const localPres = this._getLocalPresence();
     for (const [key, user] of Object.entries(localPres || {})) {
-      if (user && user.lastSeen && Math.abs(now - user.lastSeen) < LOCAL_TTL) {
+      if (user && user.uid && user.lastSeen && Math.abs(now - user.lastSeen) < LOCAL_TTL) {
         const sId = user.sessionId || key;
         const existing = rawMap.get(sId);
         if (!existing || (user.lastSeen || 0) > (existing.lastSeen || 0)) {
@@ -1040,19 +1030,20 @@ export class MultiplayerManager {
     };
     rawMap.set(this.presenceSessionId, selfUser);
 
-    // 5. Deduplicate by unique Commander / Tab Key to eliminate ghost transitions
-    const dedupeMap = new Map(); // tabKey -> user
+    // 5. Deduplicate strictly by Unique Commander (UID)
+    const uniqueCommanders = new Map(); // uid -> user
     for (const u of rawMap.values()) {
-      // Extract tabId if embedded in sessionId (${uid}_${tabId})
-      const tabMatch = u.sessionId ? u.sessionId.match(/(tab_[a-z0-9_]+)/) : null;
-      const tabKey = tabMatch ? tabMatch[1] : (u.tabId || u.sessionId || u.uid);
+      if (!u) continue;
+      const uidKey = u.uid || u.sessionId || u.tabId;
+      if (!uidKey) continue;
 
-      if (!dedupeMap.has(tabKey) || (u.lastSeen || 0) > (dedupeMap.get(tabKey).lastSeen || 0)) {
-        dedupeMap.set(tabKey, u);
+      const existing = uniqueCommanders.get(uidKey);
+      if (!existing || (u.lastSeen || 0) > (existing.lastSeen || 0)) {
+        uniqueCommanders.set(uidKey, u);
       }
     }
 
-    const uniqueUsers = Array.from(dedupeMap.values());
+    const uniqueUsers = Array.from(uniqueCommanders.values());
 
     // 6. Calculate tallies
     let inLobby = 0;
