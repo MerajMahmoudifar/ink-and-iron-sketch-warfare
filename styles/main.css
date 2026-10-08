@@ -5014,6 +5014,68 @@ select.diesel-hidden-select {
   letter-spacing: 0.06em;
 }
 
+.mp-online-badge {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 7px;
+  background: rgba(16, 185, 129, 0.14) !important;
+  color: #34d399 !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.12);
+  cursor: help;
+  transition: all 0.25s ease;
+}
+
+.mp-pulse-dot {
+  width: 7px;
+  height: 7px;
+  background-color: #34d399;
+  border-radius: 50%;
+  box-shadow: 0 0 6px #34d399;
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.mp-pulse-dot::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: 50%;
+  border: 1.5px solid #34d399;
+  animation: mpRadarPing 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes mpRadarPing {
+  0% {
+    transform: scale(0.9);
+    opacity: 1;
+  }
+  75%, 100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.nav-online-pill {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-left: 6px;
+  vertical-align: middle;
+  letter-spacing: 0.03em;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.18);
+  display: inline-block;
+}
+
 .mp-card-title {
   font-family: var(--font-display);
   font-size: 1.05rem;

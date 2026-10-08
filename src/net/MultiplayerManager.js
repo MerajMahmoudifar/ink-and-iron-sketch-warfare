@@ -13,14 +13,16 @@ export class MultiplayerManager {
     this.roomData = null;
     this.roomUnsubscribe = null;
     this.queueUnsubscribe = null;
-    this.presenceUnsubscribe = null;
-    this.pendingTurnCommit = null;
-    this.listeners = [];
-    this.statusListeners = [];
-    this.transportMode = 'CLOUD'; // 'CLOUD' (Firebase RTDB) or 'LOCAL_MESH' (BroadcastChannel + localStorage)
+    this.presenceListeners = [];
+    this.presenceState = 'LOBBY';
+    this.onlineStats = { total: 1, inLobby: 1, inMatchmaking: 0, inRoom: 0, inBattle: 0, users: [] };
+    this.isFirebaseConnected = false;
+    this.isFirebasePresenceInit = false;
+    this.presenceHeartbeatTimer = null;
 
     this.guestUid = this.getOrCreateGuestUid();
     this.initBroadcastChannel();
+    this.initPresence();
   }
 
   get myUid() {
@@ -137,6 +139,10 @@ export class MultiplayerManager {
       if (this.isSearchingQuickMatch) {
         this.checkLocalMatchmakingQueue();
       }
+    } else if (msg.action === 'PRESENCE_PING' || msg.action === 'PRESENCE_LEAVE') {
+      if (!this.isFirebaseConnected) {
+        this.processLocalMeshPresence();
+      }
     }
   }
 
@@ -171,6 +177,10 @@ export class MultiplayerManager {
       } catch (err) {
         console.warn('[MultiplayerManager] RTDB load bypassed:', err?.message || err);
       }
+    }
+
+    if (this.rtdb && !this.isFirebasePresenceInit) {
+      this.initFirebasePresence().catch(() => {});
     }
 
     return this.currentUser;
@@ -212,6 +222,7 @@ export class MultiplayerManager {
 
   async findQuickMatch(onStatusUpdate) {
     this.isSearchingQuickMatch = true;
+    this.setPresenceState('MATCHMAKING');
     const user = await this.ensureAuthenticated();
 
     if (onStatusUpdate) onStatusUpdate('SEARCHING', 'Scanning tactical network for open battle frequencies...');
@@ -266,6 +277,7 @@ export class MultiplayerManager {
   }
 
   findQuickMatchLocal(onStatusUpdate) {
+    this.setPresenceState('MATCHMAKING');
     if (onStatusUpdate) onStatusUpdate('SEARCHING', 'Searching Local Mesh Theater for active commanders...');
     const queue = this._getLocalQueue();
     const now = Date.now();
@@ -357,6 +369,7 @@ export class MultiplayerManager {
         onDisconnect(p1PresenceRef).set(false);
 
         this.listenToRoom(roomId);
+        this.setPresenceState('IN_ROOM', roomId);
         this.notifyNetworkStatus('CLOUD', 'Connected to Global Firebase Cloud Network.');
         return { success: true, roomId, playerSlot: 1, transport: 'CLOUD' };
       } catch (err) {
@@ -381,6 +394,7 @@ export class MultiplayerManager {
     this._saveLocalRooms(rooms);
 
     this.roomData = initialData;
+    this.setPresenceState('IN_ROOM', roomId);
     this._broadcastMeshEvent('ROOM_UPDATED', initialData);
     this.notifyListeners(this.roomData);
     this.notifyNetworkStatus('LOCAL_MESH', 'Local Mesh Theater Active. Multi-tab/local synchronization enabled.');
@@ -457,6 +471,7 @@ export class MultiplayerManager {
           onDisconnect(presenceRef).set(false);
 
           this.listenToRoom(cleanId);
+          this.setPresenceState('IN_ROOM', cleanId);
           this.notifyNetworkStatus('CLOUD', 'Connected to Global Firebase Cloud Network.');
           return { success: true, roomId: cleanId, playerSlot: this.playerSlot, transport: 'CLOUD' };
         }
@@ -506,6 +521,7 @@ export class MultiplayerManager {
     rooms[cleanId] = room;
     this._saveLocalRooms(rooms);
     this.roomData = room;
+    this.setPresenceState('IN_ROOM', cleanId);
 
     this._broadcastMeshEvent('ROOM_UPDATED', room);
     this.notifyListeners(this.roomData);
@@ -631,6 +647,7 @@ export class MultiplayerManager {
 
   async startMatch() {
     if (!this.currentRoomId || !this.isHost) return;
+    this.setPresenceState('IN_BATTLE', this.currentRoomId);
 
     if (this.transportMode === 'CLOUD' && this.rtdb) {
       try {
@@ -823,7 +840,248 @@ export class MultiplayerManager {
     this.isHost = false;
     this.roomData = null;
     this.pendingTurnCommit = null;
+    this.setPresenceState('LOBBY');
     this.notifyListeners(null);
+  }
+
+  // ─── ONLINE PRESENCE & COMMANDER TELEMETRY SUBSYSTEM ───────────────────────
+
+  initPresence() {
+    this.presenceListeners = [];
+    this.presenceState = 'LOBBY';
+    this.onlineStats = { total: 1, inLobby: 1, inMatchmaking: 0, inRoom: 0, inBattle: 0, users: [] };
+    this.isFirebaseConnected = false;
+    this.isFirebasePresenceInit = false;
+
+    // Browser unload hooks
+    if (typeof window !== 'undefined') {
+      const cleanup = () => this.leavePresence();
+      window.addEventListener('beforeunload', cleanup);
+      window.addEventListener('pagehide', cleanup);
+    }
+
+    // Local mesh presence heartbeat (every 20s)
+    this.presenceHeartbeatTimer = setInterval(() => {
+      this.heartbeatPresence();
+    }, 20000);
+
+    // Initial heartbeat & auth connection check
+    setTimeout(() => {
+      this.heartbeatPresence();
+      this.ensureAuthenticated().then(() => this.initFirebasePresence()).catch(() => {});
+    }, 800);
+  }
+
+  async initFirebasePresence() {
+    if (this.isFirebasePresenceInit || !this.rtdb) return;
+
+    try {
+      const { ref, onValue, set, onDisconnect } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
+      
+      const connectedRef = ref(this.rtdb, '.info/connected');
+      onValue(connectedRef, async (snap) => {
+        if (snap.val() === true) {
+          this.isFirebaseConnected = true;
+          const myPresenceRef = ref(this.rtdb, `presence/${this.myUid}`);
+          try {
+            await onDisconnect(myPresenceRef).remove();
+          } catch(e) {}
+          this.heartbeatPresence();
+        } else {
+          this.isFirebaseConnected = false;
+        }
+      });
+
+      const allPresenceRef = ref(this.rtdb, 'presence');
+      this.presenceUnsubscribe = onValue(allPresenceRef, (snap) => {
+        const data = snap.val() || {};
+        this.processCloudPresenceData(data);
+      }, (err) => {
+        console.warn('[MultiplayerManager] RTDB presence listener notice:', err?.message || err);
+      });
+
+      this.isFirebasePresenceInit = true;
+    } catch (err) {
+      console.warn('[MultiplayerManager] Firebase presence init skipped:', err?.message || err);
+    }
+  }
+
+  processCloudPresenceData(presenceData) {
+    const now = Date.now();
+    const activeUsers = [];
+    let inLobby = 0;
+    let inMatchmaking = 0;
+    let inRoom = 0;
+    let inBattle = 0;
+    let foundSelf = false;
+
+    for (const [uid, user] of Object.entries(presenceData || {})) {
+      if (user && (now - (user.lastSeen || 0)) < 75000) {
+        if (uid === this.myUid) foundSelf = true;
+        activeUsers.push(user);
+        const state = user.state || 'LOBBY';
+        if (state === 'MATCHMAKING') inMatchmaking++;
+        else if (state === 'IN_BATTLE') inBattle++;
+        else if (state === 'IN_ROOM') inRoom++;
+        else inLobby++;
+      }
+    }
+
+    if (!foundSelf) {
+      activeUsers.push({
+        uid: this.myUid,
+        name: this.currentProfile.displayName || 'Commander',
+        state: this.presenceState,
+        lastSeen: now
+      });
+      if (this.presenceState === 'MATCHMAKING') inMatchmaking++;
+      else if (this.presenceState === 'IN_BATTLE') inBattle++;
+      else if (this.presenceState === 'IN_ROOM') inRoom++;
+      else inLobby++;
+    }
+
+    this.onlineStats = {
+      total: Math.max(1, activeUsers.length),
+      inLobby,
+      inMatchmaking,
+      inRoom,
+      inBattle,
+      users: activeUsers
+    };
+
+    this.notifyPresenceListeners();
+  }
+
+  _getLocalPresence() {
+    try {
+      return JSON.parse(localStorage.getItem('sketch_mp_presence') || '{}');
+    } catch (e) {
+      return {};
+    }
+  }
+
+  _saveLocalPresence(presence) {
+    try {
+      localStorage.setItem('sketch_mp_presence', JSON.stringify(presence));
+    } catch (e) {}
+  }
+
+  processLocalMeshPresence() {
+    const localPres = this._getLocalPresence();
+    const now = Date.now();
+    const activeUsers = [];
+    let inLobby = 0, inMatchmaking = 0, inRoom = 0, inBattle = 0;
+    let foundSelf = false;
+
+    for (const [uid, user] of Object.entries(localPres)) {
+      if (user && (now - (user.lastSeen || 0)) < 45000) {
+        if (uid === this.myUid) foundSelf = true;
+        activeUsers.push(user);
+        const state = user.state || 'LOBBY';
+        if (state === 'MATCHMAKING') inMatchmaking++;
+        else if (state === 'IN_BATTLE') inBattle++;
+        else if (state === 'IN_ROOM') inRoom++;
+        else inLobby++;
+      }
+    }
+
+    if (!foundSelf) {
+      activeUsers.push({
+        uid: this.myUid,
+        name: this.currentProfile.displayName || 'Commander',
+        state: this.presenceState,
+        lastSeen: now
+      });
+      if (this.presenceState === 'MATCHMAKING') inMatchmaking++;
+      else if (this.presenceState === 'IN_BATTLE') inBattle++;
+      else if (this.presenceState === 'IN_ROOM') inRoom++;
+      else inLobby++;
+    }
+
+    this.onlineStats = {
+      total: Math.max(1, activeUsers.length),
+      inLobby,
+      inMatchmaking,
+      inRoom,
+      inBattle,
+      users: activeUsers
+    };
+
+    this.notifyPresenceListeners();
+  }
+
+  heartbeatPresence() {
+    const now = Date.now();
+    const payload = {
+      uid: this.myUid,
+      name: this.currentProfile.displayName || 'Commander',
+      state: this.presenceState,
+      roomId: this.currentRoomId || null,
+      lastSeen: now
+    };
+
+    // 1. Firebase RTDB
+    if (this.rtdb && this.isFirebaseConnected) {
+      try {
+        import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js').then(({ ref, set }) => {
+          set(ref(this.rtdb, `presence/${this.myUid}`), payload).catch(() => {});
+        }).catch(() => {});
+      } catch (e) {}
+    }
+
+    // 2. Local Mesh (localStorage + BroadcastChannel)
+    const localPres = this._getLocalPresence();
+    for (const [k, v] of Object.entries(localPres)) {
+      if (!v || (now - (v.lastSeen || 0)) > 45000) {
+        delete localPres[k];
+      }
+    }
+    localPres[this.myUid] = payload;
+    this._saveLocalPresence(localPres);
+    this._broadcastMeshEvent('PRESENCE_PING', payload);
+
+    if (!this.isFirebaseConnected) {
+      this.processLocalMeshPresence();
+    }
+  }
+
+  leavePresence() {
+    if (this.rtdb && this.isFirebaseConnected) {
+      try {
+        import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js').then(({ ref, remove }) => {
+          remove(ref(this.rtdb, `presence/${this.myUid}`)).catch(() => {});
+        }).catch(() => {});
+      } catch (e) {}
+    }
+
+    const localPres = this._getLocalPresence();
+    if (localPres[this.myUid]) {
+      delete localPres[this.myUid];
+      this._saveLocalPresence(localPres);
+      this._broadcastMeshEvent('PRESENCE_LEAVE', { uid: this.myUid });
+    }
+  }
+
+  setPresenceState(state, roomId = null) {
+    this.presenceState = state || 'LOBBY';
+    if (roomId !== undefined) this.currentRoomId = roomId;
+    this.heartbeatPresence();
+  }
+
+  subscribePresence(fn) {
+    if (typeof fn === 'function') {
+      this.presenceListeners.push(fn);
+      try { fn(this.onlineStats); } catch(e){}
+    }
+  }
+
+  notifyPresenceListeners() {
+    for (const fn of this.presenceListeners) {
+      try { fn(this.onlineStats); } catch(e){}
+    }
+    if (window.updateOnlineCountBadge) {
+      window.updateOnlineCountBadge(this.onlineStats);
+    }
   }
 
   setTransportMode(mode) {

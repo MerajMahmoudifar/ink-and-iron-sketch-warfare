@@ -94,7 +94,7 @@
         <!-- Navigation Tabs -->
         <nav class="menu-nav-tabs">
           <button id="tab-btn-play" class="menu-tab-btn active" onclick="window.switchMenuTab('tab-btn-play', 'tab-pane-play')">Deploy</button>
-          <button id="tab-btn-multiplayer" class="menu-tab-btn" onclick="window.switchMenuTab('tab-btn-multiplayer', 'tab-pane-multiplayer')">Online Warfare</button>
+          <button id="tab-btn-multiplayer" class="menu-tab-btn" onclick="window.switchMenuTab('tab-btn-multiplayer', 'tab-pane-multiplayer')">Online Warfare <span id="nav-mp-online-pill" class="nav-online-pill">1 LIVE</span></button>
           <button id="tab-btn-bootcamp" class="menu-tab-btn" onclick="window.switchMenuTab('tab-btn-bootcamp', 'tab-pane-bootcamp')">Officer Bootcamp</button>
           <button id="tab-btn-codex" class="menu-tab-btn" onclick="window.switchMenuTab('tab-btn-codex', 'tab-pane-codex')">Field Manual</button>
           <button id="tab-btn-account" class="menu-tab-btn" onclick="window.switchMenuTab('tab-btn-account', 'tab-pane-account')">Profile</button>
@@ -157,7 +157,11 @@
                   <div class="mp-hero-title">Live Tactical Operations &mdash; 1v1 Online Warfare</div>
                   <p class="mp-hero-sub">Engage commanders in simultaneous WEGO tactical combat with cryptographic commit-reveal turn synchronization.</p>
                 </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                  <span id="mp-online-count-badge" class="mp-card-badge mp-online-badge" title="Active commanders in the tactical theater">
+                    <span class="mp-pulse-dot"></span>
+                    <span id="mp-online-count-text">1 COMMANDER ONLINE</span>
+                  </span>
                   <span id="mp-network-status-badge" class="mp-card-badge" style="background: rgba(34, 197, 94, 0.15); color: #4ade80; border-color: rgba(34, 197, 94, 0.4);">
                     NETWORK READY
                   </span>

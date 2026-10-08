@@ -6114,13 +6114,36 @@ window.updateNetworkBadge = function(mode, message) {
     badge.style.background = 'rgba(234, 179, 8, 0.15)';
     badge.style.color = '#facc15';
     badge.style.borderColor = 'rgba(234, 179, 8, 0.4)';
-    badge.title = message || 'Multi-tab and local testing active. Open Firebase Rules Guide to enable global internet warfare.';
+    badge.title = message || 'Multi-tab and local testing active.';
   } else {
     badge.textContent = 'CLOUD READY';
     badge.style.background = 'rgba(34, 197, 94, 0.15)';
     badge.style.color = '#4ade80';
     badge.style.borderColor = 'rgba(34, 197, 94, 0.4)';
     badge.title = message || 'Firebase Realtime Database Cloud Network connected.';
+  }
+};
+
+window.updateOnlineCountBadge = function(stats) {
+  if (!stats) return;
+  const count = stats.total || 1;
+  const textEl = document.getElementById('mp-online-count-text');
+  const badgeEl = document.getElementById('mp-online-count-badge');
+  const navPill = document.getElementById('nav-mp-online-pill');
+
+  const textLabel = count === 1 ? '1 COMMANDER ONLINE' : `${count} COMMANDERS ONLINE`;
+  if (textEl) {
+    textEl.textContent = textLabel;
+  }
+  if (badgeEl) {
+    const inLobby = stats.inLobby || 1;
+    const inMatchmaking = stats.inMatchmaking || 0;
+    const inBattle = stats.inBattle || 0;
+    const breakdown = `${count} Active Commander${count > 1 ? 's' : ''} (${inLobby} in Lobby • ${inMatchmaking} Searching • ${inBattle} in Combat)`;
+    badgeEl.setAttribute('title', breakdown);
+  }
+  if (navPill) {
+    navPill.textContent = `${count} LIVE`;
   }
 };
 
@@ -6737,6 +6760,9 @@ class App {
     if (this.engine) {
       this.engine.stop();
     }
+    if (window.gMultiplayer) {
+      window.gMultiplayer.setPresenceState('LOBBY');
+    }
     if (this.ui) {
       this.ui.closeInGameMenu(false);
       if (this.ui.mainMenuOverlay) this.ui.mainMenuOverlay.style.display = 'flex';
@@ -7017,6 +7043,10 @@ class App {
       this.engine.players[2].name = room.players?.p2?.name || 'Commander 2';
       this.engine.bootcampLesson = null;
       this.engine.bootcampManager = null;
+
+      if (window.gMultiplayer) {
+        window.gMultiplayer.setPresenceState('IN_BATTLE', room.id);
+      }
       this.engine.planningTimeRemaining = timerDuration;
 
       this.engine.subscribe(() => {
@@ -8929,6 +8959,12 @@ function bootGame() {
     window.gMultiplayer.subscribe((room) => {
       if (window.updateMultiplayerLobbyUI) {
         window.updateMultiplayerLobbyUI(room);
+      }
+    });
+
+    window.gMultiplayer.subscribePresence((stats) => {
+      if (window.updateOnlineCountBadge) {
+        window.updateOnlineCountBadge(stats);
       }
     });
   }
