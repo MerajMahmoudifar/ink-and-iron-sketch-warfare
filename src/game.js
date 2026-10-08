@@ -1587,15 +1587,23 @@ class GameEngine {
       if (unit.waypoints.length > 0 && unit.isAlive() && stepIndex < speedMax) {
         const nextTile = unit.waypoints[0];
         const tile = this.grid[nextTile.y][nextTile.x];
-        // Strict Tile Exclusivity: A unit can only enter nextTile if it is not occupied by ANY alive unit right now
-        const isOccupiedRightNow = allUnits.some(other => 
-          other.id !== unit.id && 
-          other.isAlive() && 
-          other.x === nextTile.x && 
-          other.y === nextTile.y
-        );
+        const canPass = unit.category === 'VEHICLE' ? tile.isVehiclePassable : tile.isInfantryPassable;
 
-        if (canPass && !isOccupiedRightNow) {
+        // Enemy collision check: cannot step onto tile occupied by an enemy unit
+        const isEnemyOccupied = allUnits.some(other => other.id !== unit.id && other.owner !== unit.owner && other.x === nextTile.x && other.y === nextTile.y && other.isAlive());
+        
+        // Friendly destination conflict check:
+        // A friendly unit only blocks if this is the unit's final step and the other friendly unit is permanently ending its turn on nextTile
+        const isLastStepThisTurn = (stepIndex === speedMax - 1) || (unit.waypoints.length === 1);
+        const isFriendlyOccupiedFinal = isLastStepThisTurn && allUnits.some(other => {
+          if (other.id === unit.id || other.owner !== unit.owner || !other.isAlive()) return false;
+          if (other.x !== nextTile.x || other.y !== nextTile.y) return false;
+          // Blocked if other unit has no more moves this turn and will stay on nextTile
+          const otherHasMoves = (!other.miredThisTurn && other.waypoints.length > 0);
+          return !otherHasMoves;
+        });
+
+        if (canPass && !isEnemyOccupied && !isFriendlyOccupiedFinal) {
           unit.prevX = unit.x;
           unit.prevY = unit.y;
           unit.waypoints.shift();
@@ -1639,7 +1647,8 @@ class GameEngine {
             }
           }
         }
-        // When nextTile is occupied, the trailing unit yields for this second and waits on its current tile.
+        // Note: When a mutual step is temporarily occupied by a moving friendly unit,
+        // the unit simply yields/waits for this step while preserving all remaining waypoints intact.
       }
     });
 
