@@ -266,9 +266,40 @@ export class GameEngine {
   setUnitWaypoints(unitId, waypoints) {
     if (this.isWaitingForOpponentTurn) return;
     const unit = this.getUnitById(unitId);
-    if (unit) {
-      unit.waypoints = waypoints;
+    if (!unit) return;
+    if (!Array.isArray(waypoints) || waypoints.length === 0) {
+      unit.waypoints = [];
+      return;
     }
+
+    const sanitized = [];
+    let prevX = unit.x;
+    let prevY = unit.y;
+
+    for (let i = 0; i < waypoints.length; i++) {
+      const wp = waypoints[i];
+      if (typeof wp.x !== 'number' || typeof wp.y !== 'number') continue;
+      if (wp.x < 0 || wp.x >= 8 || wp.y < 0 || wp.y >= 8) continue;
+      if (wp.x === prevX && wp.y === prevY) continue;
+
+      const dist = Math.abs(wp.x - prevX) + Math.abs(wp.y - prevY);
+      if (dist === 1) {
+        sanitized.push({ x: wp.x, y: wp.y });
+        prevX = wp.x;
+        prevY = wp.y;
+      } else if (dist > 1) {
+        const bridge = this.findValidPath(unit, wp.x, wp.y, prevX, prevY);
+        if (bridge && bridge.length > 0) {
+          bridge.forEach(b => {
+            sanitized.push({ x: b.x, y: b.y });
+            prevX = b.x;
+            prevY = b.y;
+          });
+        }
+      }
+    }
+
+    unit.waypoints = sanitized;
   }
 
   setUnitStance(unitId, stanceId) {

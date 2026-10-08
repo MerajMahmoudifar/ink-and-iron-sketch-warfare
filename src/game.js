@@ -1420,7 +1420,42 @@ class GameEngine {
   setUnitWaypoints(unitId, waypoints) {
     if (this.isWaitingForOpponentTurn) return;
     const u = this.getUnitById(unitId);
-    if (u) u.waypoints = waypoints;
+    if (!u) return;
+    if (!Array.isArray(waypoints) || waypoints.length === 0) {
+      u.waypoints = [];
+      return;
+    }
+
+    // Sanitize waypoints to guarantee 100% strict orthogonal adjacency (|dx| + |dy| === 1)
+    const sanitized = [];
+    let prevX = u.x;
+    let prevY = u.y;
+
+    for (let i = 0; i < waypoints.length; i++) {
+      const wp = waypoints[i];
+      if (typeof wp.x !== 'number' || typeof wp.y !== 'number') continue;
+      if (wp.x < 0 || wp.x >= 8 || wp.y < 0 || wp.y >= 8) continue;
+      if (wp.x === prevX && wp.y === prevY) continue; // Skip identical duplicate tile
+
+      const dist = Math.abs(wp.x - prevX) + Math.abs(wp.y - prevY);
+      if (dist === 1) {
+        sanitized.push({ x: wp.x, y: wp.y });
+        prevX = wp.x;
+        prevY = wp.y;
+      } else if (dist > 1) {
+        // Gap or diagonal jump detected! Pathfind between prev and wp to construct continuous orthogonal path
+        const bridge = this.findValidPath(u, wp.x, wp.y, prevX, prevY);
+        if (bridge && bridge.length > 0) {
+          bridge.forEach(b => {
+            sanitized.push({ x: b.x, y: b.y });
+            prevX = b.x;
+            prevY = b.y;
+          });
+        }
+      }
+    }
+
+    u.waypoints = sanitized;
   }
 
   setUnitStance(unitId, stanceId) {
@@ -1554,12 +1589,21 @@ class GameEngine {
         const tile = this.grid[nextTile.y][nextTile.x];
         const canPass = unit.category === 'VEHICLE' ? tile.isVehiclePassable : tile.isInfantryPassable;
 
+        // Enemy collision check: cannot step onto tile occupied by an enemy unit
         const isEnemyOccupied = allUnits.some(other => other.id !== unit.id && other.owner !== unit.owner && other.x === nextTile.x && other.y === nextTile.y && other.isAlive());
         
-        const isLastStep = (stepIndex === speedMax - 1) || (unit.waypoints.length === 1);
-        const isFriendlyOccupiedAtEnd = isLastStep && allUnits.some(other => other.id !== unit.id && other.owner === unit.owner && other.x === nextTile.x && other.y === nextTile.y && other.isAlive());
+        // Friendly destination conflict check:
+        // A friendly unit only blocks if this is the unit's final step and the other friendly unit is permanently ending its turn on nextTile
+        const isLastStepThisTurn = (stepIndex === speedMax - 1) || (unit.waypoints.length === 1);
+        const isFriendlyOccupiedFinal = isLastStepThisTurn && allUnits.some(other => {
+          if (other.id === unit.id || other.owner !== unit.owner || !other.isAlive()) return false;
+          if (other.x !== nextTile.x || other.y !== nextTile.y) return false;
+          // Blocked if other unit has no more moves this turn and will stay on nextTile
+          const otherHasMoves = (!other.miredThisTurn && other.waypoints.length > 0);
+          return !otherHasMoves;
+        });
 
-        if (canPass && !isEnemyOccupied && !isFriendlyOccupiedAtEnd) {
+        if (canPass && !isEnemyOccupied && !isFriendlyOccupiedFinal) {
           unit.prevX = unit.x;
           unit.prevY = unit.y;
           unit.waypoints.shift();
@@ -1602,26 +1646,9 @@ class GameEngine {
               this.bootcampManager.triggerEasterEgg(unit);
             }
           }
-        } else {
-          unit.waypoints = [];
         }
-      }
-    });
-
-    const occupiedMap = new Map();
-    allUnits.forEach(u => {
-      if (!u.isAlive()) return;
-      const key = `${u.x},${u.y}`;
-      if (!occupiedMap.has(key)) {
-        occupiedMap.set(key, u);
-      } else {
-        const freeAdj = this.findAdjacentFreeTile(u.x, u.y);
-        if (freeAdj) {
-          u.x = freeAdj.x;
-          u.y = freeAdj.y;
-          u.targetX = freeAdj.x;
-          u.targetY = freeAdj.y;
-        }
+        // Note: When a mutual step is temporarily occupied by a moving friendly unit,
+        // the unit simply yields/waits for this step while preserving all remaining waypoints intact.
       }
     });
 
