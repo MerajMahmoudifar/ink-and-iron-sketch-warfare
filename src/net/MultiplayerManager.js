@@ -62,29 +62,11 @@ export class MultiplayerManager {
   }
 
   getOrCreateTabId() {
-    try {
-      let tabId = sessionStorage.getItem('sketch_mp_tab_id');
-      if (!tabId) {
-        tabId = 'tab_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36).substring(4);
-        sessionStorage.setItem('sketch_mp_tab_id', tabId);
-      }
-      return tabId;
-    } catch (e) {
-      return 'tab_' + Math.random().toString(36).substring(2, 9);
-    }
+    return 'tab_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now().toString(36);
   }
 
   getOrCreateGuestUid() {
-    try {
-      let uid = sessionStorage.getItem('sketch_guest_uid');
-      if (!uid) {
-        uid = 'guest_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36).substring(4);
-        sessionStorage.setItem('sketch_guest_uid', uid);
-      }
-      return uid;
-    } catch (e) {
-      return 'guest_' + Math.random().toString(36).substring(2, 10);
-    }
+    return 'guest_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now().toString(36);
   }
 
   // ─── LOCAL MESH & BROADCAST CHANNEL SUBSYSTEM ────────────────────────────
@@ -1039,7 +1021,7 @@ export class MultiplayerManager {
     const dedupeMap = new Map(); // tabKey -> user
     for (const u of rawMap.values()) {
       // Extract tabId if embedded in sessionId (${uid}_${tabId})
-      const tabMatch = u.sessionId ? u.sessionId.match(/(tab_[a-z0-9]+)/) : null;
+      const tabMatch = u.sessionId ? u.sessionId.match(/(tab_[a-z0-9_]+)/) : null;
       const tabKey = tabMatch ? tabMatch[1] : (u.tabId || u.sessionId || u.uid);
 
       if (!dedupeMap.has(tabKey) || (u.lastSeen || 0) > (dedupeMap.get(tabKey).lastSeen || 0)) {
