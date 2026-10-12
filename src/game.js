@@ -876,6 +876,62 @@ class GameEngine {
     }
   }
 
+  restoreTurnSnapshot(snapshot) {
+    if (!snapshot) return;
+    this.turnNumber = snapshot.turnNumber;
+    this.phase = GAME_PHASES.PLANNING;
+    this.winner = null;
+    this.isWaitingForOpponentTurn = false;
+    this.isOpponentReadyThisTurn = false;
+    this.pendingSpawnsThisTurn = [];
+    this.pendingAbilitiesThisTurn = [];
+    if (this.players[1]) {
+      this.players[1].ink = snapshot.p1Ink !== undefined ? snapshot.p1Ink : this.players[1].ink;
+      this.players[1].cp = snapshot.p1Cp !== undefined ? snapshot.p1Cp : this.players[1].cp;
+      if (snapshot.p1Units) {
+        this.players[1].units = snapshot.p1Units.filter(u => u.isAlive).map(u => {
+          const unit = new Unit(u.typeKey || 'RIFLEMAN', 1, u.x, u.y, u.id);
+          unit.hp = u.hp;
+          unit.maxHp = u.maxHp;
+          unit.stance = u.stance;
+          unit.waypoints = [];
+          unit.isAmbusherHidden = !!u.isAmbusherHidden;
+          return unit;
+        });
+      }
+    }
+    if (this.players[2]) {
+      this.players[2].ink = snapshot.p2Ink !== undefined ? snapshot.p2Ink : this.players[2].ink;
+      this.players[2].cp = snapshot.p2Cp !== undefined ? snapshot.p2Cp : this.players[2].cp;
+      if (snapshot.p2Units) {
+        this.players[2].units = snapshot.p2Units.filter(u => u.isAlive).map(u => {
+          const unit = new Unit(u.typeKey || 'RIFLEMAN', 2, u.x, u.y, u.id);
+          unit.hp = u.hp;
+          unit.maxHp = u.maxHp;
+          unit.stance = u.stance;
+          unit.waypoints = [];
+          unit.isAmbusherHidden = !!u.isAmbusherHidden;
+          return unit;
+        });
+      }
+    }
+    if (snapshot.grid) {
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          if (snapshot.grid[r] && snapshot.grid[r][c] && this.grid[r] && this.grid[r][c]) {
+            this.grid[r][c].owner = snapshot.grid[r][c].owner;
+          }
+        }
+      }
+    }
+    this.activeFlares = (snapshot.activeFlares || []).map(f => ({ ...f }));
+    this.activeSmokes = (snapshot.activeSmokes || []).map(s => ({ ...s }));
+    this.activeArtilleryStrikes = [];
+    this.planningTimeRemaining = this.bootcampLesson ? Infinity : this.planningDurationConfig;
+    this.evaluateAutoStances();
+    this.notifyStateChange();
+  }
+
   spawnInitialUnits() {
     if (this.bootcampLesson) {
       if (this.bootcampLesson === 1) {
@@ -3470,7 +3526,114 @@ class SketchRenderer {
       });
     }
 
+    // 14. OFFICER BOOTCAMP TACTICAL GUIDANCE OVERLAYS
+    this.drawBootcampGuidance(engine);
+
     this.ctx.restore();
+  }
+
+  drawBootcampGuidance(engine) {
+    if (!engine || !engine.bootcampLesson || !engine.bootcampManager) return;
+    const lessonId = engine.bootcampLesson;
+    const lessonsData = (typeof BOOTCAMP_LESSONS !== 'undefined') ? BOOTCAMP_LESSONS : (window.BOOTCAMP_LESSONS || {});
+    const lesson = lessonsData[lessonId];
+    if (!lesson || !lesson.steps) return;
+
+    const currentStepNum = engine.bootcampManager.currentStep || 1;
+    const activeStep = lesson.steps.find(s => s.stepIndex === currentStepNum) || lesson.steps[0];
+    if (!activeStep) return;
+
+    const now = Date.now();
+    const pulse = (Math.sin(now / 220) + 1) / 2; // 0..1 smooth pulse
+
+    // 1. CHALK-DASHED GHOST APPROACH PATH
+    let ghostPath = activeStep.ghostPath;
+    if (!ghostPath && lessonId === 4) {
+      if (currentStepNum === 1) ghostPath = [{ x: 1, y: 1 }, { x: 2, y: 1 }, { x: 3, y: 1 }];
+      else if (currentStepNum === 2) ghostPath = [{ x: 1, y: 3 }, { x: 2, y: 3 }, { x: 3, y: 3 }];
+      else if (currentStepNum === 3) ghostPath = [{ x: 1, y: 5 }, { x: 2, y: 5 }, { x: 3, y: 5 }];
+    }
+
+    if (ghostPath && ghostPath.length >= 2) {
+      this.ctx.save();
+      this.ctx.strokeStyle = `rgba(245, 158, 11, ${0.5 + pulse * 0.35})`;
+      this.ctx.lineWidth = 2.4;
+      this.ctx.setLineDash([6, 4]);
+      this.ctx.lineCap = 'round';
+      this.ctx.lineJoin = 'round';
+
+      this.ctx.beginPath();
+      for (let i = 0; i < ghostPath.length; i++) {
+        const pt = this.getScreenCoords(ghostPath[i].x, ghostPath[i].y);
+        const cx = pt.x + 35;
+        const cy = pt.y + 35;
+        if (i === 0) this.ctx.moveTo(cx, cy);
+        else this.ctx.lineTo(cx, cy);
+      }
+      this.ctx.stroke();
+      this.ctx.setLineDash([]);
+
+      // Waypoint Pips along ghost route
+      ghostPath.forEach((ptCoord, idx) => {
+        const pt = this.getScreenCoords(ptCoord.x, ptCoord.y);
+        const cx = pt.x + 35;
+        const cy = pt.y + 35;
+        this.ctx.fillStyle = idx === ghostPath.length - 1 ? '#fbbf24' : 'rgba(245, 158, 11, 0.75)';
+        this.ctx.beginPath();
+        this.ctx.arc(cx, cy, idx === ghostPath.length - 1 ? 5 : 3.5, 0, Math.PI * 2);
+        this.ctx.fill();
+        if (idx === ghostPath.length - 1) {
+          this.ctx.strokeStyle = '#ffffff';
+          this.ctx.lineWidth = 1.2;
+          this.ctx.stroke();
+        }
+      });
+      this.ctx.restore();
+    }
+
+    // 2. PULSING TACTICAL SECTOR RINGS & TARGET HIGHLIGHT
+    let targetPos = activeStep.targetPos;
+    if (!targetPos && lessonId === 4) {
+      if (currentStepNum === 1) targetPos = { x: 4, y: 1 };
+      else if (currentStepNum === 2) targetPos = { x: 4, y: 3 };
+      else if (currentStepNum === 3) targetPos = { x: 4, y: 5 };
+    }
+
+    if (targetPos && targetPos.x !== undefined && targetPos.y !== undefined) {
+      const tPos = this.getScreenCoords(targetPos.x, targetPos.y);
+      const ringRadius = 24 + pulse * 4.5;
+
+      this.ctx.save();
+      // Amber drafting wash over target sector
+      this.ctx.fillStyle = `rgba(245, 158, 11, ${0.08 + pulse * 0.08})`;
+      this.ctx.fillRect(tPos.x + 4, tPos.y + 4, 62, 62);
+
+      // Pulsing Sector Ring
+      this.ctx.strokeStyle = `rgba(245, 158, 11, ${0.65 + pulse * 0.35})`;
+      this.ctx.lineWidth = 2;
+      this.ctx.setLineDash([4, 3]);
+      this.ctx.beginPath();
+      this.ctx.arc(tPos.x + 35, tPos.y + 35, ringRadius, 0, Math.PI * 2);
+      this.ctx.stroke();
+      this.ctx.setLineDash([]);
+
+      // Precision Corner Brackets on Target Tile
+      const bLen = 8;
+      this.ctx.strokeStyle = '#fbbf24';
+      this.ctx.lineWidth = 1.8;
+      this.ctx.beginPath();
+      // Top-Left
+      this.ctx.moveTo(tPos.x + 6, tPos.y + 6 + bLen); this.ctx.lineTo(tPos.x + 6, tPos.y + 6); this.ctx.lineTo(tPos.x + 6 + bLen, tPos.y + 6);
+      // Top-Right
+      this.ctx.moveTo(tPos.x + 64 - bLen, tPos.y + 6); this.ctx.lineTo(tPos.x + 64, tPos.y + 6); this.ctx.lineTo(tPos.x + 64, tPos.y + 6 + bLen);
+      // Bottom-Left
+      this.ctx.moveTo(tPos.x + 6, tPos.y + 64 - bLen); this.ctx.lineTo(tPos.x + 6, tPos.y + 64); this.ctx.lineTo(tPos.x + 6 + bLen, tPos.y + 64);
+      // Bottom-Right
+      this.ctx.moveTo(tPos.x + 64 - bLen, tPos.y + 64); this.ctx.lineTo(tPos.x + 64, tPos.y + 64); this.ctx.lineTo(tPos.x + 64, tPos.y + 64 - bLen);
+      this.ctx.stroke();
+
+      this.ctx.restore();
+    }
   }
 
   renderReplaySnapshot(snap, engine) {
@@ -5469,6 +5632,287 @@ class UIManager {
   }
 }
 
+// ==========================================================================
+// OFFICER BOOTCAMP CURRICULUM — 8-LESSON MASTER SPECIFICATION
+// ==========================================================================
+const BOOTCAMP_LESSONS = {
+  1: {
+    id: 1,
+    title: 'The WEGO Clock',
+    subtitle: 'Movement & Simultaneous Execution',
+    duration: '60s',
+    doctrine: 'Orders execute simultaneously! Queue movement waypoints during Planning, then hit End Phase.',
+    description: 'Learn how to select your squad, plot adjacent movement waypoints, and hit End Phase to watch simultaneous execution.',
+    steps: [
+      {
+        stepIndex: 1,
+        label: 'Select Rifle Squad',
+        instruction: 'Click your Rifle Squad at the deployment point (highlighted in gold).',
+        requiredAction: 'SELECT_UNIT',
+        targetPos: { x: 1, y: 3 },
+        pointerPos: { x: 1, y: 3 },
+        pointerLabel: '1. Click Squad'
+      },
+      {
+        stepIndex: 2,
+        label: 'Plot Path to Flag',
+        instruction: 'Click adjacent tiles to draw a movement path towards the Green Flag extraction point at D4 [3, 3].',
+        requiredAction: 'QUEUE_WAYPOINTS',
+        targetPos: { x: 3, y: 3 },
+        pointerPos: { x: 3, y: 3 },
+        ghostPath: [{ x: 1, y: 3 }, { x: 2, y: 3 }, { x: 3, y: 3 }],
+        pointerLabel: '2. Plot Path to Flag'
+      },
+      {
+        stepIndex: 3,
+        label: 'Execute Simultaneous Turn',
+        instruction: 'Orders locked! Click "End Phase" on the top right to execute simultaneous movement.',
+        requiredAction: 'END_PHASE',
+        targetElementId: 'btn-end-turn',
+        pointerLabel: '3. Click End Phase'
+      }
+    ]
+  },
+  2: {
+    id: 2,
+    title: 'Cover & Ambush Stance',
+    subtitle: 'Forest Concealment & Stances',
+    duration: '60s',
+    doctrine: 'Infantry in forests automatically enter Ambush Stance (+50% defense, surprise critical attack).',
+    description: 'Conceal a squad in dense forest with Ambush Stance to spring a surprise attack with 50% reduced return fire.',
+    steps: [
+      {
+        stepIndex: 1,
+        label: 'Inspect Hidden Squad',
+        instruction: 'Click your Rifle Squad concealed inside the Forest corridor at C4 [2, 3].',
+        requiredAction: 'SELECT_UNIT',
+        targetPos: { x: 2, y: 3 },
+        pointerPos: { x: 2, y: 3 },
+        pointerLabel: '1. Select Forest Squad'
+      },
+      {
+        stepIndex: 2,
+        label: 'Spring the Ambush Trap',
+        instruction: 'Verify AMBUSH stance in the Inspector. Click "End Phase" to hold ground and ambush the approaching patrol!',
+        requiredAction: 'END_PHASE',
+        targetElementId: 'btn-end-turn',
+        pointerLabel: '2. Spring Ambush'
+      }
+    ]
+  },
+  3: {
+    id: 3,
+    title: 'Supply Depots & Recruiting',
+    subtitle: 'War Economy & Reinforcements',
+    duration: '90s',
+    doctrine: 'Depots grant +10 Ink/Turn and serve as forward spawn points, but THE TILE MUST BE EMPTY to deploy.',
+    description: 'Capture a neutral Gold Supply Depot to gain +10 Ink/Turn, master the empty-tile forward deployment rule, and reinforce your army.',
+    steps: [
+      {
+        stepIndex: 1,
+        label: 'Order Scout to Depot',
+        instruction: 'Select your fast Scout and click the neutral Gold Supply Depot at E4 [4, 3] to plot a route.',
+        requiredAction: 'QUEUE_WAYPOINTS',
+        targetPos: { x: 4, y: 3 },
+        pointerPos: { x: 4, y: 3 },
+        ghostPath: [{ x: 1, y: 3 }, { x: 2, y: 3 }, { x: 3, y: 3 }, { x: 4, y: 3 }],
+        pointerLabel: '1. Move to Gold Depot'
+      },
+      {
+        stepIndex: 2,
+        label: 'Secure Depot (+10 Ink)',
+        instruction: 'Orders locked! Click "End Phase" to advance your Scout and secure the Depot.',
+        requiredAction: 'END_PHASE',
+        targetElementId: 'btn-end-turn',
+        pointerLabel: '2. Capture Depot'
+      },
+      {
+        stepIndex: 3,
+        label: 'Recruit Squad at Base Ring',
+        instruction: 'Depot secured! Since your Scout occupies the Depot, open the Recruit Store and deploy a Rifle Squad at your empty Base ring at B4 [1, 3].',
+        requiredAction: 'RECRUIT_UNIT',
+        targetElementId: 'store-card-RIFLEMAN',
+        pointerLabel: '3. Recruit Squad at Base'
+      }
+    ]
+  },
+  4: {
+    id: 4,
+    title: 'The Counter Triangle',
+    subtitle: 'Rock-Paper-Scissors Combat Matrix',
+    duration: '90s',
+    doctrine: 'Anti-Tank pierces Armor (2.5x) • Infantry flanks AT Crews • Vehicles crush Infantry (1.5x).',
+    description: 'Master rock-paper-scissors: Anti-Tank pierces heavy armor, Rifle Squad flanks AT crews, and Armored Cars crush infantry.',
+    steps: [
+      {
+        stepIndex: 1,
+        label: 'Top Lane: AT vs Armored Car',
+        instruction: 'Select Anti-Tank crew at B2 [1, 1] and advance to target the Enemy Armored Car at E2 [4, 1] (2.5x Armor Penetration!).',
+        requiredAction: 'ATTACK_LANE_1',
+        targetPos: { x: 4, y: 1 },
+        pointerPos: { x: 1, y: 1 },
+        ghostPath: [{ x: 1, y: 1 }, { x: 2, y: 1 }, { x: 3, y: 1 }],
+        pointerLabel: '1. AT vs Armored Car'
+      },
+      {
+        stepIndex: 2,
+        label: 'Mid Lane: Rifle vs AT Crew',
+        instruction: 'Select Rifle Squad at B4 [1, 3] and advance to flank the Enemy AT Crew at E4 [4, 3] (Infantry flanks AT!).',
+        requiredAction: 'ATTACK_LANE_2',
+        targetPos: { x: 4, y: 3 },
+        pointerPos: { x: 1, y: 3 },
+        ghostPath: [{ x: 1, y: 3 }, { x: 2, y: 3 }, { x: 3, y: 3 }],
+        pointerLabel: '2. Rifle vs AT Crew'
+      },
+      {
+        stepIndex: 3,
+        label: 'Bottom Lane: Car vs Infantry',
+        instruction: 'Select Armored Car at B6 [1, 5] and advance to crush the Enemy Rifle Squad at E6 [4, 5] (1.5x Crush!).',
+        requiredAction: 'ATTACK_LANE_3',
+        targetPos: { x: 4, y: 5 },
+        pointerPos: { x: 1, y: 5 },
+        ghostPath: [{ x: 1, y: 5 }, { x: 2, y: 5 }, { x: 3, y: 5 }],
+        pointerLabel: '3. Car vs Infantry'
+      },
+      {
+        stepIndex: 4,
+        label: 'Execute Triangle Counters',
+        instruction: 'All counter-orders locked! Click "End Phase" to watch all 3 lanes win their decisive counter-engagements.',
+        requiredAction: 'END_PHASE',
+        targetElementId: 'btn-end-turn',
+        pointerLabel: '4. Execute Counters'
+      }
+    ]
+  },
+  5: {
+    id: 5,
+    title: 'Bog Shortcut & Chokepoint Race',
+    subtitle: 'Terrain Intelligence & Vehicle Hazard',
+    duration: '90s',
+    doctrine: 'Vehicles CANNOT cross deep mud! Infantry wades through in 1 turn to seize mountain passes first.',
+    description: 'Symmetrical chokepoint race! Hostiles deployed an Armored Car. Use the mud shortcut to arrive earlier at the mountain pass and camp in the forest.',
+    steps: [
+      {
+        stepIndex: 1,
+        label: 'Wade into Mud Shortcut',
+        instruction: 'Vehicles cannot enter deep mud and must detour south. Order your AT Crew from B4 [1, 3] into the Mud shortcut at C4 [2, 3] and click End Phase!',
+        requiredAction: 'MUD_SHORTCUT',
+        targetPos: { x: 2, y: 3 },
+        pointerPos: { x: 2, y: 3 },
+        pointerLabel: '1. Wade into Mud'
+      },
+      {
+        stepIndex: 2,
+        label: 'Seize Forest Pass',
+        instruction: 'Mire cleared! The enemy vehicle was forced into a massive southern detour. Move your AT Crew into the Forest Pass at D4 [3, 3] and click End Phase.',
+        requiredAction: 'SEIZE_PASS',
+        targetPos: { x: 3, y: 3 },
+        pointerPos: { x: 3, y: 3 },
+        pointerLabel: '2. Seize Forest Pass'
+      },
+      {
+        stepIndex: 3,
+        label: 'Camp in Ambush Stance',
+        instruction: 'Hostile Armored Car is approaching! Your squad has 25 HP — camping in the Forest pass for Ambush Strike is your only survival key. Click End Phase!',
+        requiredAction: 'END_PHASE',
+        targetElementId: 'btn-end-turn',
+        pointerLabel: '3. Spring Ambush'
+      }
+    ]
+  },
+  6: {
+    id: 6,
+    title: 'Command Abilities',
+    subtitle: 'Recon Flares & Heavy Barrages',
+    duration: '90s',
+    doctrine: 'You cannot call Artillery blindly into Fog of War! Launch a Recon Flare first to reveal coordinates.',
+    description: 'Launch a Recon Flare to pierce the Fog of War, then call down a high-explosive Artillery Strike to obliterate the enemy position.',
+    steps: [
+      {
+        stepIndex: 1,
+        label: 'Launch Recon Flare (2 CP)',
+        instruction: 'Hostiles are hidden by Fog of War behind the ridge. Click "Recon Flare" (2 CP) in the Command panel and launch it at G4 [6, 3]!',
+        requiredAction: 'USE_FLARE',
+        targetElementId: 'btn-ability-flare',
+        targetPos: { x: 6, y: 3 },
+        pointerLabel: '1. Click Recon Flare'
+      },
+      {
+        stepIndex: 2,
+        label: 'Call Artillery Strike (4 CP)',
+        instruction: 'Target revealed at G4 [6, 3]! Click "Artillery Strike" (4 CP) and target the revealed squad to order an off-map barrage.',
+        requiredAction: 'USE_ARTILLERY',
+        targetElementId: 'btn-ability-artillery',
+        targetPos: { x: 6, y: 3 },
+        pointerLabel: '2. Call Artillery'
+      },
+      {
+        stepIndex: 3,
+        label: 'Watch Barrage Impact',
+        instruction: 'Coordinates confirmed! Click "End Phase" to watch the artillery strike obliterate the enemy nest.',
+        requiredAction: 'END_PHASE',
+        targetElementId: 'btn-end-turn',
+        pointerLabel: '3. Execute Barrage'
+      }
+    ]
+  },
+  7: {
+    id: 7,
+    title: 'Base Defense & Siege',
+    subtitle: 'Lifting Enemy Chokepoints',
+    duration: '90s',
+    doctrine: 'Hostiles adjacent to captured Depots place them Under Siege, blocking deployment until the raider is destroyed.',
+    description: 'Enemy raiders have placed your forward Depot Under Siege, blocking deployment. Break the enemy line to lift the siege and spawn reinforcements!',
+    steps: [
+      {
+        stepIndex: 1,
+        label: 'Break the Raider Siege',
+        instruction: 'Forward Depot at D4 [3, 3] is UNDER SIEGE by an adjacent enemy raider at E4 [4, 3]! Advance your AT Crew from B4 [1, 3] to C4 [2, 3] to destroy the raider.',
+        requiredAction: 'BREAK_SIEGE',
+        targetPos: { x: 2, y: 3 },
+        pointerPos: { x: 2, y: 3 },
+        pointerLabel: '1. Advance to Fire'
+      },
+      {
+        stepIndex: 2,
+        label: 'Deploy at Liberated Depot',
+        instruction: 'Siege lifted! The forward Supply Depot is liberated and empty. Open the Store, recruit a Rifle Squad, and deploy directly onto the Depot at D4 [3, 3]!',
+        requiredAction: 'FORWARD_DEPLOY',
+        targetElementId: 'store-card-RIFLEMAN',
+        targetPos: { x: 3, y: 3 },
+        pointerLabel: '2. Deploy at Depot'
+      }
+    ]
+  },
+  8: {
+    id: 8,
+    title: 'Grand Graduation Skirmish',
+    subtitle: 'Operation Diesel Storm',
+    duration: '2 Min',
+    doctrine: 'Capstone Examination: Combine capture, counters, cover, terrain hazards, and command abilities.',
+    description: 'Operation Diesel Storm: Capture forward Depots, utilize mud corridors & forest cover, call in Command Abilities, and destroy the enemy HQ at [H8] to graduate!',
+    steps: [
+      {
+        stepIndex: 1,
+        label: 'Capture Forward Depots',
+        instruction: 'Advance your units to secure the central Gold Supply Depots to fuel your Ink production.',
+        requiredAction: 'CAPTURE_OBJECTIVES',
+        pointerLabel: 'Secure Depots'
+      },
+      {
+        stepIndex: 2,
+        label: 'Demolish Enemy HQ',
+        instruction: 'Recruit counter-units to break the enemy frontline, then assault and destroy the Red HQ Base at H8 [7, 7] to graduate!',
+        requiredAction: 'DESTROY_HQ',
+        pointerLabel: 'Destroy Enemy HQ'
+      }
+    ]
+  }
+};
+if (typeof window !== 'undefined') {
+  window.BOOTCAMP_LESSONS = BOOTCAMP_LESSONS;
+}
+
 class BootcampManager {
   constructor(app) {
     this.app = app;
@@ -5718,6 +6162,16 @@ class BootcampManager {
   evaluateCurrentStep(engine) {
     const stepLabel = document.getElementById('bootcamp-instructor-step');
     const textEl = document.getElementById('bootcamp-instructor-text');
+    const doctrineTip = document.getElementById('bootcamp-doctrine-tip');
+    const checklistBox = document.getElementById('bootcamp-checklist-box');
+
+    const lessonConfig = (typeof BOOTCAMP_LESSONS !== 'undefined') ? BOOTCAMP_LESSONS[this.activeLesson] : null;
+    if (doctrineTip && lessonConfig && lessonConfig.doctrine) {
+      doctrineTip.style.display = 'block';
+      doctrineTip.innerHTML = `<strong>DOCTRINE:</strong> ${lessonConfig.doctrine}`;
+    } else if (doctrineTip) {
+      doctrineTip.style.display = 'none';
+    }
 
     if (this.activeLesson === 1) {
       const squad = engine.players[1].units.find(u => u.isAlive());
@@ -5726,18 +6180,15 @@ class BootcampManager {
 
       if (!isSelected && !hasWaypoints) {
         this.currentStep = 1;
-        if (stepLabel) stepLabel.textContent = 'Step 1 of 3';
-        if (textEl) textEl.textContent = `Click your Rifle Squad at ${formatCoord(squad ? squad.x : 1, squad ? squad.y : 3)} to select it.`;
+        if (textEl) textEl.innerHTML = `Click your Rifle Squad at ${formatCoord(squad ? squad.x : 1, squad ? squad.y : 3)} to select it.`;
         if (squad) this.positionPointerAtTile(squad.x, squad.y, '1. Click Squad');
       } else if (!hasWaypoints) {
         this.currentStep = 2;
-        if (stepLabel) stepLabel.textContent = 'Step 2 of 3';
-        if (textEl) textEl.textContent = `Click adjacent tiles to draw a path to the Green Flag at ${formatCoord(3, 3)}.`;
+        if (textEl) textEl.innerHTML = `Click adjacent tiles to draw a path to the Green Flag at ${formatCoord(3, 3)}.`;
         this.positionPointerAtTile(3, 3, '2. Plot Path to Flag');
       } else if (engine.phase === 'PLANNING') {
         this.currentStep = 3;
-        if (stepLabel) stepLabel.textContent = 'Step 3 of 3';
-        if (textEl) textEl.textContent = 'Orders locked! Now click "End Phase" on the top right to execute simultaneous movement.';
+        if (textEl) textEl.innerHTML = 'Orders locked! Now click "End Phase" on the top right to execute simultaneous movement.';
         this.positionPointerAtElement('btn-end-turn', '3. Click End Phase');
       } else {
         this.positionPointerAtTile(null, null);
@@ -5748,13 +6199,11 @@ class BootcampManager {
 
       if (!isSelected) {
         this.currentStep = 1;
-        if (stepLabel) stepLabel.textContent = 'Step 1 of 3';
-        if (textEl) textEl.textContent = 'Click your Rifle Squad concealed inside the Forest corridor.';
+        if (textEl) textEl.innerHTML = `Click your Rifle Squad concealed inside the Forest corridor at ${formatCoord(2, 3)}.`;
         this.positionPointerAtTile(2, 3, '1. Select Forest Squad');
       } else if (engine.phase === 'PLANNING') {
         this.currentStep = 2;
-        if (stepLabel) stepLabel.textContent = 'Step 2 of 3';
-        if (textEl) textEl.textContent = 'Notice squad is in AMBUSH stance (50% cover defense). Click "End Phase" to spring the trap!';
+        if (textEl) textEl.innerHTML = 'Notice squad is in AMBUSH stance (+50% cover defense). Click "End Phase" to spring the trap!';
         this.positionPointerAtElement('btn-end-turn', '2. Spring Ambush');
       } else {
         this.positionPointerAtTile(null, null);
@@ -5768,18 +6217,15 @@ class BootcampManager {
         const hasWaypoints = scout && scout.waypoints && scout.waypoints.length > 0;
         if (!hasWaypoints) {
           this.currentStep = 1;
-          if (stepLabel) stepLabel.textContent = 'Step 1 of 3 • Plot Movement';
           if (textEl) textEl.innerHTML = `Select your fast Scout and click the Gold Supply Depot at ${formatCoord(4, 3)} to draw a movement path.`;
           this.positionPointerAtTile(4, 3, '1. Move to Gold Depot');
         } else {
           this.currentStep = 2;
-          if (stepLabel) stepLabel.textContent = 'Step 2 of 3 • Capture Depot';
           if (textEl) textEl.innerHTML = 'Orders locked! Click "End Phase" to advance and capture the Supply Depot.';
           this.positionPointerAtElement('btn-end-turn', '2. Capture Depot');
         }
       } else if (!recruitedUnit) {
         this.currentStep = 3;
-        if (stepLabel) stepLabel.textContent = 'Step 3 of 3 • Empty Tile Rule';
         if (textEl) {
           textEl.innerHTML = `<b>Depot Secured (+10 Ink)!</b><br><span style="color:#f59e0b; font-weight:700;">TACTICAL RULE:</span> Captured Depots can spawn units, <u>BUT THE TILE MUST BE EMPTY</u>. Because your Scout is occupying the Depot at ${formatCoord(4, 3)}, deploy your Rifle Squad at your empty Base at ${formatCoord(1, 3)}.`;
         }
@@ -5788,9 +6234,45 @@ class BootcampManager {
         this.positionPointerAtTile(null, null);
       }
     } else if (this.activeLesson === 4) {
-      if (stepLabel) stepLabel.textContent = 'The Counter Triangle';
-      if (textEl) textEl.textContent = 'AT pierces Armor (2.5x), Rifle flanks AT, Vehicle crushes Infantry (1.5x). Plot attacks and click End Phase!';
-      this.positionPointerAtElement('btn-end-turn', 'Execute Counters');
+      // Lesson 4: The Counter Triangle — 3 Lanes Sequenced
+      const p1Units = engine.players[1]?.units || [];
+      const at1 = p1Units.find(u => u.typeKey === 'ANTI_TANK' && u.isAlive());
+      const rf1 = p1Units.find(u => u.typeKey === 'RIFLEMAN' && u.isAlive());
+      const lc1 = p1Units.find(u => u.typeKey === 'LIGHT_VEHICLE' && u.isAlive());
+
+      const atReady = at1 && ((at1.waypoints && at1.waypoints.length > 0) || at1.hasAttackedThisTurn);
+      const rfReady = rf1 && ((rf1.waypoints && rf1.waypoints.length > 0) || rf1.hasAttackedThisTurn);
+      const lcReady = lc1 && ((lc1.waypoints && lc1.waypoints.length > 0) || lc1.hasAttackedThisTurn);
+
+      if (!atReady) {
+        this.currentStep = 1;
+        if (textEl) textEl.innerHTML = `<b>Lane 1 (Top): Anti-Tank vs Armored Car</b><br>Select your AT Crew at ${formatCoord(1, 1)} and advance toward the Enemy Armored Car at ${formatCoord(4, 1)} (2.5x armor penetration!).`;
+        if (at1 && this.app.renderer.selectedTile && this.app.renderer.selectedTile.x === at1.x && this.app.renderer.selectedTile.y === at1.y) {
+          this.positionPointerAtTile(4, 1, '1. Target Armored Car');
+        } else {
+          this.positionPointerAtTile(1, 1, '1. Select AT Crew');
+        }
+      } else if (!rfReady) {
+        this.currentStep = 2;
+        if (textEl) textEl.innerHTML = `<b>Lane 2 (Mid): Rifle Squad vs Anti-Tank</b><br>Select your Rifle Squad at ${formatCoord(1, 3)} and advance toward the Enemy AT Crew at ${formatCoord(4, 3)} (Infantry flanks AT crews!).`;
+        if (rf1 && this.app.renderer.selectedTile && this.app.renderer.selectedTile.x === rf1.x && this.app.renderer.selectedTile.y === rf1.y) {
+          this.positionPointerAtTile(4, 3, '2. Target AT Crew');
+        } else {
+          this.positionPointerAtTile(1, 3, '2. Select Rifle Squad');
+        }
+      } else if (!lcReady) {
+        this.currentStep = 3;
+        if (textEl) textEl.innerHTML = `<b>Lane 3 (Bottom): Armored Car vs Infantry</b><br>Select your Armored Car at ${formatCoord(1, 5)} and advance toward the Enemy Rifle Squad at ${formatCoord(4, 5)} (1.5x Infantry Crush!).`;
+        if (lc1 && this.app.renderer.selectedTile && this.app.renderer.selectedTile.x === lc1.x && this.app.renderer.selectedTile.y === lc1.y) {
+          this.positionPointerAtTile(4, 5, '3. Target Infantry');
+        } else {
+          this.positionPointerAtTile(1, 5, '3. Select Armored Car');
+        }
+      } else {
+        this.currentStep = 4;
+        if (textEl) textEl.innerHTML = `<b>All Counter-Orders Committed!</b><br>Every lane has its counter advantage plotted. Click "End Phase" to watch decisive victories in all 3 lanes!`;
+        this.positionPointerAtElement('btn-end-turn', '4. Execute Counters');
+      }
     } else if (this.activeLesson === 5) {
       // Lesson 5: Bog Shortcut & Chokepoint Race
       const at = engine.players[1].units.find(u => u.isAlive());
@@ -5801,30 +6283,24 @@ class BootcampManager {
       if (!at || enemies.length === 0) {
         this.positionPointerAtTile(null, null);
       } else if (atX === 1 && atY === 3) {
-        // Step 1: AT Crew at start position (1,3) -> take mud shortcut to (2,3)
         this.currentStep = 1;
-        if (stepLabel) stepLabel.textContent = 'Step 1 of 3 • Take Mud Shortcut';
-        if (textEl) textEl.innerHTML = `Both bases are placed symmetrically, and hostiles deployed a Light Vehicle at ${formatCoord(7, 3)}. As the crow flies, it is the <b>almost same route</b> — but they have a 3-speed vehicle! However, columns F & G (including ${formatCoord(5, 0)}, ${formatCoord(5, 1)}, ${formatCoord(6, 0)}, ${formatCoord(6, 1)}) are deep mud. Vehicles <b>cannot cross mud at all</b> and must take a long southern detour. Order your AT Crew into the <b>Mud shortcut</b> at ${formatCoord(2, 3)} and click "End Phase"!`;
+        if (textEl) textEl.innerHTML = `Vehicles cannot enter deep mud and must detour south. Order your AT Crew from ${formatCoord(1, 3)} into the Mud shortcut at ${formatCoord(2, 3)} and click "End Phase"!`;
         if (at.waypoints && at.waypoints.length > 0) {
           this.positionPointerAtElement('btn-end-turn', '1. Click End Phase');
         } else {
           this.positionPointerAtTile(2, 3, '1. Wade into Mud');
         }
       } else if (atX === 2 && atY === 3) {
-        // Step 2: AT Crew in mud at (2,3) -> seize the forest pass at (3,3)
         this.currentStep = 2;
-        if (stepLabel) stepLabel.textContent = 'Step 2 of 3 • Seize the Forest Pass';
-        if (textEl) textEl.innerHTML = `Mire has cleared! The enemy vehicle was forced into a massive southern detour, so <b>we arrived earlier</b>! Move your AT Crew into the <b>Forest Pass</b> at ${formatCoord(3, 3)} and click "End Phase". Notice: <u>simply arriving does NOT win the game</u> — we must eliminate the approaching vehicle!`;
+        if (textEl) textEl.innerHTML = `Mire has cleared! The enemy vehicle was forced into a massive southern detour. Move your AT Crew into the <b>Forest Pass</b> at ${formatCoord(3, 3)} and click "End Phase".`;
         if (at.waypoints && at.waypoints.length > 0) {
           this.positionPointerAtElement('btn-end-turn', '2. Click End Phase');
         } else {
           this.positionPointerAtTile(3, 3, '2. Seize Forest Pass');
         }
       } else if (atX === 3 && atY === 3) {
-        // Step 3: Camping in the Forest Pass
         this.currentStep = 3;
-        if (stepLabel) stepLabel.textContent = 'Step 3 of 3 • Ambush from the Forest';
-        if (textEl) textEl.innerHTML = `Hostile Armored Car is closing in! <b style="color:#ef4444;">TACTICAL LAW:</b> Your squad has only 25 HP — in the open, you die horribly! The <b>ONLY way you win is CAMPING in this Forest</b> in AMBUSH stance for the 1.5x Ambush Strike. Hold position and click "End Phase" to destroy them as they arrive!`;
+        if (textEl) textEl.innerHTML = `Hostile Armored Car is closing in! <b style="color:#ef4444;">TACTICAL LAW:</b> Your squad has only 25 HP — in the open, you die! The <b>ONLY way you win is CAMPING in this Forest</b> in AMBUSH stance for the 1.5x Ambush Strike. Click "End Phase" to destroy them!`;
         this.positionPointerAtElement('btn-end-turn', '3. Spring Ambush');
       } else {
         this.positionPointerAtTile(null, null);
@@ -5838,17 +6314,14 @@ class BootcampManager {
 
       if (!enemySpotted && engine.activeFlares.length === 0) {
         this.currentStep = 1;
-        if (stepLabel) stepLabel.textContent = 'Step 1 of 3 • Recon Flare';
         if (textEl) textEl.innerHTML = `Hostiles are concealed by Fog of War behind the ridge. Click <b>"Recon Flare"</b> (2 CP) in the Command panel and launch it at ${formatCoord(6, 3)}!`;
         this.positionPointerAtElement('btn-ability-flare', '1. Click Recon Flare');
       } else if (!artilleryActive && enemies.length > 0) {
         this.currentStep = 2;
-        if (stepLabel) stepLabel.textContent = 'Step 2 of 3 • Artillery Strike';
         if (textEl) textEl.innerHTML = `Target revealed at ${formatCoord(6, 3)}! Click <b>"Artillery Strike"</b> (4 CP) and target the enemy squad to call in an off-map barrage!`;
         this.positionPointerAtElement('btn-ability-artillery', '2. Call Artillery Strike');
       } else {
         this.currentStep = 3;
-        if (stepLabel) stepLabel.textContent = 'Step 3 of 3 • Execute Barrage';
         if (textEl) textEl.innerHTML = `Coordinates confirmed! Click <b>"End Phase"</b> to watch the artillery strike obliterate the enemy!`;
         this.positionPointerAtElement('btn-end-turn', '3. Launch Strike');
       }
@@ -5859,7 +6332,6 @@ class BootcampManager {
 
       if (enemies.length > 0) {
         this.currentStep = 1;
-        if (stepLabel) stepLabel.textContent = 'Step 1 of 2 • Break the Siege';
         if (textEl) textEl.innerHTML = `Your forward Depot at ${formatCoord(3, 3)} is <b style="color:#ef4444;">UNDER SIEGE</b> by an adjacent enemy raider at ${formatCoord(4, 3)}! Advance your AT Crew from ${formatCoord(1, 3)} to ${formatCoord(2, 3)} to get in range and eliminate the raider!`;
         const at = engine.players[1].units.find(u => u.isAlive() && u.typeKey === 'ANTI_TANK');
         if (at && at.x === 1 && at.y === 3) {
@@ -5869,16 +6341,45 @@ class BootcampManager {
         }
       } else if (!forwardUnit) {
         this.currentStep = 2;
-        if (stepLabel) stepLabel.textContent = 'Step 2 of 2 • Forward Deployment';
         if (textEl) textEl.innerHTML = `<b>Siege lifted!</b> The forward Supply Depot is liberated and clear. Open the Store, recruit a <b>Rifle Squad</b>, and deploy them directly onto the forward Depot at ${formatCoord(3, 3)} to complete the doctrine!`;
         this.positionPointerAtElement('store-card-RIFLEMAN', '2. Deploy at Depot');
       } else {
         this.positionPointerAtTile(null, null);
       }
     } else if (this.activeLesson === 8) {
-      if (stepLabel) stepLabel.textContent = 'Grand Graduation Skirmish';
-      if (textEl) textEl.textContent = 'Operation Diesel Storm: Capture forward Depots, utilize mud corridors & forest cover, call in Command Abilities, and destroy the enemy HQ at [H8] to graduate!';
-      this.positionPointerAtTile(null, null);
+      const depotsCaptured = (engine.grid[2][3]?.owner === 1) || (engine.grid[4][5]?.owner === 1);
+      if (!depotsCaptured) {
+        this.currentStep = 1;
+        if (textEl) textEl.innerHTML = `<b>Operation Diesel Storm: Capture Central Depots</b><br>Advance your Rifle Squad and Scout to secure the central Gold Supply Depots to fuel your Ink economy.`;
+        this.positionPointerAtTile(3, 2, 'Secure Depot');
+      } else {
+        this.currentStep = 2;
+        if (textEl) textEl.innerHTML = `<b>Operation Diesel Storm: Assault Enemy HQ</b><br>Depots secured! Recruit counter-units, call in Command Abilities, and demolish the enemy HQ Base at ${formatCoord(7, 7)} to graduate!`;
+        this.positionPointerAtTile(7, 7, 'Destroy Enemy HQ');
+      }
+    }
+
+    // Dynamic Tactical Checklist & Step Label Update
+    if (lessonConfig && lessonConfig.steps) {
+      if (stepLabel) {
+        stepLabel.textContent = `Lesson ${this.activeLesson} • Step ${this.currentStep} of ${lessonConfig.steps.length}`;
+      }
+      if (checklistBox) {
+        let checklistHtml = '';
+        lessonConfig.steps.forEach(st => {
+          let statusClass = 'pending';
+          let mark = '[ ]';
+          if (st.stepIndex < this.currentStep) {
+            statusClass = 'done';
+            mark = '[✓]';
+          } else if (st.stepIndex === this.currentStep) {
+            statusClass = 'active';
+            mark = '[→]';
+          }
+          checklistHtml += `<div class="bootcamp-chk-item ${statusClass}"><span class="bootcamp-chk-mark">${mark}</span><span class="bootcamp-chk-label">${st.label}</span></div>`;
+        });
+        checklistBox.innerHTML = checklistHtml;
+      }
     }
   }
 
@@ -6067,7 +6568,43 @@ class BootcampManager {
       if (debrief) {
         debrief.textContent = customDebrief || debriefs[currentId] || "Your squad was eliminated in action. Review tactical doctrine and try again, Commander.";
       }
+      const rewindBtn = document.getElementById('btn-bootcamp-failed-rewind');
+      if (rewindBtn) {
+        const canRewind = engine && engine.turnHistory && engine.turnHistory.length > 1;
+        rewindBtn.style.display = canRewind ? 'block' : 'none';
+      }
     }
+  }
+
+  rewindTurn() {
+    if (!this.app.engine) return;
+    const engine = this.app.engine;
+    if (engine.turnHistory && engine.turnHistory.length > 1) {
+      let validSnap = null;
+      for (let i = engine.turnHistory.length - 1; i >= 0; i--) {
+        const snap = engine.turnHistory[i];
+        if (snap.phaseLabel === 'PLANNING' && snap.p1Units && snap.p1Units.some(u => u.isAlive)) {
+          validSnap = snap;
+          break;
+        }
+      }
+      if (validSnap) {
+        engine.restoreTurnSnapshot(validSnap);
+        const fModal = document.getElementById('modal-bootcamp-failed');
+        if (fModal) fModal.style.display = 'none';
+        try { if (this.app.audio) this.app.audio.playPaper(); } catch(e){}
+        if (this.app.ui) {
+          this.app.ui.showToast('Turn Rewound', 'Rewound to Planning Phase. Replot your orders!');
+          this.app.ui.updateHUD(engine);
+        }
+        if (this.app.renderer) {
+          this.app.renderer.render(engine);
+        }
+        this.updateHUD(engine);
+        return;
+      }
+    }
+    this.startLesson(this.activeLesson || 1);
   }
 }
 
@@ -6722,6 +7259,14 @@ window.nextBootcampLesson = function() {
   }
 };
 
+window.rewindBootcampTurn = function() {
+  const fModal = document.getElementById('modal-bootcamp-failed');
+  if (fModal) fModal.style.display = 'none';
+  if (window.gApp && window.gApp.bootcampManager) {
+    window.gApp.bootcampManager.rewindTurn();
+  }
+};
+
 window.replayBootcampLesson = function() {
   const modal = document.getElementById('modal-bootcamp-complete');
   if (modal) modal.style.display = 'none';
@@ -7333,6 +7878,20 @@ class App {
       if (this.engine.phase === 'PLANNING' && this.ui.pendingAbilityKey) {
         const abilityKey = this.ui.pendingAbilityKey;
         const ability = ABILITIES[abilityKey];
+
+        // BOOTCAMP LESSON 6 SMART TACTICAL INTERVENTION:
+        if (this.engine.bootcampLesson === 6 && abilityKey === 'ARTILLERY_STRIKE') {
+          const p1Vision = this.engine.calculateVision(localSlot);
+          if (!p1Vision[gridCoords.y] || !p1Vision[gridCoords.y][gridCoords.x]) {
+            try { this.audio.playDenied(); } catch(err){}
+            this.ui.showToast('Tactical Intervention', 'Negative, Cadet! Artillery cannot blind-fire into Fog of War. Pop a Recon Flare first!');
+            if (this.bootcampManager) {
+              this.bootcampManager.triggerLessonEasterEgg(6, "Negative, Cadet! Artillery cannot blind-fire into Fog of War. Pop a Recon Flare first to reveal target coordinates!");
+            }
+            return;
+          }
+        }
+
         const res = this.engine.useAbility(localSlot, abilityKey, gridCoords.x, gridCoords.y);
         if (res.success) {
           try {

@@ -911,17 +911,25 @@
 
           <!-- General Crow Instructor Briefing Card (Bootcamp Only) -->
           <div id="bootcamp-instructor-dialog" class="bootcamp-instructor-card" style="display: none;">
-            <div class="bootcamp-instructor-avatar">GEN</div>
-            <div class="bootcamp-instructor-info">
+            <div class="bootcamp-card-header">
+              <div class="bootcamp-instructor-avatar">GEN</div>
               <div class="bootcamp-instructor-meta">
-                <span class="bootcamp-instructor-name">General Crow</span>
+                <span class="bootcamp-instructor-name">GENERAL CROW &bull; DISPATCH</span>
                 <span id="bootcamp-instructor-step" class="bootcamp-instructor-step">Step 1 of 3</span>
               </div>
+              <div class="bootcamp-header-actions">
+                <button id="btn-bootcamp-restart-lesson" class="bootcamp-header-btn" title="Restart Current Lesson" onclick="window.replayBootcampLesson()">&#x21BA; Restart</button>
+                <button id="btn-bootcamp-exit-lesson" class="bootcamp-header-btn" title="Exit to Bootcamp Menu" onclick="window.returnToBootcampMenu()">&#x2715; Exit</button>
+                <button id="btn-bootcamp-instructor-toggle" class="bootcamp-instructor-toggle" title="Minimize / Expand Briefing" onclick="this.closest('.bootcamp-instructor-card').classList.toggle('minimized')">&#x25BC;</button>
+              </div>
+            </div>
+            <div class="bootcamp-card-body">
+              <div id="bootcamp-doctrine-tip" class="bootcamp-doctrine-tip" style="display: none;"></div>
+              <div id="bootcamp-checklist-box" class="bootcamp-checklist-box"></div>
               <div id="bootcamp-instructor-text" class="bootcamp-instructor-text">
                 Select your squad on the grid to begin plotting orders.
               </div>
             </div>
-            <button id="btn-bootcamp-instructor-toggle" class="bootcamp-instructor-toggle" title="Minimize / Expand Briefing" onclick="this.closest('.bootcamp-instructor-card').classList.toggle('minimized')">&#x25BC;</button>
           </div>
         </section>
 
@@ -1284,6 +1292,9 @@
           <p id="bootcamp-failed-debrief" style="font-size: 0.92rem; color: #f1f5f9; font-style: italic; line-height: 1.45; font-weight: 500; margin: 0;"></p>
         </div>
         <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 20px;">
+          <button id="btn-bootcamp-failed-rewind" class="btn-sketch btn-sketch-lg" style="background: rgba(245, 158, 11, 0.15); border-color: var(--gold-400); color: var(--gold-400); font-weight: 700; letter-spacing: 0.05em;" onclick="window.rewindBootcampTurn()">
+            &#x21BA; Rewind Turn
+          </button>
           <button id="btn-bootcamp-failed-replay" class="btn-sketch btn-sketch-lg btn-deploy-hero" style="background: linear-gradient(135deg, #991b1b, #dc2626); border-color: #f87171;" onclick="window.replayBootcampLesson()">
             Replay Scenario
           </button>
