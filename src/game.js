@@ -843,7 +843,9 @@ class GameEngine {
       symbol: u.symbol,
       waypoints: (u.waypoints || []).map(wp => ({ x: wp.x, y: wp.y })),
       isAlive: (typeof u.isAlive === 'function') ? u.isAlive() : (u.hp > 0),
-      isAmbusherHidden: !!u.isAmbusherHidden
+      isAmbusherHidden: !!u.isAmbusherHidden,
+      wasRecruited: !!u.wasRecruited,
+      spawnedAt: u.spawnedAt ? { x: u.spawnedAt.x, y: u.spawnedAt.y } : null
     });
 
     const gridClone = this.grid.map(row => row.map(tile => ({
@@ -896,6 +898,8 @@ class GameEngine {
           unit.stance = u.stance;
           unit.waypoints = [];
           unit.isAmbusherHidden = !!u.isAmbusherHidden;
+          unit.wasRecruited = !!u.wasRecruited;
+          unit.spawnedAt = u.spawnedAt ? { x: u.spawnedAt.x, y: u.spawnedAt.y } : null;
           return unit;
         });
       }
@@ -911,6 +915,8 @@ class GameEngine {
           unit.stance = u.stance;
           unit.waypoints = [];
           unit.isAmbusherHidden = !!u.isAmbusherHidden;
+          unit.wasRecruited = !!u.wasRecruited;
+          unit.spawnedAt = u.spawnedAt ? { x: u.spawnedAt.x, y: u.spawnedAt.y } : null;
           return unit;
         });
       }
@@ -1451,6 +1457,8 @@ class GameEngine {
     player.ink = Math.max(0, player.ink - template.cost);
     const unitId = customId || `U_SPAWN_P${playerId}_T${this.turnNumber}_${Date.now().toString(36)}_${Math.floor(Math.random()*1000)}`;
     const newUnit = new Unit(typeKey, playerId, spawnX, spawnY, unitId);
+    newUnit.wasRecruited = true;
+    newUnit.spawnedAt = { x: spawnX, y: spawnY };
     player.units.push(newUnit);
 
     if (this.isMultiplayer && !isRemote) {
@@ -6328,7 +6336,7 @@ class BootcampManager {
     } else if (this.activeLesson === 7) {
       // Lesson 7: Base Defense & Siege (Liberation Protocol)
       const enemies = engine.players[2].units.filter(u => u.isAlive());
-      const forwardUnit = engine.players[1].units.find(u => u.isAlive() && u.x === 3 && u.y === 3);
+      const deployedAtDepot = engine.players[1].units.some(u => u.isAlive() && u.wasRecruited && ((u.x === 3 && u.y === 3) || (u.spawnedAt && u.spawnedAt.x === 3 && u.spawnedAt.y === 3)));
 
       if (enemies.length > 0) {
         this.currentStep = 1;
@@ -6339,10 +6347,16 @@ class BootcampManager {
         } else {
           this.positionPointerAtTile(4, 3, '1. Eliminate Raider');
         }
-      } else if (!forwardUnit) {
+      } else if (!deployedAtDepot) {
         this.currentStep = 2;
-        if (textEl) textEl.innerHTML = `<b>Siege lifted!</b> The forward Supply Depot is liberated and clear. Open the Store, recruit a <b>Rifle Squad</b>, and deploy them directly onto the forward Depot at ${formatCoord(3, 3)} to complete the doctrine!`;
-        this.positionPointerAtElement('store-card-RIFLEMAN', '2. Deploy at Depot');
+        const depotOccupant = engine.getAllUnits().find(u => u.isAlive() && u.x === 3 && u.y === 3);
+        if (depotOccupant && !depotOccupant.wasRecruited) {
+          if (textEl) textEl.innerHTML = `<b>Siege lifted!</b> However, the Depot at ${formatCoord(3, 3)} is occupied by your AT Crew. <u>Remember the Empty Tile Rule</u>: Move your AT Crew off the Depot, then deploy your fresh reinforcements on the empty Depot!`;
+          this.positionPointerAtTile(4, 3, 'Clear Depot Tile');
+        } else {
+          if (textEl) textEl.innerHTML = `<b>Siege lifted!</b> The forward Supply Depot is liberated and clear. Open the Store, recruit a <b>Rifle Squad</b>, and deploy them directly onto the Depot at ${formatCoord(3, 3)} to complete the doctrine!`;
+          this.positionPointerAtElement('store-card-RIFLEMAN', '2. Deploy at Depot');
+        }
       } else {
         this.positionPointerAtTile(null, null);
       }
@@ -6464,8 +6478,8 @@ class BootcampManager {
     }
     if (this.activeLesson === 7) {
       const enemies = engine.players[2].units.filter(u => u.isAlive());
-      const forwardUnit = engine.players[1].units.find(u => u.isAlive() && u.x === 3 && u.y === 3);
-      return enemies.length === 0 && !!forwardUnit;
+      const deployedAtDepot = engine.players[1].units.some(u => u.isAlive() && u.wasRecruited && ((u.x === 3 && u.y === 3) || (u.spawnedAt && u.spawnedAt.x === 3 && u.spawnedAt.y === 3)));
+      return enemies.length === 0 && deployedAtDepot;
     }
     if (this.activeLesson === 8) {
       return engine.winner === 1;
