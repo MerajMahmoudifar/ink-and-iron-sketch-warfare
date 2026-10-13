@@ -806,6 +806,7 @@ class GameEngine {
     this.activeFlares = []; // { x, y, owner, turnsLeft }
     this.activeSmokes = []; // { x, y, owner, turnsLeft }
     this.activeArtilleryStrikes = []; // { x, y, owner, targetTurn }
+    this.bubblyCube = null;
 
     this.winner = null;
     this.actionLogs = [];
@@ -1846,6 +1847,11 @@ class GameEngine {
       }
     });
 
+    // Update Bubbly Cube scampering behavior during playback step
+    if (this.bubblyCube) {
+      this.updateBubblyCube(stepIndex);
+    }
+
     const p1Units = this.players[1].units.filter(u => u.isAlive());
     const p2Units = this.players[2].units.filter(u => u.isAlive());
 
@@ -2203,6 +2209,89 @@ class GameEngine {
     }
 
     return reachable;
+  }
+
+  spawnBubblyCube(x, y) {
+    this.bubblyCube = {
+      x: Math.max(0, Math.min(7, Math.round(x))),
+      y: Math.max(0, Math.min(7, Math.round(y))),
+      renderX: Math.max(0, Math.min(7, Math.round(x))),
+      renderY: Math.max(0, Math.min(7, Math.round(y))),
+      targetX: Math.max(0, Math.min(7, Math.round(x))),
+      targetY: Math.max(0, Math.min(7, Math.round(y))),
+      lastMoveTime: Date.now(),
+      nextBlink: Date.now() + 2500 + Math.random() * 2000
+    };
+    if (this.audio && this.audio.playBubblySqueak) {
+      this.audio.playBubblySqueak();
+    }
+    this.notifyStateChange();
+    return this.bubblyCube;
+  }
+
+  updateBubblyCube(stepIndex) {
+    if (!this.bubblyCube) return;
+    const cube = this.bubblyCube;
+    const allLivingUnits = this.getAllUnits().filter(u => u.isAlive());
+
+    // Candidates: current tile and orthogonal neighbors within bounds and not impassable Mountain
+    const candidates = [
+      { x: cube.x, y: cube.y, isStay: true },
+      { x: cube.x + 1, y: cube.y },
+      { x: cube.x - 1, y: cube.y },
+      { x: cube.x, y: cube.y + 1 },
+      { x: cube.x, y: cube.y - 1 }
+    ].filter(pos => {
+      if (pos.x < 0 || pos.x >= 8 || pos.y < 0 || pos.y >= 8) return false;
+      const tile = this.grid[pos.y][pos.x];
+      if (tile && (tile.id === 'MOUNTAIN' || tile.type === 'MOUNTAIN')) return false;
+      return true;
+    });
+
+    if (candidates.length === 0) return;
+    if (allLivingUnits.length === 0) return;
+
+    // Score candidates by maximizing distance to nearest troop (fleeing battle)
+    let bestScore = -Infinity;
+    let bestCandidates = [];
+
+    candidates.forEach(cand => {
+      let minDist = Infinity;
+      allLivingUnits.forEach(u => {
+        const d = Math.abs(u.x - cand.x) + Math.abs(u.y - cand.y);
+        if (d < minDist) minDist = d;
+      });
+
+      // Bonus for fleeing towards edges/corners of the map
+      const edgeDist = Math.min(cand.x, 7 - cand.x, cand.y, 7 - cand.y);
+      const edgeBonus = (3 - edgeDist) * 0.25;
+
+      // Penalty for staying put if troops are nearby (<= 3 tiles)
+      const stayPenalty = (cand.isStay && minDist <= 3) ? -1.0 : 0;
+
+      const score = minDist * 10 + edgeBonus + stayPenalty;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestCandidates = [cand];
+      } else if (Math.abs(score - bestScore) < 0.01) {
+        bestCandidates.push(cand);
+      }
+    });
+
+    const chosen = bestCandidates[Math.floor(Math.random() * bestCandidates.length)];
+    if (chosen && (chosen.x !== cube.x || chosen.y !== cube.y)) {
+      cube.targetX = chosen.x;
+      cube.targetY = chosen.y;
+      cube.x = chosen.x;
+      cube.y = chosen.y;
+      cube.lastMoveTime = Date.now();
+      if (this.audio && this.audio.playBubblySqueak) {
+        if (Math.random() < 0.5) {
+          this.audio.playBubblySqueak();
+        }
+      }
+    }
   }
 
   subscribe(fn) { this.listeners.push(fn); }
@@ -2962,6 +3051,29 @@ class AudioEngine {
     this.playSfx('ui_tick', { volume: 0.45, pitchVar: 0.06 });
   }
 
+  playBubblySqueak() {
+    if (this.isMuted) return;
+    try {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const vol = this.masterVolume * this.sfxVolume * 0.7;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(420, now);
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.12);
+      gain.gain.setValueAtTime(vol * 0.6, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.14);
+    } catch (e) {
+      // Audio fallback silent
+    }
+  }
+
   playDenied() {
     this.playSfx('ui_denied', { volume: 0.75, pitchVar: 0.02 });
   }
@@ -3462,6 +3574,24 @@ class SketchRenderer {
         this.drawUnit(unit, pos.x, pos.y, engine);
       }
     });
+
+    // 7.5. Bubbly Cube Easter Egg
+    if (engine.bubblyCube) {
+      const cube = engine.bubblyCube;
+      if (cube.renderX === undefined) cube.renderX = cube.x;
+      if (cube.renderY === undefined) cube.renderY = cube.y;
+      cube.renderX += (cube.targetX - cube.renderX) * 0.25;
+      cube.renderY += (cube.targetY - cube.renderY) * 0.25;
+
+      const cGridR = Math.max(0, Math.min(7, Math.round(cube.renderY)));
+      const cGridC = Math.max(0, Math.min(7, Math.round(cube.renderX)));
+      const isVisibleToLocal = isTerrainView || (localVision[cGridR] && localVision[cGridR][cGridC]);
+
+      if (isVisibleToLocal) {
+        const pos = this.getScreenCoords(cube.renderX, cube.renderY);
+        this.drawBubblyCube(cube, pos.x, pos.y, engine);
+      }
+    }
 
     // 8. Tactical Hover Reticle with Drafting Corner Brackets
     if (this.hoveredTile) {
@@ -4566,7 +4696,92 @@ class SketchRenderer {
       }
     }
 
-    this.ctx.restore();
+  }
+
+  drawBubblyCube(cube, posX, posY, engine) {
+    const ctx = this.ctx;
+    ctx.save();
+
+    const now = Date.now();
+    const bob = Math.sin(now / 220) * 2;
+    // If a friendly or enemy unit is standing on the same tile, peek out so Bubbly Cube is always visible
+    const hasUnitOnTile = engine && engine.getAllUnits().some(u => u.isAlive() && Math.round(u.renderX) === cube.x && Math.round(u.renderY) === cube.y);
+    const peekOffsetX = hasUnitOnTile ? 16 : 0;
+    const peekOffsetY = hasUnitOnTile ? -12 : 0;
+
+    const drawX = Math.round(posX + 17 + peekOffsetX); // Center 36px inside 70px tile: (70 - 36) / 2 = 17
+    const drawY = Math.round(posY + 17 + peekOffsetY + bob);
+
+    // Blinking logic: blinks every 3-5 seconds for 130ms
+    if (!cube.nextBlink) cube.nextBlink = now + 2500 + Math.random() * 2000;
+    let isBlinking = false;
+    if (now > cube.nextBlink) {
+      if (now < cube.nextBlink + 130) {
+        isBlinking = true;
+      } else {
+        cube.nextBlink = now + 3000 + Math.random() * 2500;
+      }
+    }
+
+    const pSize = 3; // 3px per pixel block -> 36x36px retro pixel sprite
+
+    // 12x12 Pixel Sprite Matrix:
+    // 0: transparent
+    // 1: bubblegum pink body (#ff5fae)
+    // 2: dark magenta stains (#d6257e)
+    // 3: black eye pupil (#0b050c)
+    // 4: specular white eye highlight (#ffffff)
+    // 5: top rim highlight (#ff82c5)
+    const sprite = [
+      [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0], // Row 0
+      [1, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1], // Row 1 (top bevel rim)
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], // Row 2
+      [1, 1, 3, 3, 1, 1, 1, 3, 3, 1, 1, 1], // Row 3 (top-left & top-right eyes)
+      [1, 1, 3, 4, 1, 1, 1, 3, 4, 1, 1, 1], // Row 4 (eye pupils & shine)
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], // Row 5
+      [1, 1, 1, 1, 3, 3, 1, 1, 1, 1, 1, 1], // Row 6 (3rd eye, center-lower)
+      [1, 1, 1, 1, 3, 4, 1, 1, 1, 1, 1, 1], // Row 7 (3rd eye shine)
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1], // Row 8 (right stain begins)
+      [2, 2, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2], // Row 9 (left & right stains)
+      [2, 2, 2, 1, 1, 1, 1, 1, 1, 2, 2, 2], // Row 10 (left corner & right edge stains)
+      [0, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 0], // Row 11 (bottom rim)
+    ];
+
+    const palette = {
+      1: '#ff5fae',
+      2: '#d6257e',
+      3: '#0b050c',
+      4: '#ffffff',
+      5: '#ff82c5'
+    };
+
+    // Soft drop shadow on ground
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
+    ctx.beginPath();
+    ctx.ellipse(drawX + 18, posY + 52 + peekOffsetY, 15, 4.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Render crisp pixel art
+    for (let r = 0; r < 12; r++) {
+      for (let c = 0; c < 12; c++) {
+        let val = sprite[r][c];
+        if (val === 0) continue;
+
+        // When blinking, eye rows flatten into horizontal line
+        if (isBlinking) {
+          if ((r === 3 || r === 6) && (val === 3 || val === 4)) {
+            val = 3;
+          } else if ((r === 4 || r === 7) && (val === 3 || val === 4)) {
+            val = 1;
+          }
+        }
+
+        ctx.fillStyle = palette[val];
+        ctx.fillRect(drawX + c * pSize, drawY + r * pSize, pSize, pSize);
+      }
+    }
+
+    ctx.restore();
   }
 
   drawUnit(unit, x, y, engine) {
@@ -8182,6 +8397,34 @@ class App {
       const rect = this.canvas.getBoundingClientRect();
       const gridCoords = this.renderer.getGridCoords(e.clientX - rect.left, e.clientY - rect.top);
       if (!gridCoords) return;
+
+      // Easter Egg: Direct click squeak on Bubbly Cube
+      if (this.engine.bubblyCube && this.engine.bubblyCube.x === gridCoords.x && this.engine.bubblyCube.y === gridCoords.y) {
+        if (this.audio && this.audio.playBubblySqueak) {
+          this.audio.playBubblySqueak();
+        }
+      }
+
+      // Easter Egg: Triple-click empty tile during Planning phase spawns Bubbly Cube
+      const hasUnitOnClickedTile = this.engine.getAllUnits().some(u => u.x === gridCoords.x && u.y === gridCoords.y && u.isAlive());
+      const nowClick = Date.now();
+      if (!this.ui.pendingDeployUnitKey && !this.ui.pendingAbilityKey && !hasUnitOnClickedTile) {
+        if (this._emptyTileClick && this._emptyTileClick.x === gridCoords.x && this._emptyTileClick.y === gridCoords.y && (nowClick - this._emptyTileClick.time) < 800) {
+          this._emptyTileClick.count++;
+        } else {
+          this._emptyTileClick = { x: gridCoords.x, y: gridCoords.y, count: 1, time: nowClick };
+        }
+
+        if (this._emptyTileClick.count >= 3) {
+          this._emptyTileClick.count = 0;
+          this.engine.spawnBubblyCube(gridCoords.x, gridCoords.y);
+          if (this.ui && this.ui.showToast) {
+            this.ui.showToast('Tactical Anomaly', 'Bubbly Cube spotted on the battlefield! Squeak!');
+          }
+        }
+      } else {
+        this._emptyTileClick = null;
+      }
 
       if (this.bootcampManager && this.bootcampManager.activeLesson) {
         if (!this.bootcampManager.validateCanvasClick(gridCoords, this.renderer.selectedTile)) {
