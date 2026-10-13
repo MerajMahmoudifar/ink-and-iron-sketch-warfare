@@ -1761,13 +1761,16 @@ class GameEngine {
             cand.unit.waypoints = [];
             changed = true;
           } else {
-            // Friendly unit is at target: Check if that friendly unit is successfully vacating in this step
+            // Friendly unit is at target: Check if occupant is vacating OR if candidate can phase through (Advance Wars style)
             const occupantCand = movingCandidates.find(c => c.unit.id === currentOccupant.id);
-            if (!occupantCand || !occupantCand.approved) {
-              // Occupant is stationary or yielded -> Target tile will not be vacant
+            const isVacatingAlly = occupantCand && occupantCand.approved;
+            const canPassThrough = this.canUnitPassThroughFriendly(cand, currentOccupant, stepIndex, movingCandidates, allUnits);
+
+            if (!isVacatingAlly && !canPassThrough) {
+              // Occupant is stationary/yielded AND candidate cannot pass through -> Target tile will not be vacant
               cand.approved = false;
               changed = true;
-            } else {
+            } else if (isVacatingAlly) {
               // Head-on swap check: both units trying to walk into each other's current tile
               const isDirectSwap = occupantCand.targetX === cand.fromX && occupantCand.targetY === cand.fromY;
               if (isDirectSwap) {
@@ -2094,6 +2097,48 @@ class GameEngine {
     return [];
   }
 
+  canUnitPassThroughFriendly(cand, currentOccupant, stepIndex, movingCandidates, allUnits) {
+    const unit = cand.unit;
+    let speedMax = unit.moveRange;
+    if (this.players[unit.owner]?.faction?.id === FACTIONS.VANGUARD_LEGION.id) {
+      speedMax += FACTIONS.VANGUARD_LEGION.movementSpeedBonus;
+    }
+    const currentTile = this.grid[unit.y] && this.grid[unit.y][unit.x];
+    if (currentTile && currentTile.id === 'SWAMP') {
+      speedMax = 1;
+    }
+    if (unit.miredThisTurn) speedMax = 0;
+
+    const stepsLeftThisTurn = speedMax - stepIndex;
+    // Advance Wars Rule: Unit MUST have at least 1 more movement step this turn to exit the ally's tile
+    if (stepsLeftThisTurn < 2) return false;
+
+    // Must have at least 2 waypoints queued (the ally's tile, and at least one subsequent tile)
+    if (!unit.waypoints || unit.waypoints.length < 2) return false;
+
+    // Determine the tile this unit will land on at the end of this turn's movement
+    const stepsCanTake = Math.min(stepsLeftThisTurn, unit.waypoints.length);
+    const turnLandingTile = unit.waypoints[stepsCanTake - 1];
+    if (!turnLandingTile) return false;
+
+    // The turn landing tile CANNOT be a stationary friendly unit (cannot end turn on an ally)
+    const landingOccupant = allUnits.find(u => u.id !== unit.id && u.isAlive() && u.x === turnLandingTile.x && u.y === turnLandingTile.y);
+    if (landingOccupant && landingOccupant.owner === unit.owner) {
+      const landingCand = movingCandidates.find(c => c.unit.id === landingOccupant.id);
+      if (!landingCand || !landingCand.approved) {
+        return false; // Cannot end turn on an ally's tile!
+      }
+    }
+
+    // Landing tile must also be passable
+    const landingGridTile = this.grid[turnLandingTile.y] && this.grid[turnLandingTile.y][turnLandingTile.x];
+    if (!landingGridTile) return false;
+    const canPass = unit.category === 'VEHICLE' ? landingGridTile.isVehiclePassable : landingGridTile.isInfantryPassable;
+    if (!canPass) return false;
+
+    return true;
+  }
+
   getReachableTiles(unit) {
     if (!unit || !unit.isAlive()) return [];
 
@@ -2139,10 +2184,18 @@ class GameEngine {
         if (!canPass) continue;
 
         const enemyAtTile = this.getAllUnits().find(u => u.isAlive() && u.x === n.x && u.y === n.y && u.owner !== unit.owner);
+        const friendlyAtTile = this.getAllUnits().find(u => u.isAlive() && u.x === n.x && u.y === n.y && u.owner === unit.owner && u.id !== unit.id);
+        const isVacatingAlly = friendlyAtTile && friendlyAtTile.waypoints && friendlyAtTile.waypoints.length > 0;
 
         visited.set(key, nextSteps);
-        reachable.push({ x: n.x, y: n.y, steps: nextSteps, isEnemyOccupied: !!enemyAtTile });
 
+        // Advance Wars Rule: Friendly units can be traversed through, but cannot be the final stop unless vacating
+        if (!friendlyAtTile || isVacatingAlly) {
+          reachable.push({ x: n.x, y: n.y, steps: nextSteps, isEnemyOccupied: !!enemyAtTile });
+        }
+
+        // BFS continues through empty tiles AND friendly tiles (corridor phasing)!
+        // Only stop expansion if blocked by an enemy:
         if (!enemyAtTile && nextSteps < maxSteps) {
           queue.push({ x: n.x, y: n.y, steps: nextSteps });
         }
