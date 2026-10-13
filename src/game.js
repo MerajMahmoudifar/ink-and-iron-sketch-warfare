@@ -6260,8 +6260,9 @@ class UIManager {
             </div>
           </div>
 
-          <button class="btn-sketch" style="width: 100%; margin-top: 10px; padding: 7px 12px; font-weight: 700; font-size: 0.76rem; letter-spacing: 0.05em; border-color: rgba(244, 63, 94, 0.5); color: #fda4af; background: rgba(244, 63, 94, 0.1);" onclick="if(window.gApp) window.gApp.pokeBubblyCube()">
-            TACTICAL INTERACTION &bull; POKE ENTITY (*PLOOM*)
+          <button class="dossier-bubbly-poke-btn" onclick="if(window.gApp) window.gApp.pokeBubblyCube()">
+            <span class="bubbly-btn-icon"></span>
+            <span>POKE ENTITY &bull; *PLOOM!*</span>
           </button>
         </div>
       `;

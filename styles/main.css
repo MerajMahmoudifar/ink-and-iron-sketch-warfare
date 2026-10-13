@@ -4313,6 +4313,51 @@ select.diesel-hidden-select {
   padding: 6px 10px;
   font-size: 0.78rem;
 }
+.dossier-bubbly-poke-btn {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 10px;
+  padding: 8px 10px;
+  font-family: var(--font-display);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #fda4af;
+  background: rgba(244, 63, 94, 0.12);
+  border: 1px solid rgba(244, 63, 94, 0.45);
+  border-radius: var(--r-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.25;
+  transition: all var(--t-fast);
+  box-shadow: 0 2px 8px rgba(244, 63, 94, 0.15);
+}
+.dossier-bubbly-poke-btn:hover {
+  background: rgba(244, 63, 94, 0.22);
+  border-color: rgba(244, 63, 94, 0.75);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(244, 63, 94, 0.35);
+  transform: translateY(-1px);
+}
+.dossier-bubbly-poke-btn:active {
+  transform: translateY(1px);
+  background: rgba(244, 63, 94, 0.32);
+}
+.dossier-bubbly-poke-btn .bubbly-btn-icon {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fb7185;
+  box-shadow: 0 0 6px #fb7185;
+  flex-shrink: 0;
+}
 
 /* ============================================
    DIESELPUNK TACTICAL BADGES & SILHOUETTES
