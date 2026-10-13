@@ -3123,7 +3123,7 @@ class AudioEngine {
     this.playSfx('ui_tick', { volume: 0.45, pitchVar: 0.06 });
   }
 
-  playBubblyPloom(isSquish = false) {
+  playBubblyPloom(isSquish = false, combo = 1) {
     if (this.isMuted) return;
     try {
       this.init();
@@ -3131,27 +3131,39 @@ class AudioEngine {
       const now = this.ctx.currentTime;
       const vol = this.masterVolume * this.sfxVolume * 0.75;
 
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = 'sine';
+      const playTone = (startF, peakF, offset, dur) => {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        const t = now + offset;
+        osc.frequency.setValueAtTime(startF, t);
+        osc.frequency.exponentialRampToValueAtTime(peakF, t + dur * 0.35);
+        osc.frequency.exponentialRampToValueAtTime(peakF * 0.82, t + dur);
 
-      // Resonant, buoyant bubble droplet "ploom" frequency envelope
-      const startFreq = isSquish ? 260 : 310;
-      const peakFreq = isSquish ? 780 : 640;
-      const dur = isSquish ? 0.20 : 0.15;
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.exponentialRampToValueAtTime(vol * 0.85, t + dur * 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
 
-      osc.frequency.setValueAtTime(startFreq, now);
-      osc.frequency.exponentialRampToValueAtTime(peakFreq, now + 0.05);
-      osc.frequency.exponentialRampToValueAtTime(peakFreq * 0.85, now + dur);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + dur);
+      };
 
-      gain.gain.setValueAtTime(vol * 0.8, now);
-      gain.gain.exponentialRampToValueAtTime(vol * 0.95, now + 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
-
-      osc.connect(gain);
-      gain.connect(this.ctx.destination);
-      osc.start(now);
-      osc.stop(now + dur);
+      if (combo >= 6) {
+        // High-energy musical arpeggio for rapid spamming!
+        playTone(340, 680, 0, 0.10);
+        playTone(460, 860, 0.06, 0.11);
+        playTone(580, 1100, 0.12, 0.14);
+      } else if (combo >= 3) {
+        // Double buoyant chirp
+        playTone(280, 720, 0, 0.12);
+        playTone(380, 880, 0.07, 0.13);
+      } else {
+        const startFreq = isSquish ? 260 : 310;
+        const peakFreq = isSquish ? 780 : 640;
+        playTone(startFreq, peakFreq, 0, isSquish ? 0.20 : 0.15);
+      }
     } catch (e) {
       // Audio fallback silent
     }
@@ -4848,20 +4860,31 @@ class SketchRenderer {
     ctx.ellipse(drawX + 18, posY + 52, 15 * shadowScale, 4.5 * shadowScale, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Squish & Stretch Jelly Physics when poked
+    // Squish, Stretch & Turbo Spin Physics when poked/spam-clicked
     let scaleX = 1;
     let scaleY = 1;
-    if (cube.lastPokeTime && (now - cube.lastPokeTime < 380)) {
-      const p = (now - cube.lastPokeTime) / 380;
-      const squish = Math.sin(p * Math.PI * 2.5) * Math.exp(-p * 3) * 0.42;
-      scaleX = 1 + squish;
-      scaleY = 1 - squish;
+    let spinAngle = 0;
+    const isTurboSpam = cube.combo >= 6;
+    const isComboSpam = cube.combo >= 3;
+
+    if (cube.lastPokeTime && (now - cube.lastPokeTime < 420)) {
+      const p = (now - cube.lastPokeTime) / 420;
+      const intensity = isTurboSpam ? 0.65 : (isComboSpam ? 0.52 : 0.40);
+      const squish = Math.sin(p * Math.PI * 2.5) * Math.exp(-p * 2.5) * intensity;
+      scaleX = 1 + squish * 1.25;
+      scaleY = 1 - squish * 0.95;
+
+      // 360 degree turbo spin on high combo spam!
+      if (isTurboSpam) {
+        spinAngle = p * Math.PI * 2;
+      }
     }
 
     ctx.save();
-    if (scaleX !== 1 || scaleY !== 1) {
+    if (scaleX !== 1 || scaleY !== 1 || spinAngle !== 0) {
       ctx.translate(drawX + 18, drawY + 18);
-      ctx.scale(scaleX, scaleY);
+      if (spinAngle !== 0) ctx.rotate(spinAngle);
+      if (scaleX !== 1 || scaleY !== 1) ctx.scale(scaleX, scaleY);
       ctx.translate(-(drawX + 18), -(drawY + 18));
     }
 
@@ -4871,8 +4894,8 @@ class SketchRenderer {
         let val = sprite[r][c];
         if (val === 0) continue;
 
-        // When blinking, eye rows flatten into horizontal line
-        if (isBlinking) {
+        // When blinking or turbo dizzy, eyes become cute horizontal slits
+        if (isBlinking || (isTurboSpam && (now - cube.lastPokeTime < 420))) {
           if ((r === 3 || r === 6) && (val === 3 || val === 4)) {
             val = 3;
           } else if ((r === 4 || r === 7) && (val === 3 || val === 4)) {
@@ -4886,17 +4909,58 @@ class SketchRenderer {
     }
     ctx.restore();
 
-    // Floating pixel bubble particles from poke
+    // Floating particles: bubbles, hearts, sparkles
     if (cube.bubbles && cube.bubbles.length > 0) {
       cube.bubbles.forEach(b => {
         b.x += b.vx;
         b.y += b.vy;
         b.life++;
         const alpha = Math.max(0, 1 - (b.life / b.maxLife));
-        ctx.fillStyle = `rgba(255, 130, 197, ${alpha * 0.85})`;
-        ctx.fillRect(Math.round(drawX + 18 + b.x), Math.round(drawY + b.y), b.size, b.size);
+        const px = Math.round(drawX + 18 + b.x);
+        const py = Math.round(drawY + b.y);
+
+        if (b.type === 'heart') {
+          ctx.fillStyle = `rgba(244, 63, 94, ${alpha * 0.95})`;
+          ctx.fillRect(px - 2, py - 2, 2, 2);
+          ctx.fillRect(px + 1, py - 2, 2, 2);
+          ctx.fillRect(px - 3, py - 1, 7, 2);
+          ctx.fillRect(px - 2, py + 1, 5, 1);
+          ctx.fillRect(px - 1, py + 2, 3, 1);
+          ctx.fillRect(px, py + 3, 1, 1);
+        } else if (b.type === 'sparkle') {
+          ctx.fillStyle = `rgba(251, 191, 36, ${alpha * 0.95})`;
+          ctx.fillRect(px - 2, py, 5, 1);
+          ctx.fillRect(px, py - 2, 1, 5);
+          ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+          ctx.fillRect(px, py, 1, 1);
+        } else {
+          ctx.fillStyle = `rgba(255, 130, 197, ${alpha * 0.85})`;
+          ctx.fillRect(px, py, b.size, b.size);
+          ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.9})`;
+          ctx.fillRect(px, py, 1, 1);
+        }
       });
       cube.bubbles = cube.bubbles.filter(b => b.life < b.maxLife);
+    }
+
+    // Floating comic text rising on poke
+    if (cube.floatingTexts && cube.floatingTexts.length > 0) {
+      ctx.save();
+      ctx.font = 'bold 11px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      cube.floatingTexts.forEach(ft => {
+        ft.y += ft.vy;
+        ft.life++;
+        const alpha = Math.max(0, 1 - (ft.life / ft.maxLife));
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 2.5;
+        ctx.strokeText(ft.text, drawX + 18 + ft.x, drawY + ft.y);
+        ctx.fillStyle = ft.color;
+        ctx.fillText(ft.text, drawX + 18 + ft.x, drawY + ft.y);
+      });
+      ctx.restore();
+      cube.floatingTexts = cube.floatingTexts.filter(ft => ft.life < ft.maxLife);
     }
 
     ctx.restore();
@@ -5934,6 +5998,40 @@ class UIManager {
     });
   }
 
+  getBubblyCubeSvg() {
+    const sprite = [
+      [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+      [1, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1],
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      [1, 1, 3, 3, 1, 1, 1, 3, 3, 1, 1, 1],
+      [1, 1, 3, 4, 1, 1, 1, 3, 4, 1, 2, 2],
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2],
+      [1, 1, 1, 1, 3, 3, 1, 1, 1, 2, 2, 2],
+      [1, 1, 1, 1, 3, 4, 1, 1, 1, 1, 2, 2],
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      [2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      [2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      [0, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 0],
+    ];
+    const palette = {
+      1: '#ff5fae',
+      2: '#d6257e',
+      3: '#0b050c',
+      4: '#ffffff',
+      5: '#ff82c5'
+    };
+    let rects = '';
+    for (let r = 0; r < 12; r++) {
+      for (let c = 0; c < 12; c++) {
+        const v = sprite[r][c];
+        if (v !== 0) {
+          rects += `<rect x="${c}" y="${r}" width="1" height="1" fill="${palette[v]}" />`;
+        }
+      }
+    }
+    return `<svg viewBox="0 0 12 12" width="34" height="34" style="image-rendering: pixelated; shape-rendering: crispEdges; display: block;">${rects}</svg>`;
+  }
+
   renderInspector(engine) {
     if (!this.inspectorContent) return;
     const sel = this.app.renderer.selectedTile;
@@ -6109,36 +6207,62 @@ class UIManager {
 
     if (isBubblyOnTile) {
       html += `
-        <div class="dossier-card" style="border-left: 3px solid #ff5fae; background: linear-gradient(135deg, rgba(255, 95, 174, 0.09), rgba(15, 23, 42, 0.65));">
-          <div class="dossier-sector-header">
-            <span class="dossier-coord-stamp">${sectorCoord}</span>
-            <span class="dossier-status-live" style="background: rgba(255, 95, 174, 0.2); color: #ff82c5; border: 1px solid #ff5fae;">CLASSIFIED MASCOT</span>
+        <div class="dossier-unit-card" style="border-left: 3px solid #f43f5e; box-shadow: 0 4px 16px rgba(244, 63, 94, 0.12);">
+          <div class="dossier-unit-header">
+            <span class="dossier-allegiance-badge" style="color: #fb7185; letter-spacing: 0.08em;">
+              &bull; CLASSIFIED ANOMALY &bull; NON-COMBATANT
+            </span>
+            <div class="dossier-unit-title-row" style="align-items: center; gap: 12px; margin-top: 4px;">
+              <div style="width: 44px; height: 44px; background: rgba(15, 23, 42, 0.7); border: 1.5px solid rgba(244, 63, 94, 0.4); border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: inset 0 0 8px rgba(244, 63, 94, 0.2);">
+                ${this.getBubblyCubeSvg()}
+              </div>
+              <div style="display: flex; flex-direction: column;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="dossier-unit-name" style="color: #fda4af; font-size: 1.05rem;">BUBBLY CUBE</span>
+                  <span class="unit-role-tag" style="background: rgba(244, 63, 94, 0.15); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.35);">MASCOT</span>
+                </div>
+                <span style="font-size: 0.68rem; font-family: var(--font-mono); color: var(--text-muted); margin-top: 1px;">CODENAME: PINK GELATIN</span>
+              </div>
+            </div>
           </div>
-          <div style="display: flex; align-items: center; gap: 12px; margin: 10px 0 8px 0;">
-            <div style="width: 44px; height: 44px; background: rgba(255, 95, 174, 0.15); border: 2px dashed #ff5fae; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0;">
-              🍬
+
+          <div class="dossier-hp-section" style="margin-top: 10px;">
+            <div class="dossier-hp-meta">
+              <span class="dossier-hp-lbl">STRUCTURAL INTEGRITY</span>
+              <span class="dossier-hp-val" style="color: #fb7185;">100% (INVULNERABLE)</span>
             </div>
-            <div>
-              <div style="font-weight: 800; font-size: 0.95rem; color: #ff82c5; letter-spacing: 0.5px;">BUBBLY CUBE</div>
-              <div style="font-size: 0.72rem; color: var(--text-secondary); font-family: var(--font-mono);">SPECIES: Sentient Bubblegum Slime</div>
+            <div class="dossier-hp-track" style="height: 6px; background: rgba(30, 41, 59, 0.8);">
+              <div style="width: 100%; height: 100%; border-radius: 2px; background: linear-gradient(90deg, #ff5fae, #e11d48); box-shadow: 0 0 8px rgba(255, 95, 174, 0.5);"></div>
             </div>
           </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; font-size: 0.72rem; font-family: var(--font-mono);">
-            <div style="background: rgba(15, 23, 42, 0.5); padding: 5px 8px; border-radius: 4px; border: 1px solid rgba(255, 95, 174, 0.3);">
-              <span style="color: var(--text-muted);">ARMOR:</span> <span style="color: #ff82c5; font-weight: 700;">Invulnerable</span>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 10px 0 8px 0; font-size: 0.70rem; font-family: var(--font-mono);">
+            <div style="background: rgba(15, 23, 42, 0.6); padding: 5px 8px; border-radius: 4px; border: 1px solid rgba(51, 65, 85, 0.7);">
+              <span style="color: var(--text-muted);">ARMOR:</span> <span style="color: #fb7185; font-weight: 700;">100% Squeak</span>
             </div>
-            <div style="background: rgba(15, 23, 42, 0.5); padding: 5px 8px; border-radius: 4px; border: 1px solid rgba(255, 95, 174, 0.3);">
+            <div style="background: rgba(15, 23, 42, 0.6); padding: 5px 8px; border-radius: 4px; border: 1px solid rgba(51, 65, 85, 0.7);">
               <span style="color: var(--text-muted);">THREAT:</span> <span style="color: #4ade80; font-weight: 700;">0 (Harmless)</span>
             </div>
+            <div style="background: rgba(15, 23, 42, 0.6); padding: 5px 8px; border-radius: 4px; border: 1px solid rgba(51, 65, 85, 0.7);">
+              <span style="color: var(--text-muted);">MOBILITY:</span> <span style="color: #38bdf8; font-weight: 700;">Leapfrog</span>
+            </div>
+            <div style="background: rgba(15, 23, 42, 0.6); padding: 5px 8px; border-radius: 4px; border: 1px solid rgba(51, 65, 85, 0.7);">
+              <span style="color: var(--text-muted);">STANCE:</span> <span style="color: #fbbf24; font-weight: 700;">Unbothered</span>
+            </div>
           </div>
-          <div style="background: rgba(255, 95, 174, 0.08); border-left: 2px solid #ff5fae; padding: 8px 10px; border-radius: 0 4px 4px 0; font-size: 0.74rem; line-height: 1.45; color: var(--text-primary); font-style: italic;">
-            &ldquo;How dare you even think of attacking Bubbly Cube, Commander?! High Command strictly forbids hostility toward this innocent creature. Shells bounce right off, bullets get absorbed into bubblegum, and quite frankly, you should be ashamed of yourself.&rdquo;
+
+          <div style="background: rgba(244, 63, 94, 0.07); border-left: 2px solid #f43f5e; padding: 8px 10px; border-radius: 0 4px 4px 0; margin-top: 6px;">
+            <div style="font-size: 0.65rem; font-family: var(--font-mono); color: #fb7185; font-weight: 700; margin-bottom: 3px; letter-spacing: 0.05em;">
+              [INTELLIGENCE BRIEF // EYES-ONLY]
+            </div>
+            <div style="font-size: 0.73rem; line-height: 1.45; color: var(--text-primary); font-style: italic;">
+              &ldquo;How dare you even think of attacking Bubbly Cube, Commander?! High Command strictly forbids hostility toward this innocent creature. Shells bounce right off, bullets get absorbed into bubblegum, and quite frankly, you should be ashamed of yourself.&rdquo;
+            </div>
           </div>
-          <div style="margin-top: 10px; text-align: center;">
-            <button class="btn-sketch" style="width: 100%; font-size: 0.75rem; border-color: #ff5fae; color: #ff82c5;" onclick="if(window.gApp) window.gApp.pokeBubblyCube()">
-              👉 Poke Bubbly Cube (*ploom!*)
-            </button>
-          </div>
+
+          <button class="btn-sketch" style="width: 100%; margin-top: 10px; padding: 7px 12px; font-weight: 700; font-size: 0.76rem; letter-spacing: 0.05em; border-color: rgba(244, 63, 94, 0.5); color: #fda4af; background: rgba(244, 63, 94, 0.1);" onclick="if(window.gApp) window.gApp.pokeBubblyCube()">
+            TACTICAL INTERACTION &bull; POKE ENTITY (*PLOOM*)
+          </button>
         </div>
       `;
     }
@@ -8585,31 +8709,89 @@ class App {
   pokeBubblyCube() {
     if (!this.engine || !this.engine.bubblyCube) return;
     const cube = this.engine.bubblyCube;
-    cube.lastPokeTime = Date.now();
+    const now = Date.now();
+    if (cube.lastPokeTime && (now - cube.lastPokeTime < 650)) {
+      cube.combo = (cube.combo || 1) + 1;
+    } else {
+      cube.combo = 1;
+    }
+    cube.lastPokeTime = now;
     cube.pokeCount = (cube.pokeCount || 0) + 1;
 
     if (this.audio && this.audio.playBubblyPloom) {
-      this.audio.playBubblyPloom(true);
+      this.audio.playBubblyPloom(true, cube.combo);
     } else if (this.audio && this.audio.playBubblySqueak) {
       this.audio.playBubblySqueak();
     }
 
     if (!cube.bubbles) cube.bubbles = [];
-    for (let i = 0; i < 4; i++) {
+    if (!cube.floatingTexts) cube.floatingTexts = [];
+
+    // 1. Bubbles
+    const bubbleCount = cube.combo >= 6 ? 8 : (cube.combo >= 3 ? 5 : 3);
+    for (let i = 0; i < bubbleCount; i++) {
       cube.bubbles.push({
-        x: (Math.random() - 0.5) * 20,
+        type: 'bubble',
+        x: (Math.random() - 0.5) * 26,
         y: -4,
-        vx: (Math.random() - 0.5) * 1.5,
-        vy: -(1.2 + Math.random() * 1.5),
-        size: 2 + Math.floor(Math.random() * 3),
+        vx: (Math.random() - 0.5) * (cube.combo >= 6 ? 2.6 : 1.8),
+        vy: -(1.4 + Math.random() * (cube.combo >= 6 ? 2.5 : 1.6)),
+        size: 2 + Math.floor(Math.random() * 4),
         life: 0,
         maxLife: 24 + Math.floor(Math.random() * 20)
       });
     }
 
-    if (cube.pokeCount % 4 === 0 && this.ui && this.ui.showToast) {
-      this.ui.showToast('Bubbly Cube', '*Ploom!* Bubbly Cube squishes playfully under your finger!');
+    // 2. Hearts for Tier 2 & 3
+    if (cube.combo >= 3) {
+      cube.bubbles.push({
+        type: 'heart',
+        x: (Math.random() - 0.5) * 20,
+        y: -8,
+        vx: (Math.random() - 0.5) * 1.5,
+        vy: -(1.8 + Math.random() * 1.2),
+        life: 0,
+        maxLife: 35
+      });
     }
+
+    // 3. Gold sparkles for Tier 3
+    if (cube.combo >= 6) {
+      for (let s = 0; s < 3; s++) {
+        cube.bubbles.push({
+          type: 'sparkle',
+          x: (Math.random() - 0.5) * 28,
+          y: -10,
+          vx: (Math.random() - 0.5) * 2.2,
+          vy: -(2.0 + Math.random() * 1.8),
+          life: 0,
+          maxLife: 30
+        });
+      }
+    }
+
+    // 4. Floating comic text
+    let textStr = '*PLOOM!*';
+    let textColor = '#ff82c5';
+    if (cube.combo >= 6) {
+      const msgs = ['*SUPER PLOOM!*', '*TICKLE TURBO!*', '*GIGGLE!*', '*MAX SQUISH!*'];
+      textStr = msgs[(cube.pokeCount) % msgs.length];
+      textColor = '#f43f5e';
+    } else if (cube.combo >= 3) {
+      const msgs = ['*SQUISH!*', '*BOING!*', '*BUBBLY!*'];
+      textStr = msgs[(cube.pokeCount) % msgs.length];
+      textColor = '#fb7185';
+    }
+
+    cube.floatingTexts.push({
+      text: textStr,
+      x: 0,
+      y: -14,
+      vy: -1.0,
+      life: 0,
+      maxLife: 32,
+      color: textColor
+    });
 
     if (this.renderer) {
       this.renderer.render(this.engine);
