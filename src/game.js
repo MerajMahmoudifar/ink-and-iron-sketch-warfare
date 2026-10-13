@@ -2212,6 +2212,9 @@ class GameEngine {
   }
 
   spawnBubblyCube(x, y) {
+    if (this.bubblyCube) {
+      return this.bubblyCube; // Unique entity: cannot be re-summoned or relocated once spawned
+    }
     this.bubblyCube = {
       x: Math.max(0, Math.min(7, Math.round(x))),
       y: Math.max(0, Math.min(7, Math.round(y))),
@@ -8405,10 +8408,10 @@ class App {
         }
       }
 
-      // Easter Egg: Triple-click empty tile during Planning phase spawns Bubbly Cube
+      // Easter Egg: Triple-click empty tile during Planning phase spawns Bubbly Cube (only once per match)
       const hasUnitOnClickedTile = this.engine.getAllUnits().some(u => u.x === gridCoords.x && u.y === gridCoords.y && u.isAlive());
       const nowClick = Date.now();
-      if (!this.ui.pendingDeployUnitKey && !this.ui.pendingAbilityKey && !hasUnitOnClickedTile) {
+      if (!this.engine.bubblyCube && !this.ui.pendingDeployUnitKey && !this.ui.pendingAbilityKey && !hasUnitOnClickedTile) {
         if (this._emptyTileClick && this._emptyTileClick.x === gridCoords.x && this._emptyTileClick.y === gridCoords.y && (nowClick - this._emptyTileClick.time) < 800) {
           this._emptyTileClick.count++;
         } else {
