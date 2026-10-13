@@ -784,6 +784,8 @@ class GameEngine {
     this.planningTimeRemaining = this.bootcampLesson ? Infinity : this.planningDurationConfig;
     this.playbackTimeRemaining = this.playbackDurationConfig;
     this.currentPlaybackStep = 0;
+    this.playbackTimeouts = [];
+    this.stepMoveAnimDuration = 540;
     this.timerInterval = null;
     this.isWaitingForOpponentTurn = false;
     this.isOpponentReadyThisTurn = false;
@@ -1086,26 +1088,21 @@ class GameEngine {
         if (this.planningTimeRemaining <= 0) this.endPlanningPhase();
       } else if (this.phase === GAME_PHASES.PLAYBACK) {
         this.playbackTimeRemaining--;
-        
-        const totalDuration = this.playbackDurationConfig;
-        const progressFraction = (totalDuration - this.playbackTimeRemaining) / totalDuration;
-        const expectedStep = Math.min(3, Math.floor(progressFraction * 4));
-        
-        if (expectedStep > this.currentPlaybackStep) {
-          this.currentPlaybackStep = expectedStep;
-          this.executeSinglePlaybackStep(this.currentPlaybackStep);
-        }
-
         if (this.phase === GAME_PHASES.GAME_OVER || this.winner) {
           this.pauseTimer();
           this.notifyStateChange();
           return;
         }
-
-        if (this.playbackTimeRemaining <= 0) this.endPlaybackPhase();
       }
       this.notifyStateChange();
     }, 1000);
+  }
+
+  clearPlaybackTimeouts() {
+    if (this.playbackTimeouts && this.playbackTimeouts.length > 0) {
+      this.playbackTimeouts.forEach(t => clearTimeout(t));
+      this.playbackTimeouts = [];
+    }
   }
 
   pauseTimer() {
@@ -1113,11 +1110,13 @@ class GameEngine {
       clearInterval(this.timerInterval);
       this.timerInterval = null;
     }
+    this.clearPlaybackTimeouts();
   }
 
   stop() {
     this.isStopped = true;
     this.pauseTimer();
+    this.clearPlaybackTimeouts();
     this.phase = 'MENU';
   }
 
@@ -1163,17 +1162,57 @@ class GameEngine {
       u.prevX = u.x; u.prevY = u.y;
       u.targetX = u.x; u.targetY = u.y;
       u.miredThisTurn = false;
+      u.animStartTime = undefined;
     });
 
     // Record planned moves snapshot for this turn
     this.recordTurnSnapshot('PLANNING');
 
+    // Synchronized multi-step playback choreography
+    this.clearPlaybackTimeouts();
+    const totalMs = Math.max(2800, this.playbackDurationConfig * 1000);
+    const stepIntervalMs = Math.floor((totalMs - 450) / 4);
+    this.stepMoveAnimDuration = Math.floor(stepIntervalMs * 0.85);
+
+    // Step 0: Immediate execution
+    this.currentPlaybackStep = 0;
     this.executeSinglePlaybackStep(0);
     this.notifyStateChange();
+
+    // Step 1:
+    this.playbackTimeouts.push(setTimeout(() => {
+      if (this.phase !== GAME_PHASES.PLAYBACK || this.isStopped || this.winner) return;
+      this.currentPlaybackStep = 1;
+      this.executeSinglePlaybackStep(1);
+      this.notifyStateChange();
+    }, stepIntervalMs));
+
+    // Step 2:
+    this.playbackTimeouts.push(setTimeout(() => {
+      if (this.phase !== GAME_PHASES.PLAYBACK || this.isStopped || this.winner) return;
+      this.currentPlaybackStep = 2;
+      this.executeSinglePlaybackStep(2);
+      this.notifyStateChange();
+    }, stepIntervalMs * 2));
+
+    // Step 3:
+    this.playbackTimeouts.push(setTimeout(() => {
+      if (this.phase !== GAME_PHASES.PLAYBACK || this.isStopped || this.winner) return;
+      this.currentPlaybackStep = 3;
+      this.executeSinglePlaybackStep(3);
+      this.notifyStateChange();
+    }, stepIntervalMs * 3));
+
+    // Final transition: only after Step 3 visual animation has completely finished & settled
+    this.playbackTimeouts.push(setTimeout(() => {
+      if (this.phase !== GAME_PHASES.PLAYBACK || this.isStopped) return;
+      this.endPlaybackPhase();
+    }, totalMs));
   }
 
   endPlaybackPhase() {
     if (this.isStopped || this.phase === 'MENU') return;
+    this.clearPlaybackTimeouts();
     if (this.winner) {
       this.phase = GAME_PHASES.GAME_OVER;
       this.pauseTimer();
@@ -1202,6 +1241,7 @@ class GameEngine {
       u.miredThisTurn = false;
       u.prevX = u.x; u.prevY = u.y;
       u.renderX = u.x; u.renderY = u.y;
+      u.animStartTime = undefined;
       const terrainTile = this.grid[u.y][u.x];
       if (terrainTile.id === 'FOREST' && u.stance === STANCES.AMBUSH.id) u.isAmbusherHidden = true;
     });
@@ -1209,6 +1249,7 @@ class GameEngine {
     // Record turn start snapshot
     this.recordTurnSnapshot('PLANNING');
 
+    this.evaluateAutoStances();
     this.notifyStateChange();
   }
 
@@ -1694,6 +1735,10 @@ class GameEngine {
           // Highest priority commander takes the tile; others yield for this step
           for (let i = 1; i < cands.length; i++) {
             cands[i].approved = false;
+            // WEGO Tactical Collision: If contested tile was against an opponent, halt on contact & cancel waypoints
+            if (cands[i].unit.owner !== cands[0].unit.owner) {
+              cands[i].unit.waypoints = [];
+            }
             changed = true;
           }
         }
@@ -1711,8 +1756,9 @@ class GameEngine {
         const currentOccupant = allUnits.find(u => u.id !== cand.unit.id && u.isAlive() && u.x === cand.targetX && u.y === cand.targetY);
         if (currentOccupant) {
           if (currentOccupant.owner !== cand.unit.owner) {
-            // Enemy unit blocks movement
+            // Tactical Interception: Enemy unit blocks movement! Halt on contact and cancel remaining waypoints
             cand.approved = false;
+            cand.unit.waypoints = [];
             changed = true;
           } else {
             // Friendly unit is at target: Check if that friendly unit is successfully vacating in this step
@@ -1745,6 +1791,13 @@ class GameEngine {
       const unit = cand.unit;
       const nextTile = cand.nextTile;
       const tile = cand.tile;
+
+      unit.animStartX = (unit.renderX !== undefined) ? unit.renderX : unit.x;
+      unit.animStartY = (unit.renderY !== undefined) ? unit.renderY : unit.y;
+      unit.animTargetX = nextTile.x;
+      unit.animTargetY = nextTile.y;
+      unit.animStartTime = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+      unit.animDuration = this.stepMoveAnimDuration || 540;
 
       unit.prevX = unit.x;
       unit.prevY = unit.y;
@@ -2039,6 +2092,64 @@ class GameEngine {
       }
     }
     return [];
+  }
+
+  getReachableTiles(unit) {
+    if (!unit || !unit.isAlive()) return [];
+
+    let maxSteps = unit.moveRange;
+    if (this.players[unit.owner]?.faction?.id === FACTIONS.VANGUARD_LEGION.id) {
+      maxSteps += FACTIONS.VANGUARD_LEGION.movementSpeedBonus;
+    }
+    const currentTile = this.grid[unit.y] && this.grid[unit.y][unit.x];
+    if (currentTile && currentTile.id === 'SWAMP') {
+      maxSteps = 1;
+    }
+    if (unit.miredThisTurn) {
+      maxSteps = 0;
+    }
+
+    if (maxSteps <= 0) return [];
+
+    const queue = [{ x: unit.x, y: unit.y, steps: 0 }];
+    const visited = new Map();
+    visited.set(`${unit.x},${unit.y}`, 0);
+    const reachable = [];
+
+    while (queue.length > 0) {
+      const cur = queue.shift();
+      if (cur.steps >= maxSteps) continue;
+
+      const neighbors = [
+        { x: cur.x + 1, y: cur.y },
+        { x: cur.x - 1, y: cur.y },
+        { x: cur.x, y: cur.y + 1 },
+        { x: cur.x, y: cur.y - 1 }
+      ];
+
+      for (const n of neighbors) {
+        if (n.x < 0 || n.x >= 8 || n.y < 0 || n.y >= 8) continue;
+        const key = `${n.x},${n.y}`;
+        const nextSteps = cur.steps + 1;
+
+        if (visited.has(key) && visited.get(key) <= nextSteps) continue;
+
+        const tile = this.grid[n.y][n.x];
+        const canPass = unit.category === 'VEHICLE' ? tile.isVehiclePassable : tile.isInfantryPassable;
+        if (!canPass) continue;
+
+        const enemyAtTile = this.getAllUnits().find(u => u.isAlive() && u.x === n.x && u.y === n.y && u.owner !== unit.owner);
+
+        visited.set(key, nextSteps);
+        reachable.push({ x: n.x, y: n.y, steps: nextSteps, isEnemyOccupied: !!enemyAtTile });
+
+        if (!enemyAtTile && nextSteps < maxSteps) {
+          queue.push({ x: n.x, y: n.y, steps: nextSteps });
+        }
+      }
+    }
+
+    return reachable;
   }
 
   subscribe(fn) { this.listeners.push(fn); }
@@ -3162,6 +3273,61 @@ class SketchRenderer {
     this.ctx.strokeRect(this.offsetX, this.offsetY, 560, 560);
     this.ctx.restore();
 
+    // 5.5. Selected Friendly Unit Reachable Footprint & Ghost Trajectory (Planning Phase)
+    let selectedFriendlyUnit = null;
+    if (engine.phase === 'PLANNING' && this.selectedTile) {
+      selectedFriendlyUnit = engine.getAllUnits().find(u => u.isAlive() && u.x === this.selectedTile.x && u.y === this.selectedTile.y && u.owner === localSlot);
+      if (selectedFriendlyUnit) {
+        // Draw reachable tiles blueprint wash with technical drafting registration ticks
+        const reachableTiles = engine.getReachableTiles(selectedFriendlyUnit);
+        reachableTiles.forEach(rt => {
+          const rpos = this.getScreenCoords(rt.x, rt.y);
+          this.ctx.save();
+          // Interior subtle blueprint wash
+          this.ctx.fillStyle = rt.isEnemyOccupied ? 'rgba(239, 68, 68, 0.12)' : 'rgba(59, 130, 246, 0.08)';
+          this.ctx.fillRect(rpos.x + 1, rpos.y + 1, 68, 68);
+
+          // Technical corner registration ticks
+          this.ctx.strokeStyle = rt.isEnemyOccupied ? 'rgba(239, 68, 68, 0.45)' : 'rgba(59, 130, 246, 0.35)';
+          this.ctx.lineWidth = 1.2;
+          const tickLen = 6;
+          this.ctx.beginPath();
+          // Top-Left corner tick
+          this.ctx.moveTo(rpos.x + 3, rpos.y + 3 + tickLen); this.ctx.lineTo(rpos.x + 3, rpos.y + 3); this.ctx.lineTo(rpos.x + 3 + tickLen, rpos.y + 3);
+          // Top-Right corner tick
+          this.ctx.moveTo(rpos.x + 67 - tickLen, rpos.y + 3); this.ctx.lineTo(rpos.x + 67, rpos.y + 3); this.ctx.lineTo(rpos.x + 67, rpos.y + 3 + tickLen);
+          // Bottom-Left corner tick
+          this.ctx.moveTo(rpos.x + 3, rpos.y + 67 - tickLen); this.ctx.lineTo(rpos.x + 3, rpos.y + 67); this.ctx.lineTo(rpos.x + 3 + tickLen, rpos.y + 67);
+          // Bottom-Right corner tick
+          this.ctx.moveTo(rpos.x + 67 - tickLen, rpos.y + 67); this.ctx.lineTo(rpos.x + 67, rpos.y + 67); this.ctx.lineTo(rpos.x + 67, rpos.y + 67 - tickLen);
+          this.ctx.stroke();
+
+          // If enemy occupied, draw miniature red reticle ticks
+          if (rt.isEnemyOccupied) {
+            this.ctx.fillStyle = '#ef4444';
+            this.ctx.fillRect(rpos.x + 33, rpos.y + 2, 4, 3);
+            this.ctx.fillRect(rpos.x + 33, rpos.y + 65, 4, 3);
+            this.ctx.fillRect(rpos.x + 2, rpos.y + 33, 3, 4);
+            this.ctx.fillRect(rpos.x + 65, rpos.y + 33, 3, 4);
+          }
+          this.ctx.restore();
+        });
+
+        // Hover Ghost Trajectory Preview: when hovering an unplotted valid tile
+        if (this.hoveredTile && (this.hoveredTile.x !== selectedFriendlyUnit.x || this.hoveredTile.y !== selectedFriendlyUnit.y)) {
+          if (this.hoveredTile.x >= 0 && this.hoveredTile.x < 8 && this.hoveredTile.y >= 0 && this.hoveredTile.y < 8) {
+            const isAlreadyWp = (selectedFriendlyUnit.waypoints || []).some(w => w.x === this.hoveredTile.x && w.y === this.hoveredTile.y);
+            if (!isAlreadyWp) {
+              const ghostPath = engine.findValidPath(selectedFriendlyUnit, this.hoveredTile.x, this.hoveredTile.y, selectedFriendlyUnit.x, selectedFriendlyUnit.y);
+              if (ghostPath && ghostPath.length > 0) {
+                this.drawGhostTrajectory(selectedFriendlyUnit, ghostPath, engine);
+              }
+            }
+          }
+        }
+      }
+    }
+
     // 6. Units Multi-Turn Waypoints — Show local player's own units' plans
     if (engine.players[localSlot]) {
       engine.players[localSlot].units.forEach(unit => {
@@ -3184,7 +3350,7 @@ class SketchRenderer {
       });
     }
 
-    // 7. Render Living Units (Visible to Local Player) with Smooth Interpolation
+    // 7. Render Living Units (Visible to Local Player) with Delta-Time Smooth Interpolation
     const allUnits = engine.getAllUnits();
     allUnits.forEach(unit => {
       if (!unit.isAlive()) return;
@@ -3192,16 +3358,30 @@ class SketchRenderer {
       if (unit.renderX === undefined) unit.renderX = unit.x;
       if (unit.renderY === undefined) unit.renderY = unit.y;
 
-      const dx = unit.x - unit.renderX;
-      const dy = unit.y - unit.renderY;
-      const dist = Math.hypot(dx, dy);
-
-      if (dist < 0.005) {
-        unit.renderX = unit.x;
-        unit.renderY = unit.y;
+      if (unit.animStartTime !== undefined && unit.animDuration) {
+        const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+        const elapsed = now - unit.animStartTime;
+        const progress = Math.min(1, Math.max(0, elapsed / unit.animDuration));
+        // easeInOutQuad: smooth acceleration, steady march, soft deceleration into tile center
+        const eased = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+        unit.renderX = unit.animStartX + (unit.animTargetX - unit.animStartX) * eased;
+        unit.renderY = unit.animStartY + (unit.animTargetY - unit.animStartY) * eased;
+        if (progress >= 1) {
+          unit.renderX = unit.x;
+          unit.renderY = unit.y;
+        }
       } else {
-        unit.renderX += dx * 0.14;
-        unit.renderY += dy * 0.14;
+        const dx = unit.x - unit.renderX;
+        const dy = unit.y - unit.renderY;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist < 0.005) {
+          unit.renderX = unit.x;
+          unit.renderY = unit.y;
+        } else {
+          unit.renderX += dx * 0.16;
+          unit.renderY += dy * 0.16;
+        }
       }
 
       const gridR = Math.max(0, Math.min(7, Math.round(unit.renderY)));
@@ -3843,11 +4023,75 @@ class SketchRenderer {
     this.ctx.restore();
   }
 
-  drawMultiTurnWaypoints(unit, engine) {
+  drawGhostTrajectory(unit, path, engine) {
+    if (!path || path.length === 0) return;
     this.ctx.save();
     let unitSpeed = unit.moveRange;
-    if (engine.players[unit.owner].faction.id === FACTIONS.VANGUARD_LEGION.id) {
+    if (engine.players[unit.owner]?.faction?.id === FACTIONS.VANGUARD_LEGION.id) {
       unitSpeed += FACTIONS.VANGUARD_LEGION.movementSpeedBonus;
+    }
+    const currentTile = engine.grid[unit.y] && engine.grid[unit.y][unit.x];
+    if (currentTile && currentTile.id === 'SWAMP') {
+      unitSpeed = 1;
+    }
+
+    const startPos = this.getScreenCoords(unit.x, unit.y);
+    const pts = [{ x: startPos.x + 35, y: startPos.y + 35 }];
+    path.forEach(wp => {
+      const pt = this.getScreenCoords(wp.x, wp.y);
+      pts.push({ x: pt.x + 35, y: pt.y + 35 });
+    });
+
+    this.ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
+    this.ctx.lineWidth = 1.8;
+    this.ctx.setLineDash([4, 4]);
+
+    this.ctx.beginPath();
+    this.ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) {
+      this.ctx.lineTo(pts[i].x, pts[i].y);
+    }
+    this.ctx.stroke();
+
+    // Terminal ghost arrival pip
+    const last = pts[pts.length - 1];
+    this.ctx.fillStyle = 'rgba(56, 189, 248, 0.2)';
+    this.ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
+    this.ctx.lineWidth = 1.5;
+    this.ctx.setLineDash([]);
+    this.ctx.beginPath();
+    this.ctx.arc(last.x, last.y, 6, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.stroke();
+
+    // Estimated Turn Arrival Badge ([T1], [T2], etc.)
+    const totalTurns = Math.max(1, Math.ceil(path.length / unitSpeed));
+    const label = `[T${totalTurns}]`;
+    this.ctx.font = 'bold 7.5px "JetBrains Mono", monospace';
+    const lw = this.ctx.measureText(label).width + 6;
+    this.ctx.fillStyle = 'rgba(10, 16, 31, 0.9)';
+    this.ctx.fillRect(last.x + 8, last.y - 11, lw, 12);
+    this.ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
+    this.ctx.lineWidth = 1;
+    this.ctx.strokeRect(last.x + 8, last.y - 11, lw, 12);
+    this.ctx.fillStyle = '#38bdf8';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText(label, last.x + 8 + lw / 2, last.y - 5);
+
+    this.ctx.restore();
+  }
+
+  drawMultiTurnWaypoints(unit, engine) {
+    if (!unit || !unit.waypoints || unit.waypoints.length === 0) return;
+    this.ctx.save();
+    let unitSpeed = unit.moveRange;
+    if (engine.players[unit.owner]?.faction?.id === FACTIONS.VANGUARD_LEGION.id) {
+      unitSpeed += FACTIONS.VANGUARD_LEGION.movementSpeedBonus;
+    }
+    const currentTile = engine.grid[unit.y] && engine.grid[unit.y][unit.x];
+    if (currentTile && currentTile.id === 'SWAMP') {
+      unitSpeed = 1;
     }
 
     const currX = unit.renderX !== undefined ? unit.renderX : unit.x;
@@ -3860,41 +4104,69 @@ class SketchRenderer {
       pts.push({ x: pt.x + 35, y: pt.y + 35 });
     });
 
+    const isEnemy = unit.owner !== (engine.localPlayerSlot || 1);
+
     // 1. Draw connecting trajectory segments
     for (let i = 0; i < pts.length - 1; i++) {
       const turnIndex = Math.floor(i / unitSpeed);
       let segmentColor;
+      let lineWidth;
       let dashPattern;
 
-      if (unit.owner === 2) {
+      if (isEnemy) {
         segmentColor = '#ef4444';
-        dashPattern = [5, 3];
+        lineWidth = turnIndex === 0 ? 2.8 : 1.8;
+        dashPattern = turnIndex === 0 ? [] : [4, 4];
       } else if (turnIndex === 0) {
+        // Current Turn: Bold Solid Blueprint Line
         segmentColor = unit.owner === 1 ? FACTIONS.IRON_CORPS.color : FACTIONS.VANGUARD_LEGION.color;
-        dashPattern = [6, 3];
+        lineWidth = 2.8;
+        dashPattern = []; // Solid!
       } else if (turnIndex === 1) {
+        // Turn 2: Technical Amber Dashed
         segmentColor = '#d97706';
+        lineWidth = 1.8;
         dashPattern = [4, 4];
       } else {
+        // Turn 3+: Purple Technical Dashed
         segmentColor = '#7c3aed';
-        dashPattern = [2, 4];
+        lineWidth = 1.6;
+        dashPattern = [3, 4];
       }
 
       this.ctx.strokeStyle = segmentColor;
-      this.ctx.lineWidth = 3 - Math.min(1.5, turnIndex * 0.5);
+      this.ctx.lineWidth = lineWidth;
       this.ctx.setLineDash(dashPattern);
 
       this.ctx.beginPath();
       this.ctx.moveTo(pts[i].x, pts[i].y);
       this.ctx.lineTo(pts[i + 1].x, pts[i + 1].y);
       this.ctx.stroke();
+
+      // Directional Chevrons along Turn 1 solid line
+      if (turnIndex === 0 && !isEnemy) {
+        const midX = (pts[i].x + pts[i + 1].x) / 2;
+        const midY = (pts[i].y + pts[i + 1].y) / 2;
+        const ang = Math.atan2(pts[i + 1].y - pts[i].y, pts[i + 1].x - pts[i].x);
+        this.ctx.save();
+        this.ctx.setLineDash([]);
+        this.ctx.strokeStyle = segmentColor;
+        this.ctx.lineWidth = 1.6;
+        this.ctx.beginPath();
+        const cLen = 4;
+        this.ctx.moveTo(midX - cLen * Math.cos(ang - Math.PI / 4), midY - cLen * Math.sin(ang - Math.PI / 4));
+        this.ctx.lineTo(midX, midY);
+        this.ctx.lineTo(midX - cLen * Math.cos(ang + Math.PI / 4), midY - cLen * Math.sin(ang + Math.PI / 4));
+        this.ctx.stroke();
+        this.ctx.restore();
+      }
     }
 
-    // 2. Draw numbered waypoint step tokens (①, ②, ③)
+    // 2. Draw numbered waypoint step tokens and Turn badges ([T1], [T2], [T3])
     for (let i = 1; i < pts.length; i++) {
       const pt = pts[i];
       const turnIndex = Math.floor((i - 1) / unitSpeed);
-      const tokenColor = unit.owner === 2 ? '#ef4444' : (turnIndex === 0 ? '#2563eb' : (turnIndex === 1 ? '#d97706' : '#7c3aed'));
+      const tokenColor = isEnemy ? '#ef4444' : (turnIndex === 0 ? '#2563eb' : (turnIndex === 1 ? '#d97706' : '#7c3aed'));
 
       this.ctx.setLineDash([]);
       this.ctx.fillStyle = '#0a101f';
@@ -3911,9 +4183,30 @@ class SketchRenderer {
       this.ctx.textAlign = 'center';
       this.ctx.textBaseline = 'middle';
       this.ctx.fillText(String(i), pt.x, pt.y);
+
+      // If this waypoint marks the end of a turn quota (or final endpoint of future turns), draw turn badge
+      if (i % unitSpeed === 0 && !isEnemy) {
+        const badgeLabel = `[T${turnIndex + 1}]`;
+        this.ctx.font = 'bold 7px "JetBrains Mono", monospace';
+        const bWidth = this.ctx.measureText(badgeLabel).width + 6;
+        const bHeight = 11;
+        const bx = pt.x + 9;
+        const by = pt.y - 12;
+
+        this.ctx.fillStyle = 'rgba(10, 16, 31, 0.9)';
+        this.ctx.fillRect(bx, by, bWidth, bHeight);
+        this.ctx.strokeStyle = tokenColor;
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeRect(bx, by, bWidth, bHeight);
+
+        this.ctx.fillStyle = tokenColor;
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(badgeLabel, bx + bWidth / 2, by + bHeight / 2);
+      }
     }
 
-    // 3. Draw terminal directional chevron arrow
+    // 3. Terminal directional chevron arrow
     if (pts.length >= 2) {
       const lastPt = pts[pts.length - 1];
       const prevPt = pts[pts.length - 2];
@@ -3921,7 +4214,7 @@ class SketchRenderer {
       const arrowLen = 14;
 
       const lastTurnIndex = Math.floor((pts.length - 2) / unitSpeed);
-      const arrowColor = unit.owner === 2 ? '#ef4444' : (lastTurnIndex === 0 ? (unit.owner === 1 ? FACTIONS.IRON_CORPS.color : FACTIONS.VANGUARD_LEGION.color) : (lastTurnIndex === 1 ? '#d97706' : '#7c3aed'));
+      const arrowColor = isEnemy ? '#ef4444' : (lastTurnIndex === 0 ? (unit.owner === 1 ? FACTIONS.IRON_CORPS.color : FACTIONS.VANGUARD_LEGION.color) : (lastTurnIndex === 1 ? '#d97706' : '#7c3aed'));
 
       this.ctx.setLineDash([]);
       this.ctx.fillStyle = arrowColor;
@@ -7785,11 +8078,45 @@ class App {
       u.prevX = u.x; u.prevY = u.y;
       u.targetX = u.x; u.targetY = u.y;
       u.miredThisTurn = false;
+      u.animStartTime = undefined;
     });
 
     eng.recordTurnSnapshot('PLANNING');
+
+    eng.clearPlaybackTimeouts();
+    const totalMs = Math.max(2800, eng.playbackDurationConfig * 1000);
+    const stepIntervalMs = Math.floor((totalMs - 450) / 4);
+    eng.stepMoveAnimDuration = Math.floor(stepIntervalMs * 0.85);
+
+    eng.currentPlaybackStep = 0;
     eng.executeSinglePlaybackStep(0);
     eng.notifyStateChange();
+
+    eng.playbackTimeouts.push(setTimeout(() => {
+      if (eng.phase !== GAME_PHASES.PLAYBACK || eng.isStopped || eng.winner) return;
+      eng.currentPlaybackStep = 1;
+      eng.executeSinglePlaybackStep(1);
+      eng.notifyStateChange();
+    }, stepIntervalMs));
+
+    eng.playbackTimeouts.push(setTimeout(() => {
+      if (eng.phase !== GAME_PHASES.PLAYBACK || eng.isStopped || eng.winner) return;
+      eng.currentPlaybackStep = 2;
+      eng.executeSinglePlaybackStep(2);
+      eng.notifyStateChange();
+    }, stepIntervalMs * 2));
+
+    eng.playbackTimeouts.push(setTimeout(() => {
+      if (eng.phase !== GAME_PHASES.PLAYBACK || eng.isStopped || eng.winner) return;
+      eng.currentPlaybackStep = 3;
+      eng.executeSinglePlaybackStep(3);
+      eng.notifyStateChange();
+    }, stepIntervalMs * 3));
+
+    eng.playbackTimeouts.push(setTimeout(() => {
+      if (eng.phase !== GAME_PHASES.PLAYBACK || eng.isStopped) return;
+      eng.endPlaybackPhase();
+    }, totalMs));
   }
 
   setupCanvasInteractions() {
@@ -7926,8 +8253,86 @@ class App {
       }
 
       const prevSelected = this.renderer.selectedTile;
+      const selectedFriendlyUnit = (this.engine.phase === 'PLANNING' && prevSelected)
+        ? this.engine.getAllUnits().find(u => u.x === prevSelected.x && u.y === prevSelected.y && u.owner === localSlot && u.isAlive())
+        : null;
 
-      // TOGGLE DESELECTION: Re-clicking the currently selected tile toggles selection off
+      if (selectedFriendlyUnit) {
+        // CASE A: Re-clicking the selected unit itself
+        if (gridCoords.x === selectedFriendlyUnit.x && gridCoords.y === selectedFriendlyUnit.y) {
+          if (selectedFriendlyUnit.waypoints && selectedFriendlyUnit.waypoints.length > 0) {
+            // Unit already has orders -> CLEAR WAYPOINTS with eraser smudge sound, keep unit selected!
+            this.engine.setUnitWaypoints(selectedFriendlyUnit.id, []);
+            try { this.audio.playEraserSmudge(); } catch(err){}
+            this.renderer.selectedTile = { x: selectedFriendlyUnit.x, y: selectedFriendlyUnit.y };
+          } else {
+            // Unit has no orders -> Toggle deselect off
+            this.renderer.selectedTile = null;
+            try { this.audio.playEraserSmudge(); } catch(err){}
+          }
+          this.ui.updateHUD(this.engine);
+          return;
+        }
+
+        // CASE B: Clicking an existing waypoint along the route -> SMART TRIMMING
+        const wpIdx = (selectedFriendlyUnit.waypoints || []).findIndex(wp => wp.x === gridCoords.x && wp.y === gridCoords.y);
+        if (wpIdx !== -1) {
+          const trimmed = selectedFriendlyUnit.waypoints.slice(0, wpIdx + 1);
+          this.engine.setUnitWaypoints(selectedFriendlyUnit.id, trimmed);
+          try { this.audio.playPencilScratch(); } catch(err){}
+          this.renderer.selectedTile = { x: selectedFriendlyUnit.x, y: selectedFriendlyUnit.y };
+          this.ui.updateHUD(this.engine);
+          return;
+        }
+
+        // CASE C: Clicking another friendly unit -> SWITCH SELECTION
+        const otherFriendly = this.engine.getAllUnits().find(u => u.x === gridCoords.x && u.y === gridCoords.y && u.owner === localSlot && u.isAlive() && u.id !== selectedFriendlyUnit.id);
+        if (otherFriendly) {
+          this.renderer.selectedTile = { x: otherFriendly.x, y: otherFriendly.y };
+          try { this.audio.playUnitSelect(); } catch(err){}
+          this.ui.updateHUD(this.engine);
+          return;
+        }
+
+        // CASE D: Plotting destination tile (empty tile or enemy target)
+        if (selectedFriendlyUnit.category === 'VEHICLE' && this.engine.grid[gridCoords.y][gridCoords.x].id === 'SWAMP') {
+          this.ui.showToast('Terrain Blocked', 'Mud, Swamp & Pond terrain is completely impassable to vehicles and tanks!');
+          try { this.audio.playEraserSmudge(); } catch(err){}
+          if (this.engine.bootcampLesson === 5 && this.bootcampManager) {
+            this.bootcampManager.triggerLessonEasterEgg(5, "Nice try, Mario Andretti! Tanks sink in the bog like lead weights. Did you skip the terrain briefing?!");
+          }
+          this.renderer.selectedTile = { x: selectedFriendlyUnit.x, y: selectedFriendlyUnit.y };
+          this.ui.updateHUD(this.engine);
+          return;
+        }
+
+        let newPath = [];
+        const lastWp = (selectedFriendlyUnit.waypoints && selectedFriendlyUnit.waypoints.length > 0)
+          ? selectedFriendlyUnit.waypoints[selectedFriendlyUnit.waypoints.length - 1]
+          : null;
+        const distFromLast = lastWp ? (Math.abs(lastWp.x - gridCoords.x) + Math.abs(lastWp.y - gridCoords.y)) : -1;
+
+        if (lastWp && distFromLast === 1) {
+          // Tactical step extension (clicking adjacent tile to path end)
+          const ext = this.engine.findValidPath(selectedFriendlyUnit, gridCoords.x, gridCoords.y, lastWp.x, lastWp.y);
+          newPath = ext.length > 0 ? [...selectedFriendlyUnit.waypoints, ...ext] : selectedFriendlyUnit.waypoints;
+        } else {
+          // Direct destination routing from unit's current position
+          newPath = this.engine.findValidPath(selectedFriendlyUnit, gridCoords.x, gridCoords.y, selectedFriendlyUnit.x, selectedFriendlyUnit.y);
+        }
+
+        if (newPath && newPath.length > 0) {
+          this.engine.setUnitWaypoints(selectedFriendlyUnit.id, newPath);
+          try { this.audio.playPencilScratch(); } catch(err){}
+        }
+
+        // KEEP UNIT SELECTED (Eliminates jarring auto-deselect!)
+        this.renderer.selectedTile = { x: selectedFriendlyUnit.x, y: selectedFriendlyUnit.y };
+        this.ui.updateHUD(this.engine);
+        return;
+      }
+
+      // CASE E: No friendly unit currently selected -> Normal tile selection
       if (prevSelected && prevSelected.x === gridCoords.x && prevSelected.y === gridCoords.y) {
         this.renderer.selectedTile = null;
         try { this.audio.playEraserSmudge(); } catch(err){}
@@ -7936,51 +8341,11 @@ class App {
       }
 
       this.renderer.selectedTile = gridCoords;
-      let playedSound = false;
-
-      if (this.engine.phase === 'PLANNING' && prevSelected) {
-        const unit = this.engine.getAllUnits().find(u => u.x === prevSelected.x && u.y === prevSelected.y && u.owner === localSlot);
-        if (unit) {
-          if (unit.category === 'VEHICLE' && this.engine.grid[gridCoords.y][gridCoords.x].id === 'SWAMP') {
-            this.ui.showToast('Terrain Blocked', 'Mud, Swamp & Pond terrain is completely impassable to vehicles and tanks!');
-            if (this.audio) this.audio.playEraserSmudge();
-            playedSound = true;
-            if (this.engine.bootcampLesson === 5 && this.bootcampManager) {
-              this.bootcampManager.triggerLessonEasterEgg(5, "Nice try, Mario Andretti! Tanks sink in the bog like lead weights. Did you skip the terrain briefing?!");
-            }
-          }
-
-          // Pathfind FROM the unit's last queued waypoint position,
-          // so long multi-click chains extend naturally.
-          let fromX = unit.x, fromY = unit.y;
-          if (unit.waypoints && unit.waypoints.length > 0) {
-            const last = unit.waypoints[unit.waypoints.length - 1];
-            fromX = last.x;
-            fromY = last.y;
-          }
-          if (fromX !== gridCoords.x || fromY !== gridCoords.y) {
-            const extension = this.engine.findValidPath(unit, gridCoords.x, gridCoords.y, fromX, fromY);
-            if (extension.length > 0) {
-              // Append to existing waypoints (multi-leg journey)
-              const combined = [...(unit.waypoints || []), ...extension];
-              this.engine.setUnitWaypoints(unit.id, combined);
-              try { this.audio.playPencilScratch(); } catch(err){}
-              playedSound = true;
-
-              // AUTO-DESELECT: After plotting destination path, automatically deselect the grid
-              this.renderer.selectedTile = null;
-            }
-          }
-        }
-      }
-
-      if (!playedSound) {
-        const clickedUnit = this.engine.getAllUnits().find(u => u.x === gridCoords.x && u.y === gridCoords.y && u.isAlive());
-        if (clickedUnit && clickedUnit.owner === localSlot) {
-          try { this.audio.playUnitSelect(); } catch(err){}
-        } else {
-          try { this.audio.playClick(); } catch(err){}
-        }
+      const clickedUnit = this.engine.getAllUnits().find(u => u.x === gridCoords.x && u.y === gridCoords.y && u.isAlive());
+      if (clickedUnit && clickedUnit.owner === localSlot) {
+        try { this.audio.playUnitSelect(); } catch(err){}
+      } else {
+        try { this.audio.playClick(); } catch(err){}
       }
 
       this.ui.updateHUD(this.engine);
@@ -8002,6 +8367,11 @@ class App {
         handled = true;
       }
       if (this.renderer.selectedTile) {
+        const localSlot = this.engine.localPlayerSlot || 1;
+        const selUnit = this.engine.getAllUnits().find(u => u.x === this.renderer.selectedTile.x && u.y === this.renderer.selectedTile.y && u.owner === localSlot && u.isAlive());
+        if (selUnit && selUnit.waypoints && selUnit.waypoints.length > 0) {
+          this.engine.setUnitWaypoints(selUnit.id, []);
+        }
         this.renderer.selectedTile = null;
         handled = true;
       }
