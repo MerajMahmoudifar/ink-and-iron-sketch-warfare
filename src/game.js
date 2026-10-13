@@ -2230,7 +2230,9 @@ class GameEngine {
       lastMoveTime: Date.now(),
       nextBlink: Date.now() + 2500 + Math.random() * 2000
     };
-    if (this.audio && this.audio.playBubblySqueak) {
+    if (this.audio && this.audio.playBubblyPloom) {
+      this.audio.playBubblyPloom(false);
+    } else if (this.audio && this.audio.playBubblySqueak) {
       this.audio.playBubblySqueak();
     }
     this.notifyStateChange();
@@ -2326,7 +2328,9 @@ class GameEngine {
       cube.x = chosen.x;
       cube.y = chosen.y;
       cube.lastMoveTime = Date.now();
-      if (this.audio && this.audio.playBubblySqueak) {
+      if (this.audio && this.audio.playBubblyPloom) {
+        this.audio.playBubblyPloom(false);
+      } else if (this.audio && this.audio.playBubblySqueak) {
         this.audio.playBubblySqueak();
       }
       this.notifyStateChange();
@@ -3119,27 +3123,42 @@ class AudioEngine {
     this.playSfx('ui_tick', { volume: 0.45, pitchVar: 0.06 });
   }
 
-  playBubblySqueak() {
+  playBubblyPloom(isSquish = false) {
     if (this.isMuted) return;
     try {
       this.init();
       if (!this.ctx) return;
       const now = this.ctx.currentTime;
-      const vol = this.masterVolume * this.sfxVolume * 0.7;
+      const vol = this.masterVolume * this.sfxVolume * 0.75;
+
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(420, now);
-      osc.frequency.exponentialRampToValueAtTime(880, now + 0.12);
-      gain.gain.setValueAtTime(vol * 0.6, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+
+      // Resonant, buoyant bubble droplet "ploom" frequency envelope
+      const startFreq = isSquish ? 260 : 310;
+      const peakFreq = isSquish ? 780 : 640;
+      const dur = isSquish ? 0.20 : 0.15;
+
+      osc.frequency.setValueAtTime(startFreq, now);
+      osc.frequency.exponentialRampToValueAtTime(peakFreq, now + 0.05);
+      osc.frequency.exponentialRampToValueAtTime(peakFreq * 0.85, now + dur);
+
+      gain.gain.setValueAtTime(vol * 0.8, now);
+      gain.gain.exponentialRampToValueAtTime(vol * 0.95, now + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
       osc.connect(gain);
       gain.connect(this.ctx.destination);
       osc.start(now);
-      osc.stop(now + 0.14);
+      osc.stop(now + dur);
     } catch (e) {
       // Audio fallback silent
     }
+  }
+
+  playBubblySqueak() {
+    this.playBubblyPloom(false);
   }
 
   playDenied() {
@@ -4829,6 +4848,23 @@ class SketchRenderer {
     ctx.ellipse(drawX + 18, posY + 52, 15 * shadowScale, 4.5 * shadowScale, 0, 0, Math.PI * 2);
     ctx.fill();
 
+    // Squish & Stretch Jelly Physics when poked
+    let scaleX = 1;
+    let scaleY = 1;
+    if (cube.lastPokeTime && (now - cube.lastPokeTime < 380)) {
+      const p = (now - cube.lastPokeTime) / 380;
+      const squish = Math.sin(p * Math.PI * 2.5) * Math.exp(-p * 3) * 0.42;
+      scaleX = 1 + squish;
+      scaleY = 1 - squish;
+    }
+
+    ctx.save();
+    if (scaleX !== 1 || scaleY !== 1) {
+      ctx.translate(drawX + 18, drawY + 18);
+      ctx.scale(scaleX, scaleY);
+      ctx.translate(-(drawX + 18), -(drawY + 18));
+    }
+
     // Render crisp pixel art
     for (let r = 0; r < 12; r++) {
       for (let c = 0; c < 12; c++) {
@@ -4847,6 +4883,20 @@ class SketchRenderer {
         ctx.fillStyle = palette[val];
         ctx.fillRect(drawX + c * pSize, drawY + r * pSize, pSize, pSize);
       }
+    }
+    ctx.restore();
+
+    // Floating pixel bubble particles from poke
+    if (cube.bubbles && cube.bubbles.length > 0) {
+      cube.bubbles.forEach(b => {
+        b.x += b.vx;
+        b.y += b.vy;
+        b.life++;
+        const alpha = Math.max(0, 1 - (b.life / b.maxLife));
+        ctx.fillStyle = `rgba(255, 130, 197, ${alpha * 0.85})`;
+        ctx.fillRect(Math.round(drawX + 18 + b.x), Math.round(drawY + b.y), b.size, b.size);
+      });
+      cube.bubbles = cube.bubbles.filter(b => b.life < b.maxLife);
     }
 
     ctx.restore();
@@ -5748,6 +5798,42 @@ class UIManager {
               if (statEfficiency) statEfficiency.textContent = '15% (OVERRUN)';
             }
           }
+
+          // BUBBLY CUBE SURVIVAL STAMP EASTER EGG
+          let bubblyStamp = document.getElementById('bubbly-cube-victory-stamp');
+          if (engine.bubblyCube) {
+            if (!bubblyStamp && cardEl) {
+              bubblyStamp = document.createElement('div');
+              bubblyStamp.id = 'bubbly-cube-victory-stamp';
+              const btnRow = cardEl.querySelector('.victory-btn-row');
+              if (btnRow) cardEl.insertBefore(bubblyStamp, btnRow);
+              else cardEl.appendChild(bubblyStamp);
+            }
+            if (bubblyStamp) {
+              bubblyStamp.style.display = 'block';
+              bubblyStamp.innerHTML = `
+                <div style="margin: 12px 0; background: rgba(255, 95, 174, 0.12); border: 2px dashed #ff5fae; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; transform: rotate(-1deg); box-shadow: 0 4px 14px rgba(255, 95, 174, 0.15);">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 34px; height: 34px; background: #ff5fae; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">
+                      🍬
+                    </div>
+                    <div style="text-align: left;">
+                      <div style="font-weight: 800; font-size: 0.82rem; color: #ff82c5; letter-spacing: 0.5px; font-family: var(--font-mono);">
+                        ★ BUBBLY CUBE SURVIVED THE BATTLE ★
+                      </div>
+                      <div style="font-size: 0.70rem; color: var(--text-secondary);">
+                        Field anomaly evaded all artillery and survived completely unharmed! (*ploom!*)
+                      </div>
+                    </div>
+                  </div>
+                  <span style="font-size: 0.68rem; font-weight: 700; color: #ff5fae; border: 1px solid #ff5fae; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; white-space: nowrap;">
+                    OFFICIAL SIGHTING
+                  </span>
+                </div>`;
+            }
+          } else if (bubblyStamp) {
+            bubblyStamp.style.display = 'none';
+          }
         }
       } catch (err) {
         console.error('Error displaying victory modal:', err);
@@ -5934,8 +6020,13 @@ class UIManager {
     const rowNum = sel.y + 1;
     const sectorCoord = `SECTOR [${colLetter}${rowNum}]`;
 
+    const isBubblyOnTile = engine.bubblyCube && isTileVisible && engine.bubblyCube.x === sel.x && engine.bubblyCube.y === sel.y;
+
     if (statusBadge) {
-      if (unitOnTile) {
+      if (isBubblyOnTile) {
+        statusBadge.textContent = 'TACTICAL ANOMALY';
+        if (secRecruit) secRecruit.classList.add('collapsed');
+      } else if (unitOnTile) {
         statusBadge.textContent = unitOnTile.owner === localSlot ? 'ALLIED SQUAD' : 'ENEMY CONTACT';
         if (secRecruit) secRecruit.classList.add('collapsed');
       } else {
@@ -6012,6 +6103,42 @@ class UIManager {
           </div>
           ${terrainIntelHtml}
           ${spawnStatusHtml}
+        </div>
+      `;
+    }
+
+    if (isBubblyOnTile) {
+      html += `
+        <div class="dossier-card" style="border-left: 3px solid #ff5fae; background: linear-gradient(135deg, rgba(255, 95, 174, 0.09), rgba(15, 23, 42, 0.65));">
+          <div class="dossier-sector-header">
+            <span class="dossier-coord-stamp">${sectorCoord}</span>
+            <span class="dossier-status-live" style="background: rgba(255, 95, 174, 0.2); color: #ff82c5; border: 1px solid #ff5fae;">CLASSIFIED MASCOT</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; margin: 10px 0 8px 0;">
+            <div style="width: 44px; height: 44px; background: rgba(255, 95, 174, 0.15); border: 2px dashed #ff5fae; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0;">
+              🍬
+            </div>
+            <div>
+              <div style="font-weight: 800; font-size: 0.95rem; color: #ff82c5; letter-spacing: 0.5px;">BUBBLY CUBE</div>
+              <div style="font-size: 0.72rem; color: var(--text-secondary); font-family: var(--font-mono);">SPECIES: Sentient Bubblegum Slime</div>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; font-size: 0.72rem; font-family: var(--font-mono);">
+            <div style="background: rgba(15, 23, 42, 0.5); padding: 5px 8px; border-radius: 4px; border: 1px solid rgba(255, 95, 174, 0.3);">
+              <span style="color: var(--text-muted);">ARMOR:</span> <span style="color: #ff82c5; font-weight: 700;">Invulnerable</span>
+            </div>
+            <div style="background: rgba(15, 23, 42, 0.5); padding: 5px 8px; border-radius: 4px; border: 1px solid rgba(255, 95, 174, 0.3);">
+              <span style="color: var(--text-muted);">THREAT:</span> <span style="color: #4ade80; font-weight: 700;">0 (Harmless)</span>
+            </div>
+          </div>
+          <div style="background: rgba(255, 95, 174, 0.08); border-left: 2px solid #ff5fae; padding: 8px 10px; border-radius: 0 4px 4px 0; font-size: 0.74rem; line-height: 1.45; color: var(--text-primary); font-style: italic;">
+            &ldquo;How dare you even think of attacking Bubbly Cube, Commander?! High Command strictly forbids hostility toward this innocent creature. Shells bounce right off, bullets get absorbed into bubblegum, and quite frankly, you should be ashamed of yourself.&rdquo;
+          </div>
+          <div style="margin-top: 10px; text-align: center;">
+            <button class="btn-sketch" style="width: 100%; font-size: 0.75rem; border-color: #ff5fae; color: #ff82c5;" onclick="if(window.gApp) window.gApp.pokeBubblyCube()">
+              👉 Poke Bubbly Cube (*ploom!*)
+            </button>
+          </div>
         </div>
       `;
     }
@@ -8455,6 +8582,40 @@ class App {
     }, totalMs));
   }
 
+  pokeBubblyCube() {
+    if (!this.engine || !this.engine.bubblyCube) return;
+    const cube = this.engine.bubblyCube;
+    cube.lastPokeTime = Date.now();
+    cube.pokeCount = (cube.pokeCount || 0) + 1;
+
+    if (this.audio && this.audio.playBubblyPloom) {
+      this.audio.playBubblyPloom(true);
+    } else if (this.audio && this.audio.playBubblySqueak) {
+      this.audio.playBubblySqueak();
+    }
+
+    if (!cube.bubbles) cube.bubbles = [];
+    for (let i = 0; i < 4; i++) {
+      cube.bubbles.push({
+        x: (Math.random() - 0.5) * 20,
+        y: -4,
+        vx: (Math.random() - 0.5) * 1.5,
+        vy: -(1.2 + Math.random() * 1.5),
+        size: 2 + Math.floor(Math.random() * 3),
+        life: 0,
+        maxLife: 24 + Math.floor(Math.random() * 20)
+      });
+    }
+
+    if (cube.pokeCount % 4 === 0 && this.ui && this.ui.showToast) {
+      this.ui.showToast('Bubbly Cube', '*Ploom!* Bubbly Cube squishes playfully under your finger!');
+    }
+
+    if (this.renderer) {
+      this.renderer.render(this.engine);
+    }
+  }
+
   setupCanvasInteractions() {
     this.canvas.addEventListener('click', (e) => {
       if (!this.engine) return;
@@ -8466,11 +8627,9 @@ class App {
       const gridCoords = this.renderer.getGridCoords(e.clientX - rect.left, e.clientY - rect.top);
       if (!gridCoords) return;
 
-      // Easter Egg: Direct click squeak on Bubbly Cube
+      // Easter Egg: Direct click on Bubbly Cube -> Poke & Squish (*ploom!*)
       if (this.engine.bubblyCube && this.engine.bubblyCube.x === gridCoords.x && this.engine.bubblyCube.y === gridCoords.y) {
-        if (this.audio && this.audio.playBubblySqueak) {
-          this.audio.playBubblySqueak();
-        }
+        this.pokeBubblyCube();
       }
 
       // Easter Egg: Triple-click empty tile during Planning phase spawns Bubbly Cube (only once per match)
@@ -8487,7 +8646,7 @@ class App {
           this._emptyTileClick.count = 0;
           this.engine.spawnBubblyCube(gridCoords.x, gridCoords.y);
           if (this.ui && this.ui.showToast) {
-            this.ui.showToast('Tactical Anomaly', 'Bubbly Cube spotted on the battlefield! Squeak!');
+            this.ui.showToast('Tactical Anomaly', 'Bubbly Cube spotted on the battlefield! *Ploom!*');
           }
         }
       } else {
