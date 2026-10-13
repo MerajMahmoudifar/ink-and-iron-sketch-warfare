@@ -5599,9 +5599,45 @@ class UIManager {
     if (cpBadge && localPlayer) {
       cpBadge.textContent = `CP: ${localPlayer.cp}/10`;
     }
+    const mobCpBadge = document.getElementById('mob-abilities-badge');
+    if (mobCpBadge && localPlayer) {
+      mobCpBadge.textContent = `${localPlayer.cp || 0} CP`;
+    }
     const recruitCountBadge = document.getElementById('recruitment-count-badge');
     if (recruitCountBadge && localPlayer) {
       recruitCountBadge.textContent = `${localPlayer.ink} INK`;
+    }
+
+    // Sync mobile bottom sticky action bar
+    const mobHaltBtn = document.getElementById('mob-btn-cancel-halt');
+    if (mobHaltBtn) {
+      if (this.pendingDeployUnitKey) {
+        mobHaltBtn.innerHTML = '<span class="mob-btn-icon">&#x2715;</span> CANCEL RECRUIT';
+      } else if (this.pendingAbilityKey) {
+        mobHaltBtn.innerHTML = '<span class="mob-btn-icon">&#x2715;</span> CANCEL ABILITY';
+      } else {
+        mobHaltBtn.innerHTML = '<span class="mob-btn-icon">&#x2715;</span> HALT / CANCEL';
+      }
+    }
+    const mobEndBtn = document.getElementById('mob-btn-end-turn');
+    if (mobEndBtn) {
+      if (engine.isReconPhase) {
+        mobEndBtn.innerHTML = 'DEPLOY NOW';
+        mobEndBtn.disabled = false;
+        mobEndBtn.style.opacity = '1';
+      } else if (engine.isWaitingForOpponentTurn) {
+        mobEndBtn.innerHTML = 'WAITING FOR ENEMY...';
+        mobEndBtn.disabled = true;
+        mobEndBtn.style.opacity = '0.5';
+      } else if (engine.phase === 'PLANNING') {
+        mobEndBtn.innerHTML = 'END TURN &#9654;&#9654;';
+        mobEndBtn.disabled = false;
+        mobEndBtn.style.opacity = '1';
+      } else {
+        mobEndBtn.innerHTML = 'IN COMBAT...';
+        mobEndBtn.disabled = true;
+        mobEndBtn.style.opacity = '0.5';
+      }
     }
 
     // In GAME_OVER: lock all action controls. In RECON: enable Deploy Now button, disable abilities.
@@ -7545,6 +7581,103 @@ window.switchMenuTab = function(btnId, paneId) {
   } catch(e){}
 };
 
+/* ==========================================================================
+   MOBILE COMMAND DRAWER & ACTION DISPATCH HANDLERS
+   ========================================================================== */
+
+window.switchMobileTab = function(tabKey, playAudio = true) {
+  const validTabs = ['orders', 'abilities', 'recruit', 'dispatch'];
+  if (!validTabs.includes(tabKey)) tabKey = 'orders';
+
+  validTabs.forEach(t => {
+    document.body.classList.remove(`mob-tab-${t}-active`);
+    const btn = document.getElementById(`mob-tab-${t}`);
+    if (btn) btn.classList.remove('active');
+  });
+
+  document.body.classList.add(`mob-tab-${tabKey}-active`);
+  const activeBtn = document.getElementById(`mob-tab-${tabKey}`);
+  if (activeBtn) activeBtn.classList.add('active');
+
+  if (tabKey === 'recruit' && window.gApp && window.gApp.engine && window.gApp.ui) {
+    try { window.gApp.ui.renderUnitStore(window.gApp.engine); } catch(e){}
+  }
+
+  if (playAudio) {
+    try {
+      if (window.gApp && window.gApp.audio) {
+        window.gApp.audio.playClick();
+      }
+    } catch(e){}
+  }
+};
+
+window.handleMobileHaltOrCancel = function() {
+  if (!window.gApp) return;
+  const ui = window.gApp.ui;
+  const eng = window.gApp.engine;
+  const renderer = window.gApp.renderer;
+  let handled = false;
+
+  // 1. Cancel pending recruitment targeting
+  if (ui && ui.pendingDeployUnitKey) {
+    const uTemplate = (typeof UNIT_TYPES !== 'undefined') ? UNIT_TYPES[ui.pendingDeployUnitKey] : null;
+    ui.pendingDeployUnitKey = null;
+    if (ui.showToast) ui.showToast('Deployment Cancelled', `${uTemplate ? uTemplate.name : 'Unit'} recruitment targeting cancelled.`);
+    handled = true;
+  }
+
+  // 2. Cancel pending ability targeting
+  if (ui && ui.pendingAbilityKey) {
+    const ab = (typeof ABILITIES !== 'undefined') ? ABILITIES[ui.pendingAbilityKey] : null;
+    ui.pendingAbilityKey = null;
+    if (ui.showToast) ui.showToast('Ability Cancelled', `${ab ? ab.name : 'Targeting'} cancelled.`);
+    handled = true;
+  }
+
+  // 3. Clear selected unit orders or deselect tile
+  if (renderer && renderer.selectedTile && eng) {
+    const localSlot = eng.localPlayerSlot || 1;
+    const selUnit = eng.getAllUnits().find(u => u.x === renderer.selectedTile.x && u.y === renderer.selectedTile.y && u.owner === localSlot && u.isAlive());
+    if (selUnit && selUnit.waypoints && selUnit.waypoints.length > 0) {
+      eng.setUnitWaypoints(selUnit.id, []);
+      if (ui && ui.showToast) ui.showToast('Orders Cleared', `${selUnit.name} waypoints erased.`);
+      handled = true;
+    } else {
+      renderer.selectedTile = null;
+      handled = true;
+    }
+  }
+
+  // 4. Fallback: If nothing was pending/selected, Halt All Friendly Units
+  if (!handled && eng) {
+    const localSlot = eng.localPlayerSlot || 1;
+    if (eng.players && eng.players[localSlot] && eng.players[localSlot].units) {
+      eng.players[localSlot].units.forEach(u => u.setWaypoints([]));
+      if (ui && ui.showToast) ui.showToast('Troops Halted', 'All unit movement plans cancelled!');
+      handled = true;
+    }
+  }
+
+  try {
+    if (window.gApp && window.gApp.audio) window.gApp.audio.playEraserSmudge();
+  } catch(e){}
+
+  if (eng && ui) ui.updateHUD(eng);
+};
+
+window.handleMobileEndTurn = function() {
+  if (!window.gApp || !window.gApp.engine) return;
+  const eng = window.gApp.engine;
+  if (eng.phase === 'PLANNING' && !eng.isWaitingForOpponentTurn) {
+    const btn = document.getElementById('btn-end-turn');
+    if (btn) btn.click();
+    else eng.endPlanningPhase();
+  } else if (eng.isReconPhase && window.skipReconPhase) {
+    window.skipReconPhase();
+  }
+};
+
 window.deployGameFromMenu = function() {
   if (window.checkUserBannedState && window.checkUserBannedState()) {
     alert("ACCOUNT SUSPENDED: Your Commander profile is banned by an Administrator. You cannot deploy or start matches.");
@@ -8810,6 +8943,11 @@ class App {
       const gridCoords = this.renderer.getGridCoords(e.clientX - rect.left, e.clientY - rect.top);
       if (!gridCoords) return;
 
+      this.updateCanvasSitrep(gridCoords);
+      if (window.innerWidth <= 840 && window.switchMobileTab && !this.ui.pendingDeployUnitKey && !this.ui.pendingAbilityKey) {
+        window.switchMobileTab('orders', false);
+      }
+
       // Easter Egg: Direct click on Bubbly Cube -> Poke & Squish (*ploom!*)
       if (this.engine.bubblyCube && this.engine.bubblyCube.x === gridCoords.x && this.engine.bubblyCube.y === gridCoords.y) {
         this.pokeBubblyCube();
@@ -9084,6 +9222,15 @@ class App {
       if (handled) {
         try { this.audio.playEraserSmudge(); } catch(err){}
         if (this.engine) this.ui.updateHUD(this.engine);
+      }
+    });
+
+    this.canvas.addEventListener('pointerdown', (e) => {
+      const rect = this.canvas.getBoundingClientRect();
+      const coords = this.renderer.getGridCoords(e.clientX - rect.left, e.clientY - rect.top);
+      if (coords) {
+        this.renderer.hoveredTile = coords;
+        this.updateCanvasSitrep(coords);
       }
     });
 

@@ -2,10 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Ink &amp; Iron: Sketch Warfare | Turn-Based Grid Strategy</title>
   <meta name="description" content="Ink &amp; Iron: Sketch Warfare is a turn-based grid strategy game with hand-drawn paper aesthetics, unique factions, command abilities, and simultaneous combat playback.">
-  <link rel="stylesheet" href="styles/main.css?v=2.10.20">
+  <meta name="theme-color" content="#070b12">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Ink &amp; Iron">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="assets/icons/icon.svg">
+  <link rel="apple-touch-icon" href="assets/icons/icon.svg">
+  <link rel="stylesheet" href="styles/main.css?v=2.11.0">
 </head>
 <body>
 
@@ -851,7 +858,7 @@
       <main class="main-game-layout">
 
         <!-- Left Sidebar: Commander Log -->
-        <aside class="panel-card sidebar-panel sidebar-panel-left">
+        <aside id="sidebar-left" class="panel-card sidebar-panel sidebar-panel-left">
           <div class="panel-header-flex">
             <div class="panel-title-group">
               <span class="live-telegraph-dot" title="Live Tactical Teletype Active"></span>
@@ -933,8 +940,24 @@
           </div>
         </section>
 
+        <!-- Mobile Tactical Drawer Tabs (visible only on mobile viewport) -->
+        <nav id="mobile-tactical-tabs" class="mobile-tactical-tabs" style="display: none;">
+          <button id="mob-tab-orders" class="mob-tab-btn active" onclick="window.switchMobileTab('orders')">
+            <span class="mob-tab-icon">&#x2316;</span> ORDERS
+          </button>
+          <button id="mob-tab-abilities" class="mob-tab-btn" onclick="window.switchMobileTab('abilities')">
+            <span class="mob-tab-icon">&#x25B2;</span> ABILITIES <span id="mob-abilities-badge" class="mob-pill-badge">0 CP</span>
+          </button>
+          <button id="mob-tab-recruit" class="mob-tab-btn" onclick="window.switchMobileTab('recruit')">
+            <span class="mob-tab-icon">&#x2B2D;</span> RECRUIT
+          </button>
+          <button id="mob-tab-dispatch" class="mob-tab-btn" onclick="window.switchMobileTab('dispatch')">
+            <span class="mob-tab-icon">&#x2605;</span> DISPATCH
+          </button>
+        </nav>
+
         <!-- Right Sidebar: Controls, Inspector, Abilities, Recruitment -->
-        <aside class="panel-card sidebar-panel sidebar-panel-right">
+        <aside id="sidebar-right" class="panel-card sidebar-panel sidebar-panel-right">
 
           <!-- Accordion 1: Command Phase & Phase Actions -->
           <div class="sidebar-accordion-section" id="sec-turn-controls">
@@ -1052,6 +1075,16 @@
         </aside>
 
       </main>
+
+      <!-- Mobile Sticky Bottom Command Bar (visible only on mobile viewport) -->
+      <div id="mobile-bottom-bar" class="mobile-bottom-bar" style="display: none;">
+        <button id="mob-btn-cancel-halt" class="btn-sketch mob-btn-halt" onclick="window.handleMobileHaltOrCancel()" title="Halt Selected Unit / Abort Orders">
+          <span class="mob-btn-icon">&#x2715;</span> HALT / CANCEL
+        </button>
+        <button id="mob-btn-end-turn" class="btn-sketch mob-btn-end" onclick="window.handleMobileEndTurn()" title="End Planning Phase">
+          END TURN &#9654;&#9654;
+        </button>
+      </div>
     </div>
 
     <!-- AUTHENTICATION & AUTHORIZATION MODAL -->
@@ -2033,6 +2066,6 @@
   <script src="src/ui/UnitIcons.js?v=2.10.19"></script>
   <script src="src/firebase-config.js"></script>
   <script type="module" src="src/net/MultiplayerManager.js"></script>
-  <script src="src/game.js?v=2.10.20"></script>
+  <script src="src/game.js?v=2.11.0"></script>
 </body>
 </html>

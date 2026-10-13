@@ -74,9 +74,12 @@ select, option, input, textarea {
 }
 
 html, body {
+  height: 100%;
   height: 100vh;
-  max-height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
   overflow: hidden !important;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -633,6 +636,10 @@ header.hud-header {
   max-height: 100%;
   object-fit: contain;
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  touch-action: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* ============================================
@@ -5596,6 +5603,565 @@ select.diesel-hidden-select {
   background: linear-gradient(90deg, #10b981, #4ade80) !important;
   box-shadow: 0 0 12px rgba(74, 222, 128, 0.6) !important;
   animation: mp-ready-pulse 1.5s infinite ease-in-out;
+}
+
+/* ==========================================================================
+   MOBILE & TOUCH ADAPTIVE SYSTEM (INK & IRON: SKETCH WARFARE)
+   ========================================================================== */
+
+/* Desktop Defaults: Mobile elements hidden by default */
+.mobile-tactical-tabs {
+  display: none !important;
+}
+.mobile-bottom-bar {
+  display: none !important;
+}
+
+/* ==========================================================================
+   PORTRAIT MOBILE / NARROW VIEWPORTS (<= 840px)
+   ========================================================================== */
+@media (max-width: 840px) {
+  body {
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+  }
+
+  #app-wrapper {
+    max-width: 100vw !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+  }
+
+  .game-container {
+    gap: 0 !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+  }
+
+  /* Compact Military HUD Header */
+  header.hud-header {
+    padding: 5px 8px !important;
+    gap: 6px !important;
+    border-radius: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-top: none !important;
+    flex-shrink: 0 !important;
+  }
+
+  .game-title {
+    gap: 6px !important;
+  }
+  .game-title-icon {
+    width: 22px !important;
+    height: 22px !important;
+  }
+  .game-title-icon svg {
+    width: 12px !important;
+    height: 12px !important;
+  }
+  .game-title h1 {
+    font-size: 0.92rem !important;
+    letter-spacing: 0.05em !important;
+  }
+  .game-title-sub {
+    display: none !important;
+  }
+
+  .phase-container {
+    min-width: unset !important;
+    flex: 1 !important;
+    max-width: 150px !important;
+    gap: 2px !important;
+  }
+  .phase-badge {
+    font-size: 0.62rem !important;
+    padding: 2px 6px !important;
+    white-space: nowrap !important;
+    letter-spacing: 0.04em !important;
+  }
+
+  .ink-display {
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    flex: 0 0 auto !important;
+    margin-left: auto !important;
+  }
+  #hud-profile-badge {
+    display: none !important;
+  }
+  .player-ink-badge {
+    font-size: 0.65rem !important;
+    padding: 3px 5px !important;
+    letter-spacing: 0.02em !important;
+    white-space: nowrap !important;
+  }
+  .menu-btn-hud {
+    font-size: 0.65rem !important;
+    padding: 3px 6px !important;
+    white-space: nowrap !important;
+  }
+
+  /* Single-Column Tactical Battlefield Layout */
+  .main-game-layout {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: 1fr !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    gap: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Center Battlefield Canvas */
+  .canvas-wrapper {
+    order: 1 !important;
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    height: min(44vh, 98vw) !important;
+    margin: 0 auto !important;
+    padding: 24px 4px 4px 4px !important;
+    border-radius: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+    background: radial-gradient(circle at 50% 50%, #0d1527 0%, #050811 100%) !important;
+    box-sizing: border-box !important;
+  }
+
+  #sketch-canvas {
+    width: auto !important;
+    height: 100% !important;
+    aspect-ratio: 1 / 1 !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    object-fit: contain !important;
+  }
+
+  .canvas-sitrep-bar {
+    top: 2px !important;
+    left: 4px !important;
+    right: 4px !important;
+    font-size: 0.64rem !important;
+    padding: 2px 6px !important;
+    min-height: 20px !important;
+    height: 20px !important;
+  }
+  .sitrep-badge {
+    font-size: 0.55rem !important;
+    padding: 0 4px !important;
+  }
+  .sitrep-text {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* Mobile Tactical Drawer Tabs */
+  .mobile-tactical-tabs {
+    display: flex !important;
+    order: 2 !important;
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    background: #090e1a !important;
+    border-top: 1px solid var(--border-medium) !important;
+    border-bottom: 1px solid var(--border-medium) !important;
+    gap: 4px !important;
+    padding: 3px 6px !important;
+    z-index: 10 !important;
+    box-sizing: border-box !important;
+  }
+
+  .mob-tab-btn {
+    flex: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    padding: 7px 4px !important;
+    font-family: var(--font-display) !important;
+    font-size: 0.68rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.05em !important;
+    color: var(--text-muted) !important;
+    background: rgba(15, 23, 42, 0.7) !important;
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: var(--r-sm) !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    transition: all 0.15s ease !important;
+  }
+  .mob-tab-btn:hover, .mob-tab-btn:active {
+    background: rgba(30, 41, 59, 0.85) !important;
+    color: var(--text-primary) !important;
+  }
+  .mob-tab-btn.active {
+    color: var(--gold-300) !important;
+    background: rgba(245, 158, 11, 0.18) !important;
+    border-color: var(--gold-400) !important;
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.2) !important;
+  }
+  .mob-tab-icon {
+    font-size: 0.72rem !important;
+  }
+  .mob-pill-badge {
+    font-size: 0.56rem !important;
+    font-family: var(--font-mono) !important;
+    background: rgba(245, 158, 11, 0.25) !important;
+    color: var(--gold-300) !important;
+    padding: 1px 4px !important;
+    border-radius: 2px !important;
+    margin-left: 2px !important;
+  }
+
+  /* Mobile Drawer Content Panels */
+  .sidebar-panel-right,
+  .sidebar-panel-left {
+    order: 3 !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    border-radius: 0 !important;
+    border: none !important;
+    padding: 8px !important;
+    background: rgba(10, 16, 28, 0.98) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    box-sizing: border-box !important;
+  }
+
+  #sec-turn-controls {
+    display: none !important;
+  }
+
+  /* Tab View State Switching (Default: Orders active) */
+  body:not(.mob-tab-abilities-active):not(.mob-tab-recruit-active):not(.mob-tab-dispatch-active) #sidebar-left,
+  body.mob-tab-orders-active #sidebar-left {
+    display: none !important;
+  }
+  body:not(.mob-tab-abilities-active):not(.mob-tab-recruit-active):not(.mob-tab-dispatch-active) #sidebar-right,
+  body.mob-tab-orders-active #sidebar-right {
+    display: flex !important;
+  }
+  body:not(.mob-tab-abilities-active):not(.mob-tab-recruit-active):not(.mob-tab-dispatch-active) #sec-inspector,
+  body.mob-tab-orders-active #sec-inspector {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+  }
+  body:not(.mob-tab-abilities-active):not(.mob-tab-recruit-active):not(.mob-tab-dispatch-active) #sec-abilities,
+  body.mob-tab-orders-active #sec-abilities {
+    display: none !important;
+  }
+  body:not(.mob-tab-abilities-active):not(.mob-tab-recruit-active):not(.mob-tab-dispatch-active) #sec-recruitment,
+  body.mob-tab-orders-active #sec-recruitment {
+    display: none !important;
+  }
+
+  /* Abilities Active */
+  body.mob-tab-abilities-active #sidebar-left { display: none !important; }
+  body.mob-tab-abilities-active #sidebar-right { display: flex !important; }
+  body.mob-tab-abilities-active #sec-inspector { display: none !important; }
+  body.mob-tab-abilities-active #sec-abilities { display: flex !important; flex-direction: column !important; width: 100% !important; }
+  body.mob-tab-abilities-active #sec-recruitment { display: none !important; }
+
+  /* Recruit Active */
+  body.mob-tab-recruit-active #sidebar-left { display: none !important; }
+  body.mob-tab-recruit-active #sidebar-right { display: flex !important; }
+  body.mob-tab-recruit-active #sec-inspector { display: none !important; }
+  body.mob-tab-recruit-active #sec-abilities { display: none !important; }
+  body.mob-tab-recruit-active #sec-recruitment { display: flex !important; flex-direction: column !important; width: 100% !important; }
+
+  /* Dispatch Active */
+  body.mob-tab-dispatch-active #sidebar-left { display: flex !important; flex-direction: column !important; width: 100% !important; }
+  body.mob-tab-dispatch-active #sidebar-right { display: none !important; }
+
+  /* Accordions automatically expanded inside mobile drawer */
+  .sidebar-panel-right .sidebar-accordion-section {
+    border-radius: var(--r-sm) !important;
+    border: 1px solid var(--border-subtle) !important;
+    background: rgba(15, 23, 42, 0.5) !important;
+    margin-bottom: 6px !important;
+  }
+  .sidebar-panel-right .accordion-body {
+    max-height: none !important;
+    opacity: 1 !important;
+    display: block !important;
+  }
+  .sidebar-panel-right .accordion-header {
+    padding: 6px 10px !important;
+  }
+
+  /* Store & Ability grids touch-sized */
+  .store-grid {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
+    gap: 6px !important;
+  }
+  .unit-store-card {
+    padding: 8px 6px !important;
+  }
+  .ability-deck-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 6px !important;
+  }
+  .ability-btn {
+    padding: 8px 4px !important;
+    font-size: 0.68rem !important;
+  }
+
+  /* Sticky Mobile Command Bar */
+  .mobile-bottom-bar {
+    display: flex !important;
+    width: 100% !important;
+    padding: 6px 8px max(6px, env(safe-area-inset-bottom)) 8px !important;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(7, 11, 18, 1) 100%) !important;
+    border-top: 1px solid var(--border-strong) !important;
+    gap: 8px !important;
+    z-index: 100 !important;
+    box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.8) !important;
+    box-sizing: border-box !important;
+    flex-shrink: 0 !important;
+  }
+  .mob-btn-halt {
+    flex: 1 !important;
+    padding: 10px 8px !important;
+    font-size: 0.74rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.05em !important;
+    background: rgba(239, 68, 68, 0.15) !important;
+    border-color: rgba(239, 68, 68, 0.4) !important;
+    color: #fca5a5 !important;
+    border-radius: var(--r-sm) !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+  }
+  .mob-btn-halt:active {
+    background: rgba(239, 68, 68, 0.35) !important;
+    color: #ffffff !important;
+  }
+  .mob-btn-end {
+    flex: 2 !important;
+    padding: 10px 12px !important;
+    font-size: 0.82rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.08em !important;
+    background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #1d4ed8 100%) !important;
+    border-color: #60a5fa !important;
+    color: #ffffff !important;
+    border-radius: var(--r-sm) !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    box-shadow: 0 0 12px rgba(37, 99, 235, 0.4) !important;
+  }
+  .mob-btn-end:active {
+    filter: brightness(1.2) !important;
+    transform: scale(0.98) !important;
+  }
+
+  /* Main Menu Overlays & Cards */
+  .main-menu-overlay {
+    padding: 6px !important;
+  }
+  .menu-paper-card {
+    padding: 16px 12px !important;
+    max-height: 94dvh !important;
+    border-radius: 6px !important;
+    gap: 10px !important;
+    width: 96vw !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .menu-paper-card::before,
+  .menu-paper-card::after {
+    display: none !important;
+  }
+  .main-menu-title {
+    font-size: 1.8rem !important;
+  }
+  .menu-logo-badge {
+    font-size: 0.55rem !important;
+    letter-spacing: 0.1em !important;
+    padding: 3px 8px !important;
+    white-space: normal !important;
+    line-height: 1.3 !important;
+  }
+  .menu-subtitle {
+    font-size: 0.72rem !important;
+    letter-spacing: 0.14em !important;
+  }
+  .menu-nav-tabs {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    gap: 6px !important;
+    padding: 2px 2px 8px 2px !important;
+    grid-template-columns: none !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .menu-nav-tabs::-webkit-scrollbar {
+    display: none !important;
+  }
+  .menu-tab-btn {
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+    font-size: 0.72rem !important;
+    padding: 8px 12px !important;
+    border-radius: var(--r-sm) !important;
+  }
+  .tab-pane-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+  .tab-grid-item {
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+  }
+  .tab-grid-item .diesel-select-wrapper {
+    width: 100% !important;
+  }
+  .tab-grid-item .btn-sketch {
+    width: 100% !important;
+  }
+  .diesel-select-menu {
+    max-width: 92vw !important;
+  }
+  .btn-deploy-hero {
+    padding: 12px 14px !important;
+    font-size: 0.88rem !important;
+  }
+
+  /* Modals: Mobile bottom sheet / fluid scaling */
+  .modal-overlay {
+    padding: 8px !important;
+  }
+  .modal-card {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    max-height: 90dvh !important;
+    padding: 14px 12px !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+  }
+  #custom-speed-modal .modal-card {
+    width: 94vw !important;
+    max-width: 94vw !important;
+  }
+  #victory-modal .modal-card {
+    width: 96vw !important;
+    max-height: 92dvh !important;
+    padding: 14px 10px !important;
+  }
+  .victory-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 4px !important;
+  }
+  .bootcamp-instructor-card {
+    width: calc(100% - 16px) !important;
+    left: 8px !important;
+    right: 8px !important;
+    bottom: 6px !important;
+    font-size: 0.76rem !important;
+  }
+  .aar-replay-bar {
+    flex-direction: column !important;
+    gap: 6px !important;
+    padding: 6px 8px !important;
+    font-size: 0.7rem !important;
+  }
+  .aar-replay-left, .aar-replay-center, .aar-replay-right {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+}
+
+/* ==========================================================================
+   LANDSCAPE MOBILE VIEWPORTS (height <= 520px and orientation: landscape)
+   ========================================================================== */
+@media (max-height: 520px) and (orientation: landscape) {
+  body {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  #app-wrapper {
+    max-width: 100vw !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+  }
+  .game-container {
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    gap: 0 !important;
+  }
+  header.hud-header {
+    padding: 4px 10px !important;
+    border-radius: 0 !important;
+    flex-shrink: 0 !important;
+  }
+  .game-title h1 {
+    font-size: 0.85rem !important;
+  }
+  .game-title-sub {
+    display: none !important;
+  }
+  .main-game-layout {
+    display: grid !important;
+    grid-template-columns: 1fr 310px !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    gap: 4px !important;
+  }
+  .canvas-wrapper {
+    order: 1 !important;
+    height: 100% !important;
+    width: 100% !important;
+    padding: 22px 4px 4px 4px !important;
+  }
+  #mobile-tactical-tabs {
+    display: none !important;
+  }
+  #sidebar-left {
+    display: none !important;
+  }
+  #sidebar-right {
+    order: 2 !important;
+    display: flex !important;
+    height: 100% !important;
+    width: 310px !important;
+    padding: 6px !important;
+  }
+  #mobile-bottom-bar {
+    display: none !important;
+  }
+  #sec-turn-controls {
+    display: flex !important;
+  }
+  #sec-inspector, #sec-abilities, #sec-recruitment {
+    display: flex !important;
+  }
+  .menu-paper-card {
+    max-height: 94dvh !important;
+    padding: 12px 16px !important;
+  }
 }
 
 
