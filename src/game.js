@@ -4823,14 +4823,14 @@ class SketchRenderer {
       [1, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1], // Row 1 (top bevel rim)
       [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], // Row 2
       [1, 1, 3, 3, 1, 1, 1, 3, 3, 1, 1, 1], // Row 3 (top-left & top-right eyes)
-      [1, 1, 3, 4, 1, 1, 1, 3, 4, 1, 1, 1], // Row 4 (eye pupils & shine)
-      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], // Row 5
-      [1, 1, 1, 1, 3, 3, 1, 1, 1, 1, 1, 1], // Row 6 (3rd eye, center-lower)
-      [1, 1, 1, 1, 3, 4, 1, 1, 1, 1, 1, 1], // Row 7 (3rd eye shine)
-      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1], // Row 8 (right stain begins)
-      [2, 2, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2], // Row 9 (left & right stains)
-      [2, 2, 2, 1, 1, 1, 1, 1, 1, 2, 2, 2], // Row 10 (left corner & right edge stains)
-      [0, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 0], // Row 11 (bottom rim)
+      [1, 1, 3, 4, 1, 1, 1, 3, 4, 1, 2, 2], // Row 4 (eye shine & right stain next to top eye)
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2], // Row 5 (right stain next to top eye)
+      [1, 1, 1, 1, 3, 3, 1, 1, 1, 2, 2, 2], // Row 6 (3rd eye, center-lower & right stain)
+      [1, 1, 1, 1, 3, 4, 1, 1, 1, 1, 2, 2], // Row 7 (3rd eye shine & right stain)
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], // Row 8
+      [2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], // Row 9 (left stain)
+      [2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1], // Row 10 (left corner stain)
+      [0, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 0], // Row 11 (bottom rim)
     ];
 
     const palette = {
