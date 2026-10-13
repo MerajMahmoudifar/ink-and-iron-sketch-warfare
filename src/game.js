@@ -1503,6 +1503,11 @@ class GameEngine {
     newUnit.spawnedAt = { x: spawnX, y: spawnY };
     player.units.push(newUnit);
 
+    // If Bubbly Cube is on this deployment tile, it immediately squeaks and evades to a free tile
+    if (this.bubblyCube && this.bubblyCube.x === spawnX && this.bubblyCube.y === spawnY) {
+      this.evadeBubblyCube();
+    }
+
     if (this.isMultiplayer && !isRemote) {
       if (!this.pendingSpawnsThisTurn) this.pendingSpawnsThisTurn = [];
       this.pendingSpawnsThisTurn.push({ id: unitId, typeKey, x: spawnX, y: spawnY });
@@ -2232,29 +2237,66 @@ class GameEngine {
     return this.bubblyCube;
   }
 
-  updateBubblyCube(stepIndex) {
+  evadeBubblyCube() {
     if (!this.bubblyCube) return;
     const cube = this.bubblyCube;
     const allLivingUnits = this.getAllUnits().filter(u => u.isAlive());
 
-    // Candidates: current tile and orthogonal neighbors within bounds and not impassable Mountain
-    const candidates = [
-      { x: cube.x, y: cube.y, isStay: true },
+    const isTileFree = (x, y) => {
+      if (x < 0 || x >= 8 || y < 0 || y >= 8) return false;
+      const t = this.grid[y][x];
+      if (t && (t.id === 'MOUNTAIN' || t.type === 'MOUNTAIN')) return false;
+      // Strictly disqualifies any tile with a living unit! Bubbly Cube never lands on troops.
+      if (allLivingUnits.some(u => u.x === x && u.y === y)) return false;
+      return true;
+    };
+
+    // Expanding concentric evasion rings:
+    // Ring 1: Orthogonal adjacent tiles (dist 1)
+    let candidates = [
       { x: cube.x + 1, y: cube.y },
       { x: cube.x - 1, y: cube.y },
       { x: cube.x, y: cube.y + 1 },
       { x: cube.x, y: cube.y - 1 }
-    ].filter(pos => {
-      if (pos.x < 0 || pos.x >= 8 || pos.y < 0 || pos.y >= 8) return false;
-      const tile = this.grid[pos.y][pos.x];
-      if (tile && (tile.id === 'MOUNTAIN' || tile.type === 'MOUNTAIN')) return false;
-      return true;
-    });
+    ].filter(p => isTileFree(p.x, p.y));
 
-    if (candidates.length === 0) return;
-    if (allLivingUnits.length === 0) return;
+    // Ring 2: Diagonal slip (dist 1.4) - escapes corner traps
+    if (candidates.length === 0) {
+      candidates = [
+        { x: cube.x + 1, y: cube.y + 1 },
+        { x: cube.x - 1, y: cube.y + 1 },
+        { x: cube.x + 1, y: cube.y - 1 },
+        { x: cube.x - 1, y: cube.y - 1 }
+      ].filter(p => isTileFree(p.x, p.y));
+    }
 
-    // Score candidates by maximizing distance to nearest troop (fleeing battle)
+    // Ring 3: Leapfrog bounce up to 2 tiles away (hops over surrounding troops)
+    if (candidates.length === 0) {
+      const ring3 = [];
+      for (let dx = -2; dx <= 2; dx++) {
+        for (let dy = -2; dy <= 2; dy++) {
+          if (Math.abs(dx) === 2 || Math.abs(dy) === 2) {
+            ring3.push({ x: cube.x + dx, y: cube.y + dy });
+          }
+        }
+      }
+      candidates = ring3.filter(p => isTileFree(p.x, p.y));
+    }
+
+    // Ring 4: Board-wide safety jump (any free passable tile)
+    if (candidates.length === 0) {
+      const allFree = [];
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          if (isTileFree(c, r)) allFree.push({ x: c, y: r });
+        }
+      }
+      candidates = allFree;
+    }
+
+    if (candidates.length === 0) return; // Extreme fallback
+
+    // Score candidates by maximizing distance from all living units and preference for perimeter
     let bestScore = -Infinity;
     let bestCandidates = [];
 
@@ -2265,14 +2307,9 @@ class GameEngine {
         if (d < minDist) minDist = d;
       });
 
-      // Bonus for fleeing towards edges/corners of the map
       const edgeDist = Math.min(cand.x, 7 - cand.x, cand.y, 7 - cand.y);
       const edgeBonus = (3 - edgeDist) * 0.25;
-
-      // Penalty for staying put if troops are nearby (<= 3 tiles)
-      const stayPenalty = (cand.isStay && minDist <= 3) ? -1.0 : 0;
-
-      const score = minDist * 10 + edgeBonus + stayPenalty;
+      const score = minDist * 10 + edgeBonus;
 
       if (score > bestScore) {
         bestScore = score;
@@ -2283,18 +2320,46 @@ class GameEngine {
     });
 
     const chosen = bestCandidates[Math.floor(Math.random() * bestCandidates.length)];
-    if (chosen && (chosen.x !== cube.x || chosen.y !== cube.y)) {
+    if (chosen) {
       cube.targetX = chosen.x;
       cube.targetY = chosen.y;
       cube.x = chosen.x;
       cube.y = chosen.y;
       cube.lastMoveTime = Date.now();
       if (this.audio && this.audio.playBubblySqueak) {
-        if (Math.random() < 0.5) {
-          this.audio.playBubblySqueak();
-        }
+        this.audio.playBubblySqueak();
       }
+      this.notifyStateChange();
     }
+  }
+
+  updateBubblyCube(stepIndex) {
+    if (!this.bubblyCube) return;
+    const cube = this.bubblyCube;
+    const allLivingUnits = this.getAllUnits().filter(u => u.isAlive());
+
+    // 1. If any living unit is on the exact same tile as Bubbly Cube:
+    // It must NEVER stay on the troop! Instantly slip/leapfrog away to an empty tile!
+    const hasUnitOnSameTile = allLivingUnits.some(u => u.x === cube.x && u.y === cube.y);
+    if (hasUnitOnSameTile) {
+      this.evadeBubblyCube();
+      return;
+    }
+
+    if (allLivingUnits.length === 0) return;
+
+    // Check distance to nearest troop
+    let nearestTroopDist = Infinity;
+    allLivingUnits.forEach(u => {
+      const d = Math.abs(u.x - cube.x) + Math.abs(u.y - cube.y);
+      if (d < nearestTroopDist) nearestTroopDist = d;
+    });
+
+    // If troops are far away (> 3 tiles), it idles peacefully
+    if (nearestTroopDist > 3) return;
+
+    // Troops are closing in (<= 3 tiles): Scamper away to a free tile
+    this.evadeBubblyCube();
   }
 
   subscribe(fn) { this.listeners.push(fn); }
@@ -4707,13 +4772,12 @@ class SketchRenderer {
 
     const now = Date.now();
     const bob = Math.sin(now / 220) * 2;
-    // If a friendly or enemy unit is standing on the same tile, peek out so Bubbly Cube is always visible
-    const hasUnitOnTile = engine && engine.getAllUnits().some(u => u.isAlive() && Math.round(u.renderX) === cube.x && Math.round(u.renderY) === cube.y);
-    const peekOffsetX = hasUnitOnTile ? 16 : 0;
-    const peekOffsetY = hasUnitOnTile ? -12 : 0;
+    // Parabolic leap hop arc while moving between tiles
+    const moveDist = Math.hypot(cube.targetX - cube.renderX, cube.targetY - cube.renderY);
+    const jumpArc = moveDist > 0.04 ? -Math.sin(Math.min(1, moveDist) * Math.PI) * 24 : 0;
 
-    const drawX = Math.round(posX + 17 + peekOffsetX); // Center 36px inside 70px tile: (70 - 36) / 2 = 17
-    const drawY = Math.round(posY + 17 + peekOffsetY + bob);
+    const drawX = Math.round(posX + 17); // Center 36px inside 70px tile: (70 - 36) / 2 = 17
+    const drawY = Math.round(posY + 17 + bob + jumpArc);
 
     // Blinking logic: blinks every 3-5 seconds for 130ms
     if (!cube.nextBlink) cube.nextBlink = now + 2500 + Math.random() * 2000;
@@ -4758,10 +4822,11 @@ class SketchRenderer {
       5: '#ff82c5'
     };
 
-    // Soft drop shadow on ground
+    // Soft drop shadow on ground (scales dynamically with jump height)
+    const shadowScale = Math.max(0.4, 1 - Math.abs(jumpArc) / 36);
     ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
     ctx.beginPath();
-    ctx.ellipse(drawX + 18, posY + 52 + peekOffsetY, 15, 4.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(drawX + 18, posY + 52, 15 * shadowScale, 4.5 * shadowScale, 0, 0, Math.PI * 2);
     ctx.fill();
 
     // Render crisp pixel art
