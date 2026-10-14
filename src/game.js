@@ -1256,6 +1256,9 @@ class GameEngine {
       if (terrainTile.id === 'FOREST' && u.stance === STANCES.AMBUSH.id) u.isAmbusherHidden = true;
     });
 
+    // Fail-safe: guarantee zero units remain stacked at the start of a new turn
+    this.disentangleStackedUnits();
+
     // Record turn start snapshot
     this.recordTurnSnapshot('PLANNING');
 
@@ -1767,8 +1770,8 @@ class GameEngine {
           // Highest priority commander takes the tile; others yield for this step
           for (let i = 1; i < cands.length; i++) {
             cands[i].approved = false;
-            // WEGO Tactical Collision: If contested tile was against an opponent, halt on contact & cancel waypoints
-            if (cands[i].unit.owner !== cands[0].unit.owner) {
+            // WEGO Tactical Collision: If contested tile was against an opponent or both units intended to end on it, halt
+            if (cands[i].unit.owner !== cands[0].unit.owner || (cands[i].unit.waypoints && cands[i].unit.waypoints.length <= 1)) {
               cands[i].unit.waypoints = [];
             }
             changed = true;
@@ -1793,16 +1796,18 @@ class GameEngine {
             cand.unit.waypoints = [];
             changed = true;
           } else {
-            // Friendly unit is at target: Check if occupant is vacating OR if candidate can phase through (Advance Wars style)
+            // Friendly unit is at target: Occupant MUST be approved to vacate this tile in the exact same step!
             const occupantCand = movingCandidates.find(c => c.unit.id === currentOccupant.id);
             const isVacatingAlly = occupantCand && occupantCand.approved;
-            const canPassThrough = this.canUnitPassThroughFriendly(cand, currentOccupant, stepIndex, movingCandidates, allUnits);
 
-            if (!isVacatingAlly && !canPassThrough) {
-              // Occupant is stationary/yielded AND candidate cannot pass through -> Target tile will not be vacant
+            if (!isVacatingAlly) {
+              // Occupant is stationary or yielded -> Target tile is occupied! Cannot step onto an occupied tile.
               cand.approved = false;
+              if (cand.unit.waypoints && cand.unit.waypoints.length <= 1) {
+                cand.unit.waypoints = [];
+              }
               changed = true;
-            } else if (isVacatingAlly) {
+            } else {
               // Head-on swap check: both units trying to walk into each other's current tile
               const isDirectSwap = occupantCand.targetX === cand.fromX && occupantCand.targetY === cand.fromY;
               if (isDirectSwap) {
@@ -1877,6 +1882,9 @@ class GameEngine {
         }
       }
     });
+
+    // Fail-safe: guarantee zero units ever occupy the same tile during playback
+    this.disentangleStackedUnits();
 
     // Update Bubbly Cube scampering behavior during playback step
     if (this.bubblyCube) {
@@ -2186,6 +2194,47 @@ class GameEngine {
     return true;
   }
 
+  disentangleStackedUnits() {
+    const allLiving = this.getAllUnits().filter(u => u.isAlive());
+    const occupied = new Map();
+    allLiving.forEach(u => {
+      const key = `${u.x},${u.y}`;
+      if (!occupied.has(key)) {
+        occupied.set(key, u);
+      } else {
+        // Disentangle: u is on the exact same tile as another unit!
+        let displaced = false;
+        for (let rad = 1; rad <= 4 && !displaced; rad++) {
+          for (let dy = -rad; dy <= rad && !displaced; dy++) {
+            for (let dx = -rad; dx <= rad && !displaced; dx++) {
+              const nx = u.x + dx;
+              const ny = u.y + dy;
+              if (nx >= 0 && nx < 8 && ny >= 0 && ny < 8) {
+                const nKey = `${nx},${ny}`;
+                const tile = this.grid[ny][nx];
+                const canPass = u.category === 'VEHICLE' ? tile.isVehiclePassable : tile.isInfantryPassable;
+                const isTileOcc = allLiving.some(o => o.id !== u.id && o.x === nx && o.y === ny);
+                if (canPass && !isTileOcc && !occupied.has(nKey)) {
+                  u.x = nx;
+                  u.y = ny;
+                  u.prevX = nx;
+                  u.prevY = ny;
+                  u.targetX = nx;
+                  u.targetY = ny;
+                  u.renderX = nx;
+                  u.renderY = ny;
+                  u.waypoints = [];
+                  occupied.set(nKey, u);
+                  displaced = true;
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
   getReachableTiles(unit) {
     if (!unit || !unit.isAlive()) return [];
 
@@ -2478,6 +2527,7 @@ class CommanderAI {
 
     // Calculate threat map for tactical positioning
     const threatMap = this.calculateThreatMap(engine, aiPlayer, visibleHumanUnits);
+    const claimedDestinations = new Set();
 
     aiUnits.forEach(unit => {
       const currentTile = engine.grid[unit.y][unit.x];
@@ -2495,15 +2545,16 @@ class CommanderAI {
         // 35% chance to hesitate/pause this turn
         if (Math.random() < 0.35) {
           unit.setWaypoints([]);
+          claimedDestinations.add(`${unit.x},${unit.y}`);
           return;
         }
 
         const adjacentEnemy = visibleHumanUnits.find(u => Math.max(Math.abs(unit.x - u.x), Math.abs(unit.y - u.y)) <= 1);
         if (adjacentEnemy) {
-          this.executeOrder(engine, unit, { x: adjacentEnemy.x, y: adjacentEnemy.y });
+          this.executeOrder(engine, unit, { x: adjacentEnemy.x, y: adjacentEnemy.y }, claimedDestinations);
         } else {
           const target = this.findUnownedZoneOrEnemyBase(engine, unit, humanPlayer);
-          this.executeOrder(engine, unit, target);
+          this.executeOrder(engine, unit, target, claimedDestinations);
         }
         return;
       }
@@ -2525,7 +2576,7 @@ class CommanderAI {
         if (unit.getHpPercent() < 25 && !isSittingOnBase) {
           const forestTile = this.findNearbyForest(engine, unit);
           const safeTarget = forestTile || this.findOwnedDefensePoint(engine, unit, aiPlayer) || aiPlayer.basePos;
-          this.executeOrder(engine, unit, safeTarget);
+          this.executeOrder(engine, unit, safeTarget, claimedDestinations);
           return;
         }
 
@@ -2537,19 +2588,20 @@ class CommanderAI {
           if (unit.attackRange === 2 && distToEnemy === 2 && !Combat.isBlockedByMountain(unit.x, unit.y, closestVisibleEnemy.x, closestVisibleEnemy.y, engine.grid)) {
             unit.setWaypoints([]);
             unit.setStance(STANCES.DEFEND.id);
+            claimedDestinations.add(`${unit.x},${unit.y}`);
             return;
           }
           if (distToEnemy <= unit.attackRange + unit.moveRange) {
-            const attackTile = this.findOptimalStandoffTile(engine, unit, closestVisibleEnemy);
+            const attackTile = this.findOptimalStandoffTile(engine, unit, closestVisibleEnemy, claimedDestinations);
             if (attackTile) {
-              this.executeOrder(engine, unit, attackTile);
+              this.executeOrder(engine, unit, attackTile, claimedDestinations);
               return;
             }
           }
         }
 
         const target = this.findUnownedZoneOrEnemyBase(engine, unit, humanPlayer);
-        this.executeOrder(engine, unit, target);
+        this.executeOrder(engine, unit, target, claimedDestinations);
         return;
       }
 
@@ -2557,7 +2609,7 @@ class CommanderAI {
       const currentThreat = threatMap[unit.y][unit.x];
       const isHeavilyWounded = unit.getHpPercent() < 35 && currentThreat > 0 && !isSittingOnBase;
 
-      const candidateTiles = this.getReachableTiles(engine, unit);
+      const candidateTiles = this.getReachableTiles(engine, unit, claimedDestinations);
       let bestAttackWinChance = 0;
       let bestCombatForecast = null;
 
@@ -2577,8 +2629,10 @@ class CommanderAI {
         if (retreatTile) {
           if (retreatTile.path && retreatTile.path.length > 0) {
             engine.setUnitWaypoints(unit.id, retreatTile.path);
+            claimedDestinations.add(`${retreatTile.x},${retreatTile.y}`);
           } else {
             unit.setWaypoints([]);
+            claimedDestinations.add(`${unit.x},${unit.y}`);
           }
 
           const destTile = engine.grid[retreatTile.y][retreatTile.x];
@@ -2613,8 +2667,10 @@ class CommanderAI {
       if (bestTile) {
         if (bestTile.path && bestTile.path.length > 0) {
           engine.setUnitWaypoints(unit.id, bestTile.path);
+          claimedDestinations.add(`${bestTile.x},${bestTile.y}`);
         } else {
           unit.setWaypoints([]);
+          claimedDestinations.add(`${unit.x},${unit.y}`);
         }
 
         // Stance optimization at destination
@@ -2629,6 +2685,9 @@ class CommanderAI {
           unit.setStance(STANCES.ADVANCE.id);
           unit.isAmbusherHidden = false;
         }
+      } else {
+        unit.setWaypoints([]);
+        claimedDestinations.add(`${unit.x},${unit.y}`);
       }
     });
   }
@@ -2726,7 +2785,7 @@ class CommanderAI {
     };
   }
 
-  static getReachableTiles(engine, unit) {
+  static getReachableTiles(engine, unit, claimedDestinations = null) {
     const tiles = [{ x: unit.x, y: unit.y, path: [], dist: 0 }];
     const maxR = unit.moveRange;
     for (let r = Math.max(0, unit.y - maxR); r <= Math.min(7, unit.y + maxR); r++) {
@@ -2738,6 +2797,7 @@ class CommanderAI {
 
         const friendlyOnTile = engine.players[2].units.some(u => u.isAlive() && u.id !== unit.id && u.x === c && u.y === r);
         if (friendlyOnTile) continue;
+        if (claimedDestinations && claimedDestinations.has(`${c},${r}`)) continue;
 
         const path = engine.findValidPath(unit, c, r);
         if (path.length > 0 && path.length <= unit.moveRange) {
@@ -2869,8 +2929,8 @@ class CommanderAI {
     return score;
   }
 
-  static findOptimalStandoffTile(engine, unit, enemy) {
-    const reachable = this.getReachableTiles(engine, unit);
+  static findOptimalStandoffTile(engine, unit, enemy, claimedDestinations = null) {
+    const reachable = this.getReachableTiles(engine, unit, claimedDestinations);
     let best = null;
     let minDist = Infinity;
     reachable.forEach(tile => {
@@ -3168,12 +3228,59 @@ class CommanderAI {
     return closest;
   }
 
-  static executeOrder(engine, unit, target) {
+  static executeOrder(engine, unit, target, claimedDestinations = null) {
     if (!target) return;
-    const path = engine.findValidPath(unit, target.x, target.y);
-    if (path.length > 0) {
-      engine.setUnitWaypoints(unit.id, path);
+    let targetX = target.x;
+    let targetY = target.y;
+
+    const isClaimed = (x, y) => {
+      if (claimedDestinations && claimedDestinations.has(`${x},${y}`)) return true;
+      return engine.players[unit.owner].units.some(u => u.isAlive() && u.id !== unit.id && u.x === x && u.y === y);
+    };
+
+    if (isClaimed(targetX, targetY)) {
+      // Find closest unclaimed passable tile near target
+      let bestDist = Infinity;
+      let altTarget = null;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          const nx = targetX + dx;
+          const ny = targetY + dy;
+          if (nx >= 0 && nx < 8 && ny >= 0 && ny < 8) {
+            const tile = engine.grid[ny][nx];
+            const canPass = unit.category === 'VEHICLE' ? tile.isVehiclePassable : tile.isInfantryPassable;
+            if (canPass && !isClaimed(nx, ny)) {
+              const d = Math.abs(unit.x - nx) + Math.abs(unit.y - ny);
+              if (d < bestDist) {
+                bestDist = d;
+                altTarget = { x: nx, y: ny };
+              }
+            }
+          }
+        }
+      }
+      if (altTarget) {
+        targetX = altTarget.x;
+        targetY = altTarget.y;
+      }
     }
+
+    const path = engine.findValidPath(unit, targetX, targetY);
+    if (path.length > 0) {
+      // If path end is claimed, step back to last unclaimed tile on the path
+      while (path.length > 0 && isClaimed(path[path.length - 1].x, path[path.length - 1].y)) {
+        path.pop();
+      }
+      if (path.length > 0) {
+        engine.setUnitWaypoints(unit.id, path);
+        const finalDest = path[path.length - 1];
+        if (claimedDestinations) claimedDestinations.add(`${finalDest.x},${finalDest.y}`);
+        return;
+      }
+    }
+    unit.setWaypoints([]);
+    if (claimedDestinations) claimedDestinations.add(`${unit.x},${unit.y}`);
   }
 
   static findClosestZone(engine, unit) {
@@ -10010,6 +10117,20 @@ class App {
         }
 
         // CASE D: Plotting destination tile (empty tile or enemy target)
+        // Prevent stacking: Destination tile cannot be an ally's final destination
+        const isReservedByAlly = this.engine.getAllUnits().some(u => {
+          if (u.id === selectedFriendlyUnit.id || u.owner !== localSlot || !u.isAlive()) return false;
+          const uDest = (u.waypoints && u.waypoints.length > 0) ? u.waypoints[u.waypoints.length - 1] : { x: u.x, y: u.y };
+          return uDest.x === gridCoords.x && uDest.y === gridCoords.y;
+        });
+        if (isReservedByAlly) {
+          this.ui.showToast('Tile Reserved', 'Another friendly unit is stationed at or moving to this position.');
+          try { this.audio.playDenied(); } catch(err){}
+          this.renderer.selectedTile = { x: selectedFriendlyUnit.x, y: selectedFriendlyUnit.y };
+          this.ui.updateHUD(this.engine);
+          return;
+        }
+
         if (selectedFriendlyUnit.category === 'VEHICLE' && this.engine.grid[gridCoords.y][gridCoords.x].id === 'SWAMP') {
           this.ui.showToast('Terrain Blocked', 'Mud, Swamp & Pond terrain is completely impassable to vehicles and tanks!');
           try { this.audio.playEraserSmudge(); } catch(err){}
@@ -10037,6 +10158,19 @@ class App {
         }
 
         if (newPath && newPath.length > 0) {
+          const finalTile = newPath[newPath.length - 1];
+          const finalReserved = this.engine.getAllUnits().some(u => {
+            if (u.id === selectedFriendlyUnit.id || u.owner !== localSlot || !u.isAlive()) return false;
+            const uDest = (u.waypoints && u.waypoints.length > 0) ? u.waypoints[u.waypoints.length - 1] : { x: u.x, y: u.y };
+            return uDest.x === finalTile.x && uDest.y === finalTile.y;
+          });
+          if (finalReserved) {
+            this.ui.showToast('Tile Reserved', 'Destination tile is occupied or reserved by an allied unit.');
+            try { this.audio.playDenied(); } catch(err){}
+            this.renderer.selectedTile = { x: selectedFriendlyUnit.x, y: selectedFriendlyUnit.y };
+            this.ui.updateHUD(this.engine);
+            return;
+          }
           this.engine.setUnitWaypoints(selectedFriendlyUnit.id, newPath);
           try { this.audio.playPencilScratch(); } catch(err){}
         }

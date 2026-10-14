@@ -66,6 +66,7 @@ export class CommanderAI {
     const aiVision = engine.calculateVision(2);
     const visibleHumanUnits = humanPlayer.units.filter(u => u.isAlive() && aiVision[u.y][u.x]);
     const aiUnits = aiPlayer.units.filter(u => u.isAlive());
+    const claimedDestinations = new Set();
 
     aiUnits.forEach(unit => {
       const currentTile = engine.grid[unit.y][unit.x];
@@ -99,13 +100,13 @@ export class CommanderAI {
         if (unit.getHpPercent() < 25 && !isSittingOnBase) {
           const forestTile = this.findNearbyForest(engine, unit);
           const safeTarget = forestTile || this.findOwnedDefensePoint(engine, unit, aiPlayer) || aiPlayer.basePos;
-          this.executeOrder(engine, unit, safeTarget);
+          this.executeOrder(engine, unit, safeTarget, claimedDestinations);
           return;
         }
       } else {
         if (unit.getHpPercent() < 35 && !isSittingOnBase) {
           const safeTarget = this.findOwnedDefensePoint(engine, unit, aiPlayer) || this.findNearbyForest(engine, unit) || aiPlayer.basePos;
-          this.executeOrder(engine, unit, safeTarget);
+          this.executeOrder(engine, unit, safeTarget, claimedDestinations);
           return;
         }
       }
@@ -114,38 +115,39 @@ export class CommanderAI {
       if (difficulty === 'RECRUIT') {
         if (Math.random() < 0.35) {
           unit.setWaypoints([]);
+          claimedDestinations.add(`${unit.x},${unit.y}`);
           return;
         }
 
         const adjacentEnemy = visibleHumanUnits.find(u => Math.max(Math.abs(unit.x - u.x), Math.abs(unit.y - u.y)) <= 1);
         if (adjacentEnemy) {
-          this.executeOrder(engine, unit, { x: adjacentEnemy.x, y: adjacentEnemy.y });
+          this.executeOrder(engine, unit, { x: adjacentEnemy.x, y: adjacentEnemy.y }, claimedDestinations);
         } else {
           const target = this.findUnownedZoneOrEnemyBase(engine, unit, humanPlayer);
-          this.executeOrder(engine, unit, target);
+          this.executeOrder(engine, unit, target, claimedDestinations);
         }
       } else if (difficulty === 'VETERAN') {
         const closestVisibleEnemy = this.findClosestVisibleEnemy(unit, visibleHumanUnits);
         const distToEnemy = closestVisibleEnemy ? Math.max(Math.abs(unit.x - closestVisibleEnemy.x), Math.abs(unit.y - closestVisibleEnemy.y)) : 999;
 
         if (distToEnemy <= unit.attackRange + 1 && !isSittingOnBase) {
-          this.executeOrder(engine, unit, { x: closestVisibleEnemy.x, y: closestVisibleEnemy.y });
+          this.executeOrder(engine, unit, { x: closestVisibleEnemy.x, y: closestVisibleEnemy.y }, claimedDestinations);
         } else {
           const target = this.findUnownedZoneOrEnemyBase(engine, unit, humanPlayer);
-          this.executeOrder(engine, unit, target);
+          this.executeOrder(engine, unit, target, claimedDestinations);
         }
       } else {
         const priorityTarget = this.findGeneralCombatTarget(unit, visibleHumanUnits);
         if (priorityTarget) {
           const distToEnemy = Math.max(Math.abs(unit.x - priorityTarget.x), Math.abs(unit.y - priorityTarget.y));
           if (distToEnemy <= unit.attackRange + unit.moveRange && !isSittingOnBase) {
-            this.executeOrder(engine, unit, { x: priorityTarget.x, y: priorityTarget.y });
+            this.executeOrder(engine, unit, { x: priorityTarget.x, y: priorityTarget.y }, claimedDestinations);
             return;
           }
         }
 
         const target = this.findUnownedZoneOrEnemyBase(engine, unit, humanPlayer);
-        this.executeOrder(engine, unit, target);
+        this.executeOrder(engine, unit, target, claimedDestinations);
       }
     });
   }
@@ -403,12 +405,57 @@ export class CommanderAI {
     return closest;
   }
 
-  static executeOrder(engine, unit, target) {
+  static executeOrder(engine, unit, target, claimedDestinations = null) {
     if (!target) return;
-    const path = engine.findValidPath(unit, target.x, target.y);
-    if (path.length > 0) {
-      engine.setUnitWaypoints(unit.id, path);
+    let targetX = target.x;
+    let targetY = target.y;
+
+    const isClaimed = (x, y) => {
+      if (claimedDestinations && claimedDestinations.has(`${x},${y}`)) return true;
+      return engine.players[unit.owner].units.some(u => u.isAlive() && u.id !== unit.id && u.x === x && u.y === y);
+    };
+
+    if (isClaimed(targetX, targetY)) {
+      let bestDist = Infinity;
+      let altTarget = null;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          const nx = targetX + dx;
+          const ny = targetY + dy;
+          if (nx >= 0 && nx < 8 && ny >= 0 && ny < 8) {
+            const tile = engine.grid[ny][nx];
+            const canPass = unit.category === 'VEHICLE' ? tile.isVehiclePassable : tile.isInfantryPassable;
+            if (canPass && !isClaimed(nx, ny)) {
+              const d = Math.abs(unit.x - nx) + Math.abs(unit.y - ny);
+              if (d < bestDist) {
+                bestDist = d;
+                altTarget = { x: nx, y: ny };
+              }
+            }
+          }
+        }
+      }
+      if (altTarget) {
+        targetX = altTarget.x;
+        targetY = altTarget.y;
+      }
     }
+
+    const path = engine.findValidPath(unit, targetX, targetY);
+    if (path.length > 0) {
+      while (path.length > 0 && isClaimed(path[path.length - 1].x, path[path.length - 1].y)) {
+        path.pop();
+      }
+      if (path.length > 0) {
+        engine.setUnitWaypoints(unit.id, path);
+        const finalDest = path[path.length - 1];
+        if (claimedDestinations) claimedDestinations.add(`${finalDest.x},${finalDest.y}`);
+        return;
+      }
+    }
+    unit.setWaypoints([]);
+    if (claimedDestinations) claimedDestinations.add(`${unit.x},${unit.y}`);
   }
 
   static findClosestZone(engine, unit) {
