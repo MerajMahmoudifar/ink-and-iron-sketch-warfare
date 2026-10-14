@@ -2465,32 +2465,51 @@ class CommanderAI {
       // Lesson 8 falls through to dynamic AI
     }
 
-    // 1. Dynamic Unit Recruitment
-    this.buyUnitsAI(engine, difficulty);
-
-    // 2. Ability Usage
+    // 1. Dynamic Ability Usage (Flares, Artillery, Smoke Combos)
     this.useAbilitiesAI(engine, difficulty);
 
-    // 3. Movement, Stance & Target Evaluation
+    // 2. Dynamic Unit Recruitment (Adaptive Multi-Buys across forward depots)
+    this.buyUnitsAI(engine, difficulty);
+
+    // 3. Movement, Stance & Combat Odds Target Evaluation
     const aiVision = engine.calculateVision(2);
     const visibleHumanUnits = humanPlayer.units.filter(u => u.isAlive() && aiVision[u.y][u.x]);
     const aiUnits = aiPlayer.units.filter(u => u.isAlive());
+
+    // Calculate threat map for tactical positioning
+    const threatMap = this.calculateThreatMap(engine, aiPlayer, visibleHumanUnits);
 
     aiUnits.forEach(unit => {
       const currentTile = engine.grid[unit.y][unit.x];
       const isSittingOnBase = (unit.x === aiPlayer.basePos.x && unit.y === aiPlayer.basePos.y);
 
-      // --- STANCE EVALUATION ---
+      // --- RECRUIT: Casual / Beginner ---
       if (difficulty === 'RECRUIT') {
-        // Recruit never uses sneaky ambush stances in forests
         if (['CAPTURE_ZONE', 'MAIN_BASE'].includes(currentTile.id) && currentTile.owner === 2) {
           unit.setStance(STANCES.DEFEND.id);
         } else {
           unit.setStance(STANCES.ADVANCE.id);
         }
         unit.isAmbusherHidden = false;
-      } else {
-        // Veteran and General use optimal forest ambush stance
+
+        // 35% chance to hesitate/pause this turn
+        if (Math.random() < 0.35) {
+          unit.setWaypoints([]);
+          return;
+        }
+
+        const adjacentEnemy = visibleHumanUnits.find(u => Math.max(Math.abs(unit.x - u.x), Math.abs(unit.y - u.y)) <= 1);
+        if (adjacentEnemy) {
+          this.executeOrder(engine, unit, { x: adjacentEnemy.x, y: adjacentEnemy.y });
+        } else {
+          const target = this.findUnownedZoneOrEnemyBase(engine, unit, humanPlayer);
+          this.executeOrder(engine, unit, target);
+        }
+        return;
+      }
+
+      // --- VETERAN: Balanced Tactical Play ---
+      if (difficulty === 'VETERAN') {
         if (currentTile.id === 'FOREST' && unit.category === 'INFANTRY') {
           unit.setStance(STANCES.AMBUSH.id);
           unit.isAmbusherHidden = true;
@@ -2501,70 +2520,369 @@ class CommanderAI {
           unit.setStance(STANCES.ADVANCE.id);
           unit.isAmbusherHidden = false;
         }
-      }
 
-      // --- LOW HP TACTICAL RETREAT ---
-      if (difficulty === 'RECRUIT') {
-        // Recruit never flees when wounded - allows newbies to land satisfying finishing blows
-      } else if (difficulty === 'VETERAN') {
+        // Low HP retreat
         if (unit.getHpPercent() < 25 && !isSittingOnBase) {
           const forestTile = this.findNearbyForest(engine, unit);
           const safeTarget = forestTile || this.findOwnedDefensePoint(engine, unit, aiPlayer) || aiPlayer.basePos;
           this.executeOrder(engine, unit, safeTarget);
           return;
         }
-      } else {
-        // General: strategic retreat when < 35% HP to friendly depots or base
-        if (unit.getHpPercent() < 35 && !isSittingOnBase) {
-          const safeTarget = this.findOwnedDefensePoint(engine, unit, aiPlayer) || this.findNearbyForest(engine, unit) || aiPlayer.basePos;
-          this.executeOrder(engine, unit, safeTarget);
-          return;
-        }
-      }
 
-      // --- ORDERS & MOVEMENT ---
-      if (difficulty === 'RECRUIT') {
-        // 35% chance to hesitate/pause this turn
-        if (Math.random() < 0.35) {
-          unit.setWaypoints([]);
-          return;
-        }
-
-        // Check if an enemy is in immediate contact (adjacent tile)
-        const adjacentEnemy = visibleHumanUnits.find(u => Math.max(Math.abs(unit.x - u.x), Math.abs(unit.y - u.y)) <= 1);
-        if (adjacentEnemy) {
-          this.executeOrder(engine, unit, { x: adjacentEnemy.x, y: adjacentEnemy.y });
-        } else {
-          // Simply moves toward uncaptured zones or enemy HQ
-          const target = this.findUnownedZoneOrEnemyBase(engine, unit, humanPlayer);
-          this.executeOrder(engine, unit, target);
-        }
-      } else if (difficulty === 'VETERAN') {
+        // Veteran combat target:
         const closestVisibleEnemy = this.findClosestVisibleEnemy(unit, visibleHumanUnits);
-        const distToEnemy = closestVisibleEnemy ? Math.max(Math.abs(unit.x - closestVisibleEnemy.x), Math.abs(unit.y - closestVisibleEnemy.y)) : 999;
-
-        if (distToEnemy <= unit.attackRange + 1 && !isSittingOnBase) {
-          this.executeOrder(engine, unit, { x: closestVisibleEnemy.x, y: closestVisibleEnemy.y });
-        } else {
-          const target = this.findUnownedZoneOrEnemyBase(engine, unit, humanPlayer);
-          this.executeOrder(engine, unit, target);
-        }
-      } else {
-        // GENERAL: Master focus-fire and strategic terrain pathing
-        const priorityTarget = this.findGeneralCombatTarget(unit, visibleHumanUnits);
-        if (priorityTarget) {
-          const distToEnemy = Math.max(Math.abs(unit.x - priorityTarget.x), Math.abs(unit.y - priorityTarget.y));
-          if (distToEnemy <= unit.attackRange + unit.moveRange && !isSittingOnBase) {
-            this.executeOrder(engine, unit, { x: priorityTarget.x, y: priorityTarget.y });
+        if (closestVisibleEnemy && !isSittingOnBase) {
+          const distToEnemy = Math.max(Math.abs(unit.x - closestVisibleEnemy.x), Math.abs(unit.y - closestVisibleEnemy.y));
+          // If unit has range 2 and is at range 2, hold position with DEFEND stance!
+          if (unit.attackRange === 2 && distToEnemy === 2 && !Combat.isBlockedByMountain(unit.x, unit.y, closestVisibleEnemy.x, closestVisibleEnemy.y, engine.grid)) {
+            unit.setWaypoints([]);
+            unit.setStance(STANCES.DEFEND.id);
             return;
+          }
+          if (distToEnemy <= unit.attackRange + unit.moveRange) {
+            const attackTile = this.findOptimalStandoffTile(engine, unit, closestVisibleEnemy);
+            if (attackTile) {
+              this.executeOrder(engine, unit, attackTile);
+              return;
+            }
           }
         }
 
-        // No immediate high-priority combat target: advance to strategic zone or base
         const target = this.findUnownedZoneOrEnemyBase(engine, unit, humanPlayer);
         this.executeOrder(engine, unit, target);
+        return;
+      }
+
+      // --- GENERAL: Tactical Mastermind (Ruthless, Real-Time Combat Odds, Threat Heatmap) ---
+      const currentThreat = threatMap[unit.y][unit.x];
+      const isHeavilyWounded = unit.getHpPercent() < 35 && currentThreat > 0 && !isSittingOnBase;
+
+      const candidateTiles = this.getReachableTiles(engine, unit);
+      let bestAttackWinChance = 0;
+      let bestCombatForecast = null;
+
+      visibleHumanUnits.forEach(enemy => {
+        const sim = this.simulateCombat(unit, enemy, engine, { x: unit.x, y: unit.y });
+        if (sim.inRange && sim.winChance > bestAttackWinChance) {
+          bestAttackWinChance = sim.winChance;
+          bestCombatForecast = sim;
+        }
+      });
+
+      // User rule: If win chance < 60% and threat is severe, or low HP, retreat smartly
+      const isOutmatched = (bestCombatForecast && bestAttackWinChance < 0.60 && currentThreat >= 35 && !isSittingOnBase);
+
+      if (isHeavilyWounded || isOutmatched) {
+        const retreatTile = this.findSafestRetreatTile(engine, unit, candidateTiles, threatMap, visibleHumanUnits, aiPlayer);
+        if (retreatTile) {
+          if (retreatTile.path && retreatTile.path.length > 0) {
+            engine.setUnitWaypoints(unit.id, retreatTile.path);
+          } else {
+            unit.setWaypoints([]);
+          }
+
+          const destTile = engine.grid[retreatTile.y][retreatTile.x];
+          if (destTile.id === 'FOREST' && unit.category === 'INFANTRY') {
+            unit.setStance(STANCES.AMBUSH.id);
+            unit.isAmbusherHidden = true;
+          } else {
+            unit.setStance(STANCES.DEFEND.id);
+            unit.isAmbusherHidden = false;
+          }
+
+          // Emergency Defensive Smoke Screen: If facing lethal damage and CP >= 3
+          if (aiPlayer.cp >= 3 && currentThreat >= 45 && !engine.isTileInSmoke(unit.x, unit.y)) {
+            engine.useAbility(2, 'SMOKE_SCREEN', unit.x, unit.y);
+          }
+          return;
+        }
+      }
+
+      // Not retreating: Pick best tactical candidate move via Tactical Utility Evaluator
+      let bestTile = null;
+      let maxScore = -Infinity;
+
+      candidateTiles.forEach(cand => {
+        const score = this.evaluateTileForUnit(engine, unit, cand, threatMap, visibleHumanUnits, aiPlayer);
+        if (score > maxScore) {
+          maxScore = score;
+          bestTile = cand;
+        }
+      });
+
+      if (bestTile) {
+        if (bestTile.path && bestTile.path.length > 0) {
+          engine.setUnitWaypoints(unit.id, bestTile.path);
+        } else {
+          unit.setWaypoints([]);
+        }
+
+        // Stance optimization at destination
+        const destTile = engine.grid[bestTile.y][bestTile.x];
+        if (destTile.id === 'FOREST' && unit.category === 'INFANTRY') {
+          unit.setStance(STANCES.AMBUSH.id);
+          unit.isAmbusherHidden = true;
+        } else if (['CAPTURE_ZONE', 'MAIN_BASE'].includes(destTile.id) || (bestTile.path.length === 0)) {
+          unit.setStance(STANCES.DEFEND.id);
+          unit.isAmbusherHidden = false;
+        } else {
+          unit.setStance(STANCES.ADVANCE.id);
+          unit.isAmbusherHidden = false;
+        }
       }
     });
+  }
+
+  static calculateThreatMap(engine, aiPlayer, visibleHumanUnits) {
+    const threatMap = Array(8).fill(null).map(() => Array(8).fill(0));
+    visibleHumanUnits.forEach(human => {
+      const reach = human.moveRange + human.attackRange;
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const dist = Math.max(Math.abs(human.x - c), Math.abs(human.y - r));
+          if (dist <= reach) {
+            let threat = human.attack;
+            if (human.typeKey === 'ANTI_TANK') threat += 45;
+            if (dist <= human.attackRange) threat *= 1.6;
+            if (engine.grid[r][c].id === 'FOREST') threat *= 0.8;
+            threatMap[r][c] += Math.round(threat);
+          }
+        }
+      }
+    });
+    return threatMap;
+  }
+
+  static simulateCombat(attacker, defender, engine, fromPos = null) {
+    if (!attacker || !defender || (defender.isAlive && !defender.isAlive())) {
+      return { inRange: false, winChance: 0, damageDealt: 0, retaliation: 0 };
+    }
+    const pos = fromPos || { x: attacker.x, y: attacker.y };
+    const dist = Combat.getDistance(pos, { x: defender.x, y: defender.y });
+    if (dist > attacker.attackRange) {
+      return { inRange: false, winChance: 0, damageDealt: 0, retaliation: 0 };
+    }
+    if (dist > 1 && Combat.isBlockedByMountain(pos.x, pos.y, defender.x, defender.y, engine.grid)) {
+      return { inRange: false, winChance: 0, damageDealt: 0, retaliation: 0 };
+    }
+    if (engine.isTileInSmoke(pos.x, pos.y) || engine.isTileInSmoke(defender.x, defender.y)) {
+      return { inRange: false, winChance: 0, damageDealt: 0, retaliation: 0 };
+    }
+
+    let baseDamage = attacker.attack;
+    if (attacker.typeKey === 'ANTI_TANK' && defender.category === 'VEHICLE') {
+      baseDamage *= (attacker.vehicleBonus || 2.5);
+    } else if (attacker.category === 'VEHICLE' && defender.category === 'INFANTRY') {
+      baseDamage *= (attacker.infantryBonus || 1.5);
+    }
+
+    const attackerTile = engine.grid[pos.y][pos.x];
+    const defenderTile = engine.grid[defender.y][defender.x];
+    const isAmbush = (attackerTile.id === 'FOREST' && attacker.category === 'INFANTRY');
+    if (isAmbush) baseDamage *= 1.5;
+
+    const defenderTerrainDef = defenderTile.defenseBonus || 0;
+    const defenderStanceDef = STANCES[defender.stance]?.defense || 1.0;
+    const damageDealt = Math.round(Math.max(5, (baseDamage * (1 - defenderTerrainDef)) / defenderStanceDef));
+
+    let retaliation = 0;
+    const canRetaliate = dist <= defender.attackRange && !(isAmbush && damageDealt >= defender.hp);
+    if (canRetaliate && !Combat.isBlockedByMountain(defender.x, defender.y, pos.x, pos.y, engine.grid)) {
+      let retBase = defender.attack;
+      if (defender.typeKey === 'ANTI_TANK' && attacker.category === 'VEHICLE') {
+        retBase *= (defender.vehicleBonus || 2.5);
+      } else if (defender.category === 'VEHICLE' && attacker.category === 'INFANTRY') {
+        retBase *= (defender.infantryBonus || 1.5);
+      }
+      const attackerTerrainDef = attackerTile.defenseBonus || 0;
+      const attackerStanceDef = 1.1;
+      retaliation = Math.round(Math.max(5, (retBase * (1 - attackerTerrainDef)) / attackerStanceDef));
+    }
+
+    const isKill = damageDealt >= defender.hp;
+    const isAttackerKilled = retaliation >= attacker.hp;
+
+    let winChance = 0.5;
+    if (isKill && !isAttackerKilled) {
+      winChance = 0.95;
+    } else if (isKill && isAttackerKilled) {
+      winChance = (attacker.cost <= defender.cost) ? 0.70 : 0.40;
+    } else if (isAttackerKilled) {
+      winChance = 0.10;
+    } else {
+      const netPctDefenderLoss = damageDealt / defender.maxHp;
+      const netPctAttackerLoss = retaliation / attacker.maxHp;
+      winChance = Math.max(0.05, Math.min(0.95, 0.50 + (netPctDefenderLoss - netPctAttackerLoss) * 0.6));
+    }
+
+    return {
+      inRange: true,
+      damageDealt,
+      retaliation,
+      isKill,
+      isAttackerKilled,
+      canRetaliate,
+      winChance
+    };
+  }
+
+  static getReachableTiles(engine, unit) {
+    const tiles = [{ x: unit.x, y: unit.y, path: [], dist: 0 }];
+    const maxR = unit.moveRange;
+    for (let r = Math.max(0, unit.y - maxR); r <= Math.min(7, unit.y + maxR); r++) {
+      for (let c = Math.max(0, unit.x - maxR); c <= Math.min(7, unit.x + maxR); c++) {
+        if (c === unit.x && r === unit.y) continue;
+        const tile = engine.grid[r][c];
+        const canPass = unit.category === 'VEHICLE' ? tile.isVehiclePassable : tile.isInfantryPassable;
+        if (!canPass) continue;
+
+        const friendlyOnTile = engine.players[2].units.some(u => u.isAlive() && u.id !== unit.id && u.x === c && u.y === r);
+        if (friendlyOnTile) continue;
+
+        const path = engine.findValidPath(unit, c, r);
+        if (path.length > 0 && path.length <= unit.moveRange) {
+          tiles.push({ x: c, y: r, path, dist: path.length });
+        }
+      }
+    }
+    return tiles;
+  }
+
+  static findSafestRetreatTile(engine, unit, candidateTiles, threatMap, visibleHumanUnits, aiPlayer) {
+    let bestTile = null;
+    let minThreatScore = Infinity;
+
+    candidateTiles.forEach(cand => {
+      let threat = threatMap[cand.y][cand.x];
+      const tile = engine.grid[cand.y][cand.x];
+      if (tile.id === 'FOREST') threat -= 30;
+      if (['CAPTURE_ZONE', 'MAIN_BASE'].includes(tile.id) && tile.owner === 2) threat -= 40;
+
+      if (visibleHumanUnits.length > 0) {
+        let minDistToEnemy = Infinity;
+        visibleHumanUnits.forEach(e => {
+          const d = Math.max(Math.abs(cand.x - e.x), Math.abs(cand.y - e.y));
+          if (d < minDistToEnemy) minDistToEnemy = d;
+        });
+        threat -= (minDistToEnemy * 10);
+      }
+
+      if (threat < minThreatScore) {
+        minThreatScore = threat;
+        bestTile = cand;
+      }
+    });
+
+    return bestTile;
+  }
+
+  static evaluateTileForUnit(engine, unit, cand, threatMap, visibleHumanUnits, aiPlayer) {
+    const tile = engine.grid[cand.y][cand.x];
+    let score = 0;
+
+    // 1. Threat Mitigation
+    let threat = threatMap[cand.y][cand.x];
+    if (unit.category === 'VEHICLE') {
+      const atThreat = visibleHumanUnits.some(e => e.typeKey === 'ANTI_TANK' && Math.max(Math.abs(e.x - cand.x), Math.abs(e.y - cand.y)) <= (e.moveRange + e.attackRange));
+      if (atThreat) threat *= 2.0;
+    }
+    score -= threat * 0.75;
+
+    // 2. Terrain & Stance Bonuses
+    if (tile.id === 'FOREST') {
+      score += (unit.category === 'INFANTRY') ? 35 : 15;
+    }
+    if (tile.id === 'CAPTURE_ZONE') {
+      if (tile.owner !== 2) score += 55;
+      else score += 25;
+    }
+    if (tile.id === 'MAIN_BASE' && tile.owner === 1) {
+      score += 100;
+    }
+
+    // 3. Combat Evaluation from candidate tile
+    let bestCombatScore = -999;
+    let foundCombatTarget = false;
+
+    visibleHumanUnits.forEach(enemy => {
+      const sim = this.simulateCombat(unit, enemy, engine, cand);
+      if (sim.inRange) {
+        foundCombatTarget = true;
+        let cScore = 0;
+
+        if (sim.winChance >= 0.65) {
+          cScore += 65 + (sim.winChance * 45);
+          if (sim.isKill) cScore += 60;
+          cScore -= (sim.retaliation * 0.4);
+
+          if (unit.typeKey === 'ANTI_TANK' && enemy.category === 'VEHICLE') cScore += 50;
+          if (unit.category === 'VEHICLE' && enemy.category === 'INFANTRY') cScore += 35;
+          if (unit.typeKey === 'RIFLEMAN' && enemy.typeKey === 'ANTI_TANK') cScore += 35;
+
+          if (enemy.getHpPercent() <= 40) cScore += 30;
+
+          // Standoff advantage for Range 2 units (AT, Siege Tank)
+          const dist = Combat.getDistance(cand, enemy);
+          if (unit.attackRange === 2 && dist === 2 && enemy.attackRange === 1) {
+            cScore += 45;
+          }
+        } else {
+          cScore -= 45;
+        }
+
+        if (cScore > bestCombatScore) {
+          bestCombatScore = cScore;
+        }
+      }
+    });
+
+    if (foundCombatTarget) {
+      score += bestCombatScore;
+    } else {
+      let minDistToZone = Infinity;
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          if (engine.grid[r][c].id === 'CAPTURE_ZONE' && engine.grid[r][c].owner !== 2) {
+            const d = Math.max(Math.abs(cand.x - c), Math.abs(cand.y - r));
+            if (d < minDistToZone) minDistToZone = d;
+          }
+        }
+      }
+      if (minDistToZone < Infinity) {
+        score += Math.max(0, 30 - minDistToZone * 5);
+      } else {
+        const p1Base = engine.players[1].basePos;
+        const dBase = Math.max(Math.abs(cand.x - p1Base.x), Math.abs(cand.y - p1Base.y));
+        score += Math.max(0, 30 - dBase * 4);
+      }
+
+      if (visibleHumanUnits.length > 0 && unit.getHpPercent() >= 70) {
+        let minDistEnemy = Infinity;
+        visibleHumanUnits.forEach(e => {
+          const d = Math.max(Math.abs(cand.x - e.x), Math.abs(cand.y - e.y));
+          if (d < minDistEnemy) minDistEnemy = d;
+        });
+        score += Math.max(0, 20 - minDistEnemy * 3);
+      }
+    }
+
+    return score;
+  }
+
+  static findOptimalStandoffTile(engine, unit, enemy) {
+    const reachable = this.getReachableTiles(engine, unit);
+    let best = null;
+    let minDist = Infinity;
+    reachable.forEach(tile => {
+      const d = Combat.getDistance(tile, enemy);
+      if (d === unit.attackRange && !Combat.isBlockedByMountain(tile.x, tile.y, enemy.x, enemy.y, engine.grid)) {
+        if (tile.dist < minDist) {
+          minDist = tile.dist;
+          best = tile;
+        }
+      }
+    });
+    return best;
   }
 
   static findUnownedZoneOrEnemyBase(engine, unit, humanPlayer) {
@@ -2624,16 +2942,11 @@ class CommanderAI {
     // --- RECRUIT: Gentle Pacing & Unit Cap ---
     if (difficulty === 'RECRUIT') {
       const activeAiUnits = ai.units.filter(u => u.isAlive()).length;
-      // Cap at 3 basic units and 45% chance to skip buying each turn
-      if (activeAiUnits >= 3 || Math.random() < 0.45) {
-        return;
-      }
+      if (activeAiUnits >= 3 || Math.random() < 0.45) return;
 
-      // Only recruit basic Riflemen or Scouts
       const targetType = Math.random() < 0.6 ? 'RIFLEMAN' : 'SCOUT';
       const basePos = ai.basePos;
       const isBaseOccupied = engine.getAllUnits().some(u => u.x === basePos.x && u.y === basePos.y && u.isAlive());
-
       if (!isBaseOccupied && ai.ink >= UNIT_TYPES[targetType].cost) {
         engine.buyUnit(2, targetType, basePos.x, basePos.y);
       }
@@ -2643,127 +2956,159 @@ class CommanderAI {
     const aiVision = engine.calculateVision(2);
     const visibleHumanUnits = engine.players[1].units.filter(u => u.isAlive() && aiVision[u.y][u.x]);
 
-    let humanVehicleCount = 0;
-    let humanInfantryCount = 0;
-    let humanATCount = 0;
-
+    let humanVehicles = 0;
+    let humanAT = 0;
+    let humanInfantry = 0;
     visibleHumanUnits.forEach(u => {
-      if (u.category === 'VEHICLE') humanVehicleCount++;
-      else if (u.typeKey === 'ANTI_TANK') humanATCount++;
-      else humanInfantryCount++;
+      if (u.category === 'VEHICLE') humanVehicles++;
+      else if (u.typeKey === 'ANTI_TANK') humanAT++;
+      else humanInfantry++;
     });
 
-    let targetType = 'RIFLEMAN';
-
-    // --- GENERAL: Proactive Counter-Building & Faction War Machines ---
-    if (difficulty === 'GENERAL') {
-      if (ai.faction.id === 'IRON_CORPS' && ai.ink >= UNIT_TYPES.HEAVY_SIEGE_TANK.cost) {
-        targetType = 'HEAVY_SIEGE_TANK';
-      } else if (ai.faction.id === 'VANGUARD_LEGION' && ai.ink >= UNIT_TYPES.BLITZ_RECON.cost && Math.random() < 0.7) {
-        targetType = 'BLITZ_RECON';
-      } else if (humanVehicleCount > 0 && ai.ink >= UNIT_TYPES.ANTI_TANK.cost) {
-        targetType = 'ANTI_TANK';
-      } else if (humanATCount > 0 && ai.ink >= UNIT_TYPES.RIFLEMAN.cost) {
-        targetType = 'RIFLEMAN';
-      } else if (humanInfantryCount >= 1 && ai.ink >= UNIT_TYPES.LIGHT_VEHICLE.cost) {
-        targetType = 'LIGHT_VEHICLE';
-      } else if (ai.ink >= UNIT_TYPES.RIFLEMAN.cost) {
-        targetType = 'RIFLEMAN';
-      } else {
-        targetType = 'SCOUT';
-      }
-    } else {
-      // --- VETERAN: Standard Reactive Counters ---
-      if (humanVehicleCount > 0 && ai.ink >= UNIT_TYPES.ANTI_TANK.cost) {
-        targetType = 'ANTI_TANK';
-      } else if (humanATCount > 0 && ai.ink >= UNIT_TYPES.RIFLEMAN.cost) {
-        targetType = 'RIFLEMAN';
-      } else if (ai.faction.id === 'IRON_CORPS' && ai.ink >= UNIT_TYPES.HEAVY_SIEGE_TANK.cost && Math.random() < 0.5) {
-        targetType = 'HEAVY_SIEGE_TANK';
-      } else if (ai.faction.id === 'VANGUARD_LEGION' && ai.ink >= UNIT_TYPES.BLITZ_RECON.cost && Math.random() < 0.5) {
-        targetType = 'BLITZ_RECON';
-      } else if (humanInfantryCount > 1 && ai.ink >= UNIT_TYPES.LIGHT_VEHICLE.cost) {
-        targetType = 'LIGHT_VEHICLE';
-      } else {
-        targetType = Math.random() > 0.5 ? 'RIFLEMAN' : 'SCOUT';
-      }
-    }
-
-    // Deploy at spawn points (preferring forward depots in General)
     let spawnPoints = engine.getOwnedSpawnPoints(2).filter(sp => !sp.isContested && !engine.getAllUnits().some(u => u.x === sp.x && u.y === sp.y && u.isAlive()));
-    if (spawnPoints.length > 0 && ai.ink >= UNIT_TYPES[targetType].cost) {
-      if (difficulty === 'GENERAL' && spawnPoints.length > 1) {
-        // Pick the spawn point closest to enemy base for maximum pressure
-        const p1Base = engine.players[1].basePos;
-        spawnPoints.sort((a, b) => {
-          const distA = Math.abs(a.x - p1Base.x) + Math.abs(a.y - p1Base.y);
-          const distB = Math.abs(b.x - p1Base.x) + Math.abs(b.y - p1Base.y);
-          return distA - distB;
-        });
+    if (spawnPoints.length === 0) return;
+
+    // Sort forward depots closest to human HQ for rapid front-line pressure
+    const p1Base = engine.players[1].basePos;
+    spawnPoints.sort((a, b) => {
+      const distA = Math.abs(a.x - p1Base.x) + Math.abs(a.y - p1Base.y);
+      const distB = Math.abs(b.x - p1Base.x) + Math.abs(b.y - p1Base.y);
+      return distA - distB;
+    });
+
+    const maxBuys = (difficulty === 'GENERAL') ? spawnPoints.length : Math.min(2, spawnPoints.length);
+    let buysDone = 0;
+
+    while (spawnPoints.length > 0 && buysDone < maxBuys) {
+      const aiLiving = ai.units.filter(u => u.isAlive());
+      const livingTanks = aiLiving.filter(u => u.typeKey === 'HEAVY_SIEGE_TANK').length;
+      const livingAT = aiLiving.filter(u => u.typeKey === 'ANTI_TANK').length;
+      const livingVehicles = aiLiving.filter(u => u.category === 'VEHICLE').length;
+      const livingRifles = aiLiving.filter(u => u.typeKey === 'RIFLEMAN').length;
+      const livingScouts = aiLiving.filter(u => u.typeKey === 'SCOUT').length;
+
+      let targetType = null;
+
+      if (difficulty === 'GENERAL') {
+        if (ai.faction.id === 'IRON_CORPS' && ai.ink >= UNIT_TYPES.HEAVY_SIEGE_TANK.cost && livingTanks < 2) {
+          targetType = 'HEAVY_SIEGE_TANK';
+        } else if (ai.faction.id === 'VANGUARD_LEGION' && ai.ink >= UNIT_TYPES.BLITZ_RECON.cost && livingVehicles < 3) {
+          targetType = 'BLITZ_RECON';
+        } else if (humanVehicles > livingAT && ai.ink >= UNIT_TYPES.ANTI_TANK.cost) {
+          targetType = 'ANTI_TANK';
+        } else if (humanAT > livingRifles && ai.ink >= UNIT_TYPES.RIFLEMAN.cost) {
+          targetType = 'RIFLEMAN';
+        } else if (humanInfantry > livingVehicles && ai.ink >= UNIT_TYPES.LIGHT_VEHICLE.cost) {
+          targetType = 'LIGHT_VEHICLE';
+        } else if (livingScouts === 0 && ai.ink >= UNIT_TYPES.SCOUT.cost) {
+          targetType = 'SCOUT';
+        } else if (ai.ink >= UNIT_TYPES.LIGHT_VEHICLE.cost && livingVehicles < 2) {
+          targetType = 'LIGHT_VEHICLE';
+        } else if (ai.ink >= UNIT_TYPES.ANTI_TANK.cost && livingAT < 2) {
+          targetType = 'ANTI_TANK';
+        } else if (ai.ink >= UNIT_TYPES.RIFLEMAN.cost) {
+          targetType = 'RIFLEMAN';
+        } else if (ai.ink >= UNIT_TYPES.SCOUT.cost) {
+          targetType = 'SCOUT';
+        }
+      } else {
+        if (humanVehicles > 0 && ai.ink >= UNIT_TYPES.ANTI_TANK.cost && livingAT < 2) {
+          targetType = 'ANTI_TANK';
+        } else if (humanAT > 0 && ai.ink >= UNIT_TYPES.RIFLEMAN.cost) {
+          targetType = 'RIFLEMAN';
+        } else if (humanInfantry > 1 && ai.ink >= UNIT_TYPES.LIGHT_VEHICLE.cost && livingVehicles < 2) {
+          targetType = 'LIGHT_VEHICLE';
+        } else if (ai.ink >= UNIT_TYPES.RIFLEMAN.cost) {
+          targetType = 'RIFLEMAN';
+        } else if (ai.ink >= UNIT_TYPES.SCOUT.cost) {
+          targetType = 'SCOUT';
+        }
       }
-      engine.buyUnit(2, targetType, spawnPoints[0].x, spawnPoints[0].y);
+
+      if (!targetType || ai.ink < UNIT_TYPES[targetType].cost) break;
+
+      const sp = spawnPoints.shift();
+      engine.buyUnit(2, targetType, sp.x, sp.y);
+      buysDone++;
     }
   }
 
   static useAbilitiesAI(engine, difficulty = 'RECRUIT') {
-    // RECRUIT: Zero ability usage
     if (difficulty === 'RECRUIT') return;
 
     const ai = engine.players[2];
-    const aiVision = engine.calculateVision(2);
-    const visibleHumanUnits = engine.players[1].units.filter(u => u.isAlive() && aiVision[u.y][u.x]);
+    let aiVision = engine.calculateVision(2);
+    let visibleHumanUnits = engine.players[1].units.filter(u => u.isAlive() && aiVision[u.y][u.x]);
     const aiUnits = ai.units.filter(u => u.isAlive());
 
-    // --- GENERAL: Full Tactical Ability Deck (Smoke, Artillery, Flares) ---
+    // --- GENERAL: Synergistic Combo Execution ---
     if (difficulty === 'GENERAL') {
-      // 1. Smoke Screen (3 CP): Protect friendly low-HP units or vehicles facing anti-tank
+      // 1. RECON FLARE (2 CP): Expose unrevealed capture zones or fog chokepoints
+      if (ai.cp >= 2) {
+        let bestFlareTarget = null;
+        for (let r = 0; r < 8; r++) {
+          for (let c = 0; c < 8; c++) {
+            if (engine.grid[r][c].id === 'CAPTURE_ZONE' && !aiVision[r][c]) {
+              bestFlareTarget = { x: c, y: r };
+              break;
+            }
+          }
+          if (bestFlareTarget) break;
+        }
+
+        if (!bestFlareTarget && engine.players[1].basePos) {
+          const bp = engine.players[1].basePos;
+          if (!aiVision[bp.y][bp.x]) bestFlareTarget = bp;
+        }
+
+        if (bestFlareTarget) {
+          engine.useAbility(2, 'RECON_FLARE', bestFlareTarget.x, bestFlareTarget.y);
+          aiVision = engine.calculateVision(2);
+          visibleHumanUnits = engine.players[1].units.filter(u => u.isAlive() && aiVision[u.y][u.x]);
+        }
+      }
+
+      // 2. ARTILLERY STRIKE (4 CP): Precision cluster bombardment
+      if (ai.cp >= 4 && visibleHumanUnits.length > 0) {
+        let bestArtilleryTarget = null;
+        let maxClusterScore = 0;
+
+        visibleHumanUnits.forEach(target => {
+          let score = (target.category === 'VEHICLE' ? 25 : 15);
+          if (target.typeKey === 'ANTI_TANK' || target.typeKey === 'HEAVY_SIEGE_TANK') score += 20;
+          if (target.getHpPercent() <= 40) score += 15;
+
+          visibleHumanUnits.forEach(other => {
+            if (other.id !== target.id && Math.abs(other.x - target.x) <= 1 && Math.abs(other.y - target.y) <= 1) {
+              score += 25;
+            }
+          });
+
+          if (score > maxClusterScore) {
+            maxClusterScore = score;
+            bestArtilleryTarget = target;
+          }
+        });
+
+        if (bestArtilleryTarget && maxClusterScore >= 25) {
+          engine.useAbility(2, 'ARTILLERY_STRIKE', bestArtilleryTarget.x, bestArtilleryTarget.y);
+        }
+      }
+
+      // 3. DEFENSIVE SMOKE SCREEN (3 CP): Extract endangered units
       if (ai.cp >= 3) {
         const vulnerableUnit = aiUnits.find(u => {
-          if (u.getHpPercent() < 45) {
-            return visibleHumanUnits.some(e => Math.abs(e.x - u.x) <= 2 && Math.abs(e.y - u.y) <= 2);
+          if (u.getHpPercent() < 40 && visibleHumanUnits.some(e => Math.max(Math.abs(e.x - u.x), Math.abs(e.y - u.y)) <= e.attackRange)) {
+            return true;
           }
-          if (u.category === 'VEHICLE') {
-            return visibleHumanUnits.some(e => e.typeKey === 'ANTI_TANK' && Math.abs(e.x - u.x) <= 2 && Math.abs(e.y - u.y) <= 2);
+          if (u.category === 'VEHICLE' && visibleHumanUnits.some(e => e.typeKey === 'ANTI_TANK' && Math.max(Math.abs(e.x - u.x), Math.abs(e.y - u.y)) <= 2)) {
+            return true;
           }
           return false;
         });
 
-        if (vulnerableUnit && !engine.activeSmokes.some(s => s.x === vulnerableUnit.x && s.y === vulnerableUnit.y)) {
+        if (vulnerableUnit && !engine.isTileInSmoke(vulnerableUnit.x, vulnerableUnit.y)) {
           engine.useAbility(2, 'SMOKE_SCREEN', vulnerableUnit.x, vulnerableUnit.y);
-          return;
-        }
-      }
-
-      // 2. Artillery Strike (4 CP): Precision strike on clusters or key enemy defenders
-      if (ai.cp >= 4 && visibleHumanUnits.length > 0) {
-        let bestTarget = null;
-        let maxScore = 0;
-
-        visibleHumanUnits.forEach(u => {
-          let score = 0;
-          visibleHumanUnits.forEach(other => {
-            if (Math.abs(other.x - u.x) <= 1 && Math.abs(other.y - u.y) <= 1) {
-              score += other.category === 'VEHICLE' ? 25 : 15;
-              if (other.getHpPercent() <= 40) score += 15; // Finishing blow potential
-            }
-          });
-          if (score > maxScore) {
-            maxScore = score;
-            bestTarget = u;
-          }
-        });
-
-        if (bestTarget && maxScore >= 25) {
-          engine.useAbility(2, 'ARTILLERY_STRIKE', bestTarget.x, bestTarget.y);
-          return;
-        }
-      }
-
-      // 3. Recon Flare (2 CP): Expose fog chokepoints or human base
-      if (ai.cp >= 2) {
-        const p1Base = engine.players[1].basePos;
-        if (p1Base && !aiVision[p1Base.y][p1Base.x]) {
-          engine.useAbility(2, 'RECON_FLARE', p1Base.x, p1Base.y);
         }
       }
       return;
@@ -2771,7 +3116,6 @@ class CommanderAI {
 
     // --- VETERAN: Conservative Tactical Usage ---
     if (ai.cp >= 4 && visibleHumanUnits.length > 0) {
-      // Only fire artillery if 2+ units clustered
       let bestTarget = null;
       let maxHits = 0;
       visibleHumanUnits.forEach(u => {
@@ -2785,7 +3129,6 @@ class CommanderAI {
         engine.useAbility(2, 'ARTILLERY_STRIKE', bestTarget.x, bestTarget.y);
       }
     } else if (ai.cp >= 4) {
-      // Use flare only if CP is abundant so Artillery isn't starved
       const p1Base = engine.players[1].basePos;
       if (p1Base && !aiVision[p1Base.y][p1Base.x]) {
         engine.useAbility(2, 'RECON_FLARE', p1Base.x, p1Base.y);
@@ -2796,26 +3139,19 @@ class CommanderAI {
   static findGeneralCombatTarget(unit, visibleEnemies) {
     let best = null;
     let bestScore = -999;
-
     visibleEnemies.forEach(e => {
       const dist = Math.abs(unit.x - e.x) + Math.abs(unit.y - e.y);
       let score = 100 - (dist * 12);
-
-      // Focus-fire bonus: strongly prioritize eliminating wounded units (kill confirmation)
       if (e.getHpPercent() <= 35) score += 50;
       else if (e.getHpPercent() <= 60) score += 25;
-
-      // Counter triangle bonuses
       if (unit.typeKey === 'ANTI_TANK' && e.category === 'VEHICLE') score += 55;
       if (unit.typeKey === 'RIFLEMAN' && e.typeKey === 'ANTI_TANK') score += 40;
       if (unit.category === 'VEHICLE' && e.category === 'INFANTRY') score += 35;
-
       if (score > bestScore) {
         bestScore = score;
         best = e;
       }
     });
-
     return best;
   }
 
