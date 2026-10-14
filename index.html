@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/svg+xml" href="assets/icons/icon.svg">
   <link rel="apple-touch-icon" href="assets/icons/icon.svg">
-  <link rel="stylesheet" href="styles/main.css?v=2.11.1">
+  <link rel="stylesheet" href="styles/main.css?v=2.12.0">
 </head>
 <body>
 
@@ -966,6 +966,12 @@
             </div>
           </div>
         </section>
+
+        <!-- Mobile Drawer Drag Handle / Snap Bar (mobile only) -->
+        <div id="mobile-drawer-handle-bar" class="mobile-drawer-handle-bar" onclick="window.cycleMobileDrawerSnap()" title="Tap to toggle drawer view (Half / Full / Peek)">
+          <span class="mobile-drawer-handle-pill"></span>
+          <span id="mobile-drawer-snap-label" class="mobile-drawer-snap-label">HALF VIEW &#x25B2;</span>
+        </div>
 
         <!-- Mobile Tactical Drawer Tabs (visible only on mobile viewport) -->
         <nav id="mobile-tactical-tabs" class="mobile-tactical-tabs" style="display: none;">
@@ -2093,6 +2099,6 @@
   <script src="src/ui/UnitIcons.js?v=2.10.19"></script>
   <script src="src/firebase-config.js"></script>
   <script type="module" src="src/net/MultiplayerManager.js"></script>
-  <script src="src/game.js?v=2.11.7"></script>
+  <script src="src/game.js?v=2.12.0"></script>
 </body>
 </html>

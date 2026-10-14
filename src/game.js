@@ -9173,6 +9173,10 @@ window.switchMobileTab = function(tabKey, playAudio = true) {
     try { window.gApp.ui.renderUnitStore(window.gApp.engine); } catch(e){}
   }
 
+  if (document.body.classList.contains('drawer-peek')) {
+    window.setMobileDrawerSnap('half');
+  }
+
   if (playAudio) {
     try {
       if (window.gApp && window.gApp.audio) {
@@ -9180,6 +9184,32 @@ window.switchMobileTab = function(tabKey, playAudio = true) {
       }
     } catch(e){}
   }
+};
+
+window.cycleMobileDrawerSnap = function() {
+  const states = ['half', 'full', 'peek'];
+  let current = 'half';
+  if (document.body.classList.contains('drawer-full')) current = 'full';
+  else if (document.body.classList.contains('drawer-peek')) current = 'peek';
+
+  const nextIdx = (states.indexOf(current) + 1) % states.length;
+  window.setMobileDrawerSnap(states[nextIdx]);
+};
+
+window.setMobileDrawerSnap = function(snapState) {
+  document.body.classList.remove('drawer-peek', 'drawer-half', 'drawer-full');
+  document.body.classList.add(`drawer-${snapState}`);
+
+  const label = document.getElementById('mobile-drawer-snap-label');
+  if (label) {
+    if (snapState === 'peek') label.innerHTML = 'PEEK VIEW &#x25B2;';
+    else if (snapState === 'full') label.innerHTML = 'FULL DRAWER &#x25BC;';
+    else label.innerHTML = 'HALF VIEW &#x25B2;';
+  }
+
+  try {
+    if (window.gApp && window.gApp.audio) window.gApp.audio.playClick();
+  } catch(e){}
 };
 
 window.handleMobileHaltOrCancel = function() {
@@ -10523,6 +10553,9 @@ class App {
       this.updateCanvasSitrep(gridCoords);
       if (window.innerWidth <= 840 && window.switchMobileTab && !this.ui.pendingDeployUnitKey && !this.ui.pendingAbilityKey) {
         window.switchMobileTab('orders', false);
+        if (document.body.classList.contains('drawer-peek') && window.setMobileDrawerSnap) {
+          window.setMobileDrawerSnap('half');
+        }
       }
 
       // Easter Egg: Direct click on Bubbly Cube -> Poke & Squish (*ploom!*)
