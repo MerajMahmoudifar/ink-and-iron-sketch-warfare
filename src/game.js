@@ -2545,13 +2545,22 @@ class CommanderAI {
     const threatMap = this.calculateThreatMap(engine, aiPlayer, visibleHumanUnits);
     const claimedDestinations = new Set();
 
+    // === TOP PRIORITY: SEIZE OPPORTUNITY TO END THE GAME (ANY BOT) ===
+    // Any bot (Recruit, Veteran, General) that detects an opening to capture the enemy HQ
+    // or eliminate all remaining human units this turn immediately executes it.
+    const winningUnitIds = this.checkAndExecuteGameEndingOpportunity(
+      engine, aiPlayer, humanPlayer, aiUnits, visibleHumanUnits, threatMap, claimedDestinations, difficulty
+    );
+
     // --- GENERAL: Tactical Grandmaster (Coordinated Focus Fire, Standoff Kiting, Base Siege) ---
     if (difficulty === 'GENERAL') {
-      this.executeGeneralTurn(engine, aiPlayer, humanPlayer, aiUnits, visibleHumanUnits, threatMap, claimedDestinations);
+      this.executeGeneralTurn(engine, aiPlayer, humanPlayer, aiUnits, visibleHumanUnits, threatMap, claimedDestinations, winningUnitIds);
       return;
     }
 
     aiUnits.forEach(unit => {
+      if (winningUnitIds.has(unit.id)) return;
+
       const currentTile = engine.grid[unit.y][unit.x];
       const isSittingOnBase = (unit.x === aiPlayer.basePos.x && unit.y === aiPlayer.basePos.y);
 
@@ -2746,8 +2755,189 @@ class CommanderAI {
     return predictions;
   }
 
-  static executeGeneralTurn(engine, aiPlayer, humanPlayer, aiUnits, visibleHumanUnits, threatMap, claimedDestinations) {
+  static checkAndExecuteGameEndingOpportunity(engine, aiPlayer, humanPlayer, aiUnits, visibleHumanUnits, threatMap, claimedDestinations, difficulty) {
+    if (engine.bootcampLesson && engine.bootcampLesson < 8) return new Set();
+
     const assignedUnitIds = new Set();
+    const p1Base = humanPlayer.basePos;
+    if (!p1Base) return assignedUnitIds;
+
+    const p1BaseKey = `${p1Base.x},${p1Base.y}`;
+    const p1BaseTile = engine.grid[p1Base.y]?.[p1Base.x];
+    const isBaseOwnedByEnemy = p1BaseTile && p1BaseTile.owner !== 2;
+    const baseOccupant = engine.getAllUnits().find(u => u.isAlive() && u.x === p1Base.x && u.y === p1Base.y);
+
+    // =========================================================================
+    // 1. DIRECT BASE CAPTURE (Immediate Win this turn)
+    // =========================================================================
+    if (isBaseOwnedByEnemy && !claimedDestinations.has(p1BaseKey)) {
+      const candidateInfiltrators = [];
+
+      for (const unit of aiUnits) {
+        if (!unit.isAlive()) continue;
+        const path = engine.findValidPath(unit, p1Base.x, p1Base.y, null, null, claimedDestinations);
+        if (path.length > 0 && path.length <= unit.moveRange) {
+          candidateInfiltrators.push({ unit, path, steps: path.length });
+        }
+      }
+
+      if (candidateInfiltrators.length > 0) {
+        // A. Base is empty / occupant is already dead or friendly
+        if (!baseOccupant || !baseOccupant.isAlive() || baseOccupant.owner === 2) {
+          candidateInfiltrators.sort((a, b) => a.steps - b.steps || a.unit.hp - b.unit.hp);
+          const winner = candidateInfiltrators[0];
+
+          engine.setUnitWaypoints(winner.unit.id, winner.path);
+          winner.unit.setStance(STANCES.ADVANCE.id);
+          claimedDestinations.add(p1BaseKey);
+          assignedUnitIds.add(winner.unit.id);
+          return assignedUnitIds;
+        }
+
+        // B. Base occupant is enemy, check if we can eliminate it this turn
+        if (baseOccupant && baseOccupant.owner === 1 && baseOccupant.isAlive()) {
+          let totalLethalPower = (aiPlayer.cp >= 4 ? 35 : 0);
+          const supporters = [];
+          for (const supporter of aiUnits) {
+            if (candidateInfiltrators.some(c => c.unit.id === supporter.id)) continue;
+            const dist = Combat.getDistance(supporter, baseOccupant);
+            if (dist <= supporter.attackRange) {
+              totalLethalPower += supporter.attack;
+              supporters.push(supporter);
+            }
+          }
+
+          if (totalLethalPower >= baseOccupant.hp) {
+            if (aiPlayer.cp >= 4) {
+              engine.useAbility(2, 'ARTILLERY_STRIKE', p1Base.x, p1Base.y);
+            }
+            supporters.forEach(sup => {
+              sup.setStance(STANCES.ADVANCE.id);
+              assignedUnitIds.add(sup.id);
+            });
+
+            const winner = candidateInfiltrators[0];
+            engine.setUnitWaypoints(winner.unit.id, winner.path);
+            winner.unit.setStance(STANCES.ADVANCE.id);
+            claimedDestinations.add(p1BaseKey);
+            assignedUnitIds.add(winner.unit.id);
+            return assignedUnitIds;
+          }
+        }
+      }
+    }
+
+    // =========================================================================
+    // 2. TOTAL ELIMINATION LETHAL OPPORTUNITY (Wipeout to End the Game)
+    // =========================================================================
+    const livingHumanUnits = humanPlayer.units.filter(u => u.isAlive());
+    if (livingHumanUnits.length > 0 && livingHumanUnits.length <= 2) {
+      const allVisible = livingHumanUnits.every(u => visibleHumanUnits.some(v => v.id === u.id));
+      if (allVisible) {
+        let canKillAll = true;
+        const lethalPlans = [];
+
+        for (const enemy of livingHumanUnits) {
+          let neededDamage = enemy.hp;
+          const assignedAttackers = [];
+
+          if (aiPlayer.cp >= 4 && neededDamage <= 35 && !engine.activeArtilleryStrikes.some(a => a.owner === 2 && a.targetTurn === engine.turnNumber)) {
+            engine.useAbility(2, 'ARTILLERY_STRIKE', enemy.x, enemy.y);
+            neededDamage -= 35;
+          }
+
+          if (neededDamage > 0) {
+            for (const aiUnit of aiUnits) {
+              if (assignedUnitIds.has(aiUnit.id) || assignedAttackers.some(a => a.unit.id === aiUnit.id)) continue;
+              const candidateTiles = (typeof this.getReachableTiles === 'function')
+                ? this.getReachableTiles(engine, aiUnit, claimedDestinations)
+                : [{ x: aiUnit.x, y: aiUnit.y, path: [] }];
+
+              let bestCand = null;
+              let bestSim = null;
+              for (const cand of candidateTiles) {
+                const sim = this.simulateCombat(aiUnit, enemy, engine, cand);
+                if (sim.inRange && sim.damageDealt > 0) {
+                  if (!bestSim || sim.damageDealt > bestSim.damageDealt) {
+                    bestSim = sim;
+                    bestCand = cand;
+                  }
+                }
+              }
+
+              if (bestCand && bestSim) {
+                assignedAttackers.push({ unit: aiUnit, tile: bestCand, sim: bestSim });
+                neededDamage -= bestSim.damageDealt;
+                if (neededDamage <= 0) break;
+              }
+            }
+          }
+
+          if (neededDamage <= 0) {
+            lethalPlans.push(...assignedAttackers);
+          } else {
+            canKillAll = false;
+            break;
+          }
+        }
+
+        if (canKillAll && lethalPlans.length > 0) {
+          lethalPlans.forEach(plan => {
+            assignedUnitIds.add(plan.unit.id);
+            if (plan.tile.path && plan.tile.path.length > 0) {
+              engine.setUnitWaypoints(plan.unit.id, plan.tile.path);
+              claimedDestinations.add(`${plan.tile.x},${plan.tile.y}`);
+            } else {
+              plan.unit.setWaypoints([]);
+              claimedDestinations.add(`${plan.unit.x},${plan.unit.y}`);
+            }
+            plan.unit.setStance(STANCES.ADVANCE.id);
+          });
+          return assignedUnitIds;
+        }
+      }
+    }
+
+    // =========================================================================
+    // 3. UNDEFENDED HQ RUSH (Base is Empty and within striking distance)
+    // =========================================================================
+    if (isBaseOwnedByEnemy && (!baseOccupant || !baseOccupant.isAlive() || baseOccupant.owner === 2) && !claimedDestinations.has(p1BaseKey)) {
+      let closestUnit = null;
+      let minDistance = Infinity;
+      let bestPath = null;
+
+      for (const unit of aiUnits) {
+        if (assignedUnitIds.has(unit.id)) continue;
+        const path = engine.findValidPath(unit, p1Base.x, p1Base.y, null, null, claimedDestinations);
+        if (path.length > 0) {
+          const dist = path.length;
+          if (dist <= unit.moveRange * 2 && dist < minDistance) {
+            minDistance = dist;
+            closestUnit = unit;
+            bestPath = path;
+          }
+        }
+      }
+
+      if (closestUnit && bestPath) {
+        const turnPath = bestPath.slice(0, closestUnit.moveRange);
+        if (turnPath.length > 0) {
+          const dest = turnPath[turnPath.length - 1];
+          if (!claimedDestinations.has(`${dest.x},${dest.y}`)) {
+            engine.setUnitWaypoints(closestUnit.id, turnPath);
+            closestUnit.setStance(STANCES.ADVANCE.id);
+            claimedDestinations.add(`${dest.x},${dest.y}`);
+            assignedUnitIds.add(closestUnit.id);
+          }
+        }
+      }
+    }
+
+    return assignedUnitIds;
+  }
+
+  static executeGeneralTurn(engine, aiPlayer, humanPlayer, aiUnits, visibleHumanUnits, threatMap, claimedDestinations, initialAssignedIds = new Set()) {
+    const assignedUnitIds = new Set(initialAssignedIds);
     const p1Base = humanPlayer.basePos;
     const p2Base = aiPlayer.basePos;
 
@@ -3205,7 +3395,7 @@ class CommanderAI {
       else score += 25;
     }
     if (tile.id === 'MAIN_BASE' && tile.owner === 1) {
-      score += 100;
+      score += 50000; // Stepping on enemy headquarters immediately wins the game!
     }
 
     // 3. Combat Evaluation from candidate tile
@@ -3294,6 +3484,22 @@ class CommanderAI {
   }
 
   static findUnownedZoneOrEnemyBase(engine, unit, humanPlayer) {
+    const p1Base = humanPlayer.basePos;
+    const p1BaseTile = p1Base ? engine.grid[p1Base.y]?.[p1Base.x] : null;
+    const isP1BaseEnemy = p1BaseTile && p1BaseTile.owner !== 2;
+
+    // Check if enemy base is unowned by AI and within striking range
+    if (isP1BaseEnemy && p1Base) {
+      const distToBase = Math.max(Math.abs(unit.x - p1Base.x), Math.abs(unit.y - p1Base.y));
+      const p1BaseOccupant = engine.getAllUnits().find(u => u.isAlive() && u.x === p1Base.x && u.y === p1Base.y);
+      const isBaseUndefended = !p1BaseOccupant || p1BaseOccupant.owner === 2;
+
+      // If base is undefended or close, prioritize ending the game!
+      if (isBaseUndefended || distToBase <= unit.moveRange + 1) {
+        return p1Base;
+      }
+    }
+
     let closest = null;
     let minDist = Infinity;
     for (let r = 0; r < 8; r++) {
@@ -3450,12 +3656,29 @@ class CommanderAI {
   }
 
   static useAbilitiesAI(engine, difficulty = 'RECRUIT') {
-    if (difficulty === 'RECRUIT') return;
-
     const ai = engine.players[2];
     let aiVision = engine.calculateVision(2);
     let visibleHumanUnits = engine.players[1].units.filter(u => u.isAlive() && aiVision[u.y][u.x]);
     const aiUnits = ai.units.filter(u => u.isAlive());
+
+    // === GAME-ENDING LETHAL ABILITY STRIKE (ANY BOT) ===
+    // If Artillery Strike can eliminate the last living human unit or clear the HQ to win:
+    if (ai.cp >= 4 && !engine.activeArtilleryStrikes.some(a => a.owner === 2 && a.targetTurn === engine.turnNumber)) {
+      const livingHuman = engine.players[1].units.filter(u => u.isAlive());
+      // 1. Last surviving enemy within artillery lethal range
+      if (livingHuman.length === 1 && visibleHumanUnits.length === 1 && visibleHumanUnits[0].hp <= 35) {
+        engine.useAbility(2, 'ARTILLERY_STRIKE', visibleHumanUnits[0].x, visibleHumanUnits[0].y);
+      } else if (engine.players[1].basePos) {
+        // 2. Clear enemy on base if low HP to allow base capture
+        const bp = engine.players[1].basePos;
+        const baseOcc = visibleHumanUnits.find(u => u.x === bp.x && u.y === bp.y);
+        if (baseOcc && baseOcc.hp <= 35) {
+          engine.useAbility(2, 'ARTILLERY_STRIKE', bp.x, bp.y);
+        }
+      }
+    }
+
+    if (difficulty === 'RECRUIT') return;
 
     // --- GENERAL: Lethal Multi-Ability Combos & Precision Strikes ---
     if (difficulty === 'GENERAL') {

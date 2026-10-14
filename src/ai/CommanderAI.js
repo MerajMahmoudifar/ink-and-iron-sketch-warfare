@@ -69,7 +69,13 @@ export class CommanderAI {
     aiUnits.forEach(u => u.setWaypoints([]));
     const claimedDestinations = new Set();
 
+    // === TOP PRIORITY: SEIZE OPPORTUNITY TO END THE GAME (ANY BOT) ===
+    const winningUnitIds = this.checkAndExecuteGameEndingOpportunity(
+      engine, aiPlayer, humanPlayer, aiUnits, visibleHumanUnits, null, claimedDestinations, difficulty
+    );
+
     aiUnits.forEach(unit => {
+      if (winningUnitIds.has(unit.id)) return;
       const currentTile = engine.grid[unit.y][unit.x];
       const isSittingOnBase = (unit.x === aiPlayer.basePos.x && unit.y === aiPlayer.basePos.y);
 
@@ -153,7 +159,125 @@ export class CommanderAI {
     });
   }
 
+  static checkAndExecuteGameEndingOpportunity(engine, aiPlayer, humanPlayer, aiUnits, visibleHumanUnits, threatMap, claimedDestinations, difficulty) {
+    if (engine.bootcampLesson && engine.bootcampLesson < 8) return new Set();
+
+    const assignedUnitIds = new Set();
+    const p1Base = humanPlayer.basePos;
+    if (!p1Base) return assignedUnitIds;
+
+    const p1BaseKey = `${p1Base.x},${p1Base.y}`;
+    const p1BaseTile = engine.grid[p1Base.y]?.[p1Base.x];
+    const isBaseOwnedByEnemy = p1BaseTile && p1BaseTile.owner !== 2;
+    const baseOccupant = engine.getAllUnits().find(u => u.isAlive() && u.x === p1Base.x && u.y === p1Base.y);
+
+    // 1. DIRECT BASE CAPTURE (Immediate Win this turn)
+    if (isBaseOwnedByEnemy && !claimedDestinations.has(p1BaseKey)) {
+      const candidateInfiltrators = [];
+
+      for (const unit of aiUnits) {
+        if (!unit.isAlive()) continue;
+        const path = engine.findValidPath(unit, p1Base.x, p1Base.y, null, null, claimedDestinations);
+        if (path.length > 0 && path.length <= unit.moveRange) {
+          candidateInfiltrators.push({ unit, path, steps: path.length });
+        }
+      }
+
+      if (candidateInfiltrators.length > 0) {
+        if (!baseOccupant || !baseOccupant.isAlive() || baseOccupant.owner === 2) {
+          candidateInfiltrators.sort((a, b) => a.steps - b.steps || a.unit.hp - b.unit.hp);
+          const winner = candidateInfiltrators[0];
+
+          engine.setUnitWaypoints(winner.unit.id, winner.path);
+          winner.unit.setStance(STANCES.ADVANCE.id);
+          claimedDestinations.add(p1BaseKey);
+          assignedUnitIds.add(winner.unit.id);
+          return assignedUnitIds;
+        }
+
+        if (baseOccupant && baseOccupant.owner === 1 && baseOccupant.isAlive()) {
+          let totalLethalPower = (aiPlayer.cp >= 4 ? 35 : 0);
+          const supporters = [];
+          for (const supporter of aiUnits) {
+            if (candidateInfiltrators.some(c => c.unit.id === supporter.id)) continue;
+            const dist = Math.max(Math.abs(supporter.x - baseOccupant.x), Math.abs(supporter.y - baseOccupant.y));
+            if (dist <= supporter.attackRange) {
+              totalLethalPower += supporter.attack;
+              supporters.push(supporter);
+            }
+          }
+
+          if (totalLethalPower >= baseOccupant.hp) {
+            if (aiPlayer.cp >= 4) {
+              engine.useAbility(2, 'ARTILLERY_STRIKE', p1Base.x, p1Base.y);
+            }
+            supporters.forEach(sup => {
+              sup.setStance(STANCES.ADVANCE.id);
+              assignedUnitIds.add(sup.id);
+            });
+
+            const winner = candidateInfiltrators[0];
+            engine.setUnitWaypoints(winner.unit.id, winner.path);
+            winner.unit.setStance(STANCES.ADVANCE.id);
+            claimedDestinations.add(p1BaseKey);
+            assignedUnitIds.add(winner.unit.id);
+            return assignedUnitIds;
+          }
+        }
+      }
+    }
+
+    // 2. UNDEFENDED HQ RUSH
+    if (isBaseOwnedByEnemy && (!baseOccupant || !baseOccupant.isAlive() || baseOccupant.owner === 2) && !claimedDestinations.has(p1BaseKey)) {
+      let closestUnit = null;
+      let minDistance = Infinity;
+      let bestPath = null;
+
+      for (const unit of aiUnits) {
+        if (assignedUnitIds.has(unit.id)) continue;
+        const path = engine.findValidPath(unit, p1Base.x, p1Base.y, null, null, claimedDestinations);
+        if (path.length > 0) {
+          const dist = path.length;
+          if (dist <= unit.moveRange * 2 && dist < minDistance) {
+            minDistance = dist;
+            closestUnit = unit;
+            bestPath = path;
+          }
+        }
+      }
+
+      if (closestUnit && bestPath) {
+        const turnPath = bestPath.slice(0, closestUnit.moveRange);
+        if (turnPath.length > 0) {
+          const dest = turnPath[turnPath.length - 1];
+          if (!claimedDestinations.has(`${dest.x},${dest.y}`)) {
+            engine.setUnitWaypoints(closestUnit.id, turnPath);
+            closestUnit.setStance(STANCES.ADVANCE.id);
+            claimedDestinations.add(`${dest.x},${dest.y}`);
+            assignedUnitIds.add(closestUnit.id);
+          }
+        }
+      }
+    }
+
+    return assignedUnitIds;
+  }
+
   static findUnownedZoneOrEnemyBase(engine, unit, humanPlayer) {
+    const p1Base = humanPlayer.basePos;
+    const p1BaseTile = p1Base ? engine.grid[p1Base.y]?.[p1Base.x] : null;
+    const isP1BaseEnemy = p1BaseTile && p1BaseTile.owner !== 2;
+
+    if (isP1BaseEnemy && p1Base) {
+      const distToBase = Math.max(Math.abs(unit.x - p1Base.x), Math.abs(unit.y - p1Base.y));
+      const p1BaseOccupant = engine.getAllUnits().find(u => u.isAlive() && u.x === p1Base.x && u.y === p1Base.y);
+      const isBaseUndefended = !p1BaseOccupant || p1BaseOccupant.owner === 2;
+
+      if (isBaseUndefended || distToBase <= unit.moveRange + 1) {
+        return p1Base;
+      }
+    }
+
     let closest = null;
     let minDist = Infinity;
     for (let r = 0; r < 8; r++) {
