@@ -66,6 +66,7 @@ export class CommanderAI {
     const aiVision = engine.calculateVision(2);
     const visibleHumanUnits = humanPlayer.units.filter(u => u.isAlive() && aiVision[u.y][u.x]);
     const aiUnits = aiPlayer.units.filter(u => u.isAlive());
+    aiUnits.forEach(u => u.setWaypoints([]));
     const claimedDestinations = new Set();
 
     aiUnits.forEach(unit => {
@@ -442,8 +443,12 @@ export class CommanderAI {
       }
     }
 
-    const path = engine.findValidPath(unit, targetX, targetY);
+    const path = engine.findValidPath(unit, targetX, targetY, null, null, claimedDestinations);
     if (path.length > 0) {
+      const maxSteps = unit.moveRange;
+      while (path.length > maxSteps) {
+        path.pop();
+      }
       while (path.length > 0 && isClaimed(path[path.length - 1].x, path[path.length - 1].y)) {
         path.pop();
       }

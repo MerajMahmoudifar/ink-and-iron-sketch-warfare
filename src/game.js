@@ -1803,9 +1803,7 @@ class GameEngine {
             if (!isVacatingAlly) {
               // Occupant is stationary or yielded -> Target tile is occupied! Cannot step onto an occupied tile.
               cand.approved = false;
-              if (cand.unit.waypoints && cand.unit.waypoints.length <= 1) {
-                cand.unit.waypoints = [];
-              }
+              cand.unit.waypoints = [];
               changed = true;
             } else {
               // Head-on swap check: both units trying to walk into each other's current tile
@@ -1814,6 +1812,7 @@ class GameEngine {
                 // Lower priority unit yields right-of-way
                 if (cand.priority < occupantCand.priority || (cand.priority === occupantCand.priority && cand.unit.id.localeCompare(occupantCand.unit.id) > 0)) {
                   cand.approved = false;
+                  cand.unit.waypoints = [];
                   changed = true;
                 }
               }
@@ -2079,7 +2078,7 @@ class GameEngine {
   getUnitById(unitId) { return this.getAllUnits().find(u => u.id === unitId); }
   getAllUnits() { return [...this.players[1].units, ...this.players[2].units]; }
 
-  findValidPath(unit, targetX, targetY, fromX = null, fromY = null) {
+  findValidPath(unit, targetX, targetY, fromX = null, fromY = null, blockedTiles = null) {
     const startX = (fromX !== null) ? fromX : unit.x;
     const startY = (fromY !== null) ? fromY : unit.y;
     if (targetX < 0 || targetX >= 8 || targetY < 0 || targetY >= 8) return [];
@@ -2128,9 +2127,22 @@ class GameEngine {
         const canPass = unit.category === 'VEHICLE' ? tile.isVehiclePassable : tile.isInfantryPassable;
         if (!canPass) continue;
 
-        // Only block passage through enemies at the EXACT current position —
-        // for long-range planning, enemies may move before the unit arrives.
-        // We skip this check so paths always plan through the full board.
+        // Blocked tiles (explicit obstacles or claimed destinations):
+        if (blockedTiles && blockedTiles.has(nKey) && !(n.x === targetX && n.y === targetY)) {
+          continue;
+        }
+
+        // Avoid walking through stationary friendly units on intermediate tiles:
+        // A unit cannot walk through a teammate that is holding position!
+        const friendlyOccupant = this.getAllUnits().find(u =>
+          u.id !== unit.id && u.owner === unit.owner && u.isAlive() && u.x === n.x && u.y === n.y
+        );
+        if (friendlyOccupant) {
+          const isVacating = friendlyOccupant.waypoints && friendlyOccupant.waypoints.length > 0;
+          if (!isVacating || (n.x === targetX && n.y === targetY)) {
+            continue; // Cannot step onto or through stationary ally!
+          }
+        }
 
         let tileCost = unit.category === 'VEHICLE' ? tile.moveCostVehicle : tile.moveCostInfantry;
         if (tile.id === 'SWAMP' && unit.category !== 'VEHICLE') {
@@ -2519,6 +2531,9 @@ class CommanderAI {
     const visibleHumanUnits = humanPlayer.units.filter(u => u.isAlive() && aiVision[u.y][u.x]);
     const aiUnits = aiPlayer.units.filter(u => u.isAlive());
     this.updateEnemyMemory(engine, visibleHumanUnits);
+
+    // Clear stale waypoints from previous turns so AI dynamically navigates around allies
+    aiUnits.forEach(u => u.setWaypoints([]));
 
     // 1. Dynamic Ability Usage (Flares, Artillery, Smoke Combos)
     this.useAbilitiesAI(engine, difficulty);
@@ -3125,9 +3140,16 @@ class CommanderAI {
         if (friendlyOnTile) continue;
         if (claimedDestinations && claimedDestinations.has(`${c},${r}`)) continue;
 
-        const path = engine.findValidPath(unit, c, r);
+        const path = engine.findValidPath(unit, c, r, null, null, claimedDestinations);
         if (path.length > 0 && path.length <= unit.moveRange) {
-          tiles.push({ x: c, y: r, path, dist: path.length });
+          const pathObstructed = path.some((wp, idx) => {
+            if (idx === path.length - 1) return false;
+            if (claimedDestinations && claimedDestinations.has(`${wp.x},${wp.y}`)) return true;
+            return engine.players[2].units.some(u => u.isAlive() && u.id !== unit.id && u.x === wp.x && u.y === wp.y && (!u.waypoints || u.waypoints.length === 0));
+          });
+          if (!pathObstructed) {
+            tiles.push({ x: c, y: r, path, dist: path.length });
+          }
         }
       }
     }
@@ -3620,15 +3642,15 @@ class CommanderAI {
       }
     }
 
-    const path = engine.findValidPath(unit, targetX, targetY);
+    const path = engine.findValidPath(unit, targetX, targetY, null, null, claimedDestinations);
     if (path.length > 0) {
-      // If path end is claimed, step back to last unclaimed tile on the path
-      while (path.length > 0 && isClaimed(path[path.length - 1].x, path[path.length - 1].y)) {
-        path.pop();
+      const turnPath = path.slice(0, unit.moveRange);
+      while (turnPath.length > 0 && isClaimed(turnPath[turnPath.length - 1].x, turnPath[turnPath.length - 1].y)) {
+        turnPath.pop();
       }
-      if (path.length > 0) {
-        engine.setUnitWaypoints(unit.id, path);
-        const finalDest = path[path.length - 1];
+      if (turnPath.length > 0) {
+        engine.setUnitWaypoints(unit.id, turnPath);
+        const finalDest = turnPath[turnPath.length - 1];
         if (claimedDestinations) claimedDestinations.add(`${finalDest.x},${finalDest.y}`);
         return;
       }

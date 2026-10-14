@@ -405,18 +405,15 @@ export class GameEngine {
   /**
    * Breadth-First Search pathfinder for valid grid movements.
    */
-  findValidPath(unit, targetX, targetY) {
+  findValidPath(unit, targetX, targetY, fromX = null, fromY = null, blockedTiles = null) {
+    const startX = (fromX !== null) ? fromX : unit.x;
+    const startY = (fromY !== null) ? fromY : unit.y;
     if (targetX < 0 || targetX >= 8 || targetY < 0 || targetY >= 8) return [];
+    if (startX === targetX && startY === targetY) return [];
 
-    const queue = [[{ x: unit.x, y: unit.y }]];
+    const queue = [[{ x: startX, y: startY }]];
     const visited = new Set();
-    visited.add(`${unit.x},${unit.y}`);
-
-    let speedMax = unit.moveRange;
-    // Vanguard Legion +1 movement speed on open terrain passive
-    if (this.players[unit.owner].faction.id === FACTIONS.VANGUARD_LEGION.id) {
-      speedMax += FACTIONS.VANGUARD_LEGION.movementSpeedBonus;
-    }
+    visited.add(`${startX},${startY}`);
 
     while (queue.length > 0) {
       const path = queue.shift();
@@ -425,8 +422,6 @@ export class GameEngine {
       if (current.x === targetX && current.y === targetY) {
         return path.slice(1); // Exclude starting tile
       }
-
-      if (path.length - 1 >= speedMax) continue;
 
       const neighbors = [
         { x: current.x + 1, y: current.y },
@@ -443,6 +438,20 @@ export class GameEngine {
             const canPass = unit.category === 'VEHICLE' ? tile.isVehiclePassable : tile.isInfantryPassable;
 
             if (canPass) {
+              if (blockedTiles && blockedTiles.has(key) && !(n.x === targetX && n.y === targetY)) {
+                continue;
+              }
+
+              const friendlyOccupant = this.getAllUnits().find(u =>
+                u.id !== unit.id && u.owner === unit.owner && u.isAlive() && u.x === n.x && u.y === n.y
+              );
+              if (friendlyOccupant) {
+                const isVacating = friendlyOccupant.waypoints && friendlyOccupant.waypoints.length > 0;
+                if (!isVacating || (n.x === targetX && n.y === targetY)) {
+                  continue;
+                }
+              }
+
               visited.add(key);
               queue.push([...path, n]);
             }
