@@ -3503,7 +3503,8 @@ class SketchRenderer {
       for (let c = 0; c < 8; c++) {
         const tile = engine.grid[r][c];
         const pos = this.getScreenCoords(c, r);
-        this.drawTerrainTile(tile, pos.x, pos.y, engine);
+        const isVisible = isTerrainView || Boolean(localVision && localVision[r] && localVision[r][c]);
+        this.drawTerrainTile(tile, pos.x, pos.y, engine, isVisible);
       }
     }
 
@@ -4528,7 +4529,7 @@ class SketchRenderer {
         for (let c = 0; c < 8; c++) {
           const tile = snap.grid[r][c];
           const pos = this.getScreenCoords(c, r);
-          this.drawTerrainTile(tile, pos.x, pos.y, engine);
+          this.drawTerrainTile(tile, pos.x, pos.y, engine, true);
         }
       }
     }
@@ -4912,7 +4913,7 @@ class SketchRenderer {
     this.ctx.restore();
   }
 
-  drawTerrainTile(tile, x, y, engine) {
+  drawTerrainTile(tile, x, y, engine, isVisible = true) {
     this.ctx.save();
     switch (tile.id) {
       case 'PLAINS': {
@@ -5100,10 +5101,42 @@ class SketchRenderer {
         break;
       }
       case 'CAPTURE_ZONE': {
-        const isP1 = tile.owner === 1;
-        const isAI = tile.owner === 2;
-        const tint = isP1 ? 'rgba(37, 99, 235, 0.18)' : (isAI ? 'rgba(220, 38, 38, 0.18)' : 'rgba(245, 158, 11, 0.15)');
-        const strokeColor = isP1 ? '#3b82f6' : (isAI ? '#ef4444' : '#f59e0b');
+        const localSlot = (engine && engine.localPlayerSlot) || 1;
+
+        if (!isVisible) {
+          // Shrouded in Fog of War: Render as an unaligned neutral ghost drafting blueprint stencil
+          // Preserves blueprint terrain geometry through fog while preventing ownership/capture leaks
+          const ghostStroke = 'rgba(148, 163, 184, 0.45)';
+
+          this.ctx.strokeStyle = ghostStroke;
+          this.ctx.lineWidth = 1.6;
+          this.ctx.strokeRect(x + 4, y + 4, 62, 62);
+
+          // Corner rivets in ghost stencil ink
+          this.ctx.fillStyle = ghostStroke;
+          [ [8,8], [62,8], [8,62], [62,62] ].forEach(([rx, ry]) => {
+            this.ctx.beginPath();
+            this.ctx.arc(x + rx, y + ry, 1.8, 0, Math.PI * 2);
+            this.ctx.fill();
+          });
+
+          // Center Supply Canister glyph outline
+          this.ctx.strokeRect(x + 28, y + 22, 14, 20);
+          this.ctx.fillRect(x + 31, y + 19, 8, 3); // cap
+          this.ctx.beginPath();
+          this.ctx.moveTo(x + 35, y + 26); this.ctx.lineTo(x + 35, y + 38);
+          this.ctx.moveTo(x + 31, y + 32); this.ctx.lineTo(x + 39, y + 32);
+          this.ctx.stroke();
+
+          // Bottom requisition plinth
+          this.ctx.fillRect(x + 24, y + 48, 22, 3);
+          break;
+        }
+
+        const isLocal = tile.owner === localSlot;
+        const isAI = tile.owner && tile.owner !== localSlot;
+        const tint = isLocal ? 'rgba(37, 99, 235, 0.18)' : (isAI ? 'rgba(220, 38, 38, 0.18)' : 'rgba(245, 158, 11, 0.15)');
+        const strokeColor = isLocal ? '#3b82f6' : (isAI ? '#ef4444' : '#f59e0b');
 
         this.ctx.fillStyle = tint;
         this.ctx.fillRect(x, y, 70, 70);
@@ -5135,9 +5168,44 @@ class SketchRenderer {
         break;
       }
       case 'MAIN_BASE': {
-        const isP1 = tile.owner === 1;
-        const strokeColor = isP1 ? '#2563eb' : '#dc2626';
-        this.ctx.fillStyle = isP1 ? 'rgba(37, 99, 235, 0.22)' : 'rgba(220, 38, 38, 0.22)';
+        const localSlot = (engine && engine.localPlayerSlot) || 1;
+        const isLocal = tile.owner === localSlot;
+        const isEnemy = tile.owner && tile.owner !== localSlot;
+
+        if (!isVisible && isEnemy) {
+          // Enemy HQ shrouded in Fog of War: Render in neutral drafting slate, no hostile red alert tint
+          const ghostStroke = 'rgba(100, 116, 139, 0.5)';
+          this.ctx.strokeStyle = ghostStroke;
+          this.ctx.lineWidth = 2.0;
+          this.ctx.strokeRect(x + 4, y + 4, 62, 62);
+
+          // Bunker blast embrasures & antenna
+          this.ctx.beginPath();
+          this.ctx.moveTo(x + 35, y + 18); this.ctx.lineTo(x + 35, y + 8); // antenna mast
+          this.ctx.moveTo(x + 32, y + 11); this.ctx.lineTo(x + 38, y + 11); // crossbar
+          this.ctx.stroke();
+
+          // Bunker blast door
+          this.ctx.fillStyle = ghostStroke;
+          this.ctx.fillRect(x + 22, y + 26, 26, 16);
+          this.ctx.fillStyle = '#0f172a';
+          this.ctx.fillRect(x + 26, y + 30, 18, 8); // vision slit
+
+          // Command emblem in muted ghost ink
+          this.ctx.fillStyle = 'rgba(148, 163, 184, 0.4)';
+          this.ctx.beginPath();
+          this.ctx.arc(x + 35, y + 51, 3.5, 0, Math.PI * 2);
+          this.ctx.fill();
+          this.ctx.beginPath();
+          this.ctx.moveTo(x + 26, y + 51); this.ctx.lineTo(x + 44, y + 51);
+          this.ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+          this.ctx.lineWidth = 1.5;
+          this.ctx.stroke();
+          break;
+        }
+
+        const strokeColor = isLocal ? '#2563eb' : '#dc2626';
+        this.ctx.fillStyle = isLocal ? 'rgba(37, 99, 235, 0.22)' : 'rgba(220, 38, 38, 0.22)';
         this.ctx.fillRect(x, y, 70, 70);
 
         // Fortified command bunker outline
@@ -5158,20 +5226,20 @@ class SketchRenderer {
         this.ctx.fillRect(x + 26, y + 30, 18, 8); // vision slit
 
         // Fortified command emblem (clean vector star)
-        this.ctx.fillStyle = isP1 ? '#93c5fd' : '#fca5a5';
+        this.ctx.fillStyle = isLocal ? '#93c5fd' : '#fca5a5';
         this.ctx.beginPath();
         this.ctx.arc(x + 35, y + 51, 3.5, 0, Math.PI * 2);
         this.ctx.fill();
         this.ctx.beginPath();
         this.ctx.moveTo(x + 26, y + 51); this.ctx.lineTo(x + 44, y + 51);
-        this.ctx.strokeStyle = isP1 ? '#93c5fd' : '#fca5a5';
+        this.ctx.strokeStyle = isLocal ? '#93c5fd' : '#fca5a5';
         this.ctx.lineWidth = 1.5;
         this.ctx.stroke();
         break;
       }
     }
 
-    if ((tile.id === 'MAIN_BASE' || tile.id === 'CAPTURE_ZONE') && tile.owner) {
+    if ((tile.id === 'MAIN_BASE' || tile.id === 'CAPTURE_ZONE') && tile.owner && isVisible) {
       const isSieged = engine.getAllUnits().some(other => {
         if (other.owner === tile.owner || !other.isAlive()) return false;
         return Math.abs(other.x - tile.x) + Math.abs(other.y - tile.y) <= 1;
@@ -5187,6 +5255,8 @@ class SketchRenderer {
         this.ctx.setLineDash([]);
       }
     }
+
+    this.ctx.restore();
 
   }
 
