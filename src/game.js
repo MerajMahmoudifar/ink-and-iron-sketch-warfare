@@ -776,6 +776,7 @@ class GameEngine {
     this.localPlayerSlot = config.localPlayerSlot || 1;
     this.aiDifficulty = config.aiDifficulty || 'VETERAN';
     this.audio = config.audio || null;
+    this.renderer = config.renderer || (typeof window !== 'undefined' && window.gApp ? window.gApp.renderer : null);
     this.playbackDurationConfig = config.playbackDuration || 3;
     this.planningDurationConfig = config.planningDuration || 40;
 
@@ -1154,6 +1155,9 @@ class GameEngine {
     this.playbackTimeRemaining = this.playbackDurationConfig;
     this.currentPlaybackStep = 0;
     try { if (this.audio) this.audio.playActionWhistle(); } catch(err){}
+    if (typeof window !== 'undefined' && window.gApp && window.gApp.ui && window.gApp.ui.showToast) {
+      window.gApp.ui.showToast('Combat Engaged', 'Simultaneous orders executing across the grid!');
+    }
 
     if (this.isSinglePlayer) {
       CommanderAI.processTurn(this, this.aiDifficulty);
@@ -1228,6 +1232,11 @@ class GameEngine {
     this.isOpponentReadyThisTurn = false;
     this.pendingSpawnsThisTurn = [];
     this.pendingAbilitiesThisTurn = [];
+
+    if (typeof window !== 'undefined' && window.gApp && window.gApp.ui && window.gApp.ui.showToast) {
+      window.gApp.ui.showToast(`Turn ${this.turnNumber}`, 'Command phase ready! Plot your tactical orders.');
+    }
+    try { if (this.audio) this.audio.playPaper(); } catch(err){}
 
     this.calculateTurnIncome(1);
     this.calculateTurnIncome(2);
@@ -1644,6 +1653,11 @@ class GameEngine {
             });
           }
 
+          const rend = this.renderer || (typeof window !== 'undefined' && window.gApp ? window.gApp.renderer : null);
+          if (rend && rend.addArtilleryBlastVisual) {
+            rend.addArtilleryBlastVisual(art.x, art.y, this);
+          }
+
           allUnits.forEach(targetUnit => {
             if (targetUnit.isAlive() && Math.abs(targetUnit.x - art.x) <= 1 && Math.abs(targetUnit.y - art.y) <= 1) {
               const dmg = targetUnit.takeDamage(35);
@@ -1651,6 +1665,18 @@ class GameEngine {
               // MASK LOG IF TARGET IS HIDDEN IN FOG OF WAR
               const isTargetVisible = localVision[targetUnit.y][targetUnit.x] || targetUnit.owner === localSlot;
               if (isTargetVisible) {
+                if (rend && rend.combatFloaters) {
+                  const pos = rend.getScreenCoords(targetUnit.x, targetUnit.y);
+                  rend.combatFloaters.push({
+                    x: pos.x + 35,
+                    y: pos.y - 12,
+                    text: `-${dmg}`,
+                    subText: 'ARTILLERY',
+                    color: '#f97316',
+                    startTime: (typeof performance !== 'undefined') ? performance.now() : Date.now(),
+                    duration: 1000
+                  });
+                }
                 this.actionLogs.push({
                   type: 'ARTILLERY_HIT',
                   turn: this.turnNumber,
@@ -1891,6 +1917,11 @@ class GameEngine {
               else this.audio.playGunfire(u1.category === 'VEHICLE' || u2.category === 'VEHICLE');
             }
             
+            const rend = this.renderer || (typeof window !== 'undefined' && window.gApp ? window.gApp.renderer : null);
+            if (rend && rend.addCombatEncounterVisual) {
+              rend.addCombatEncounterVisual(u1, u2, res, stepIndex, this);
+            }
+
             // ONLY LOG COMBAT IF DEFENDER TILE IS VISIBLE TO LOCAL PLAYER
             if (localVisionNow[u2.y][u2.x] || u1.owner === localSlot) {
               this.actionLogs.push({ ...res, turn: this.turnNumber, step: stepIndex });
@@ -1908,6 +1939,11 @@ class GameEngine {
             const res = Combat.resolveEncounter(u2, u1, this.grid[u1.y][u1.x], this.players[2].faction, this.players[1].faction);
             u2.hasAttackedThisTurn = true;
             
+            const rend = this.renderer || (typeof window !== 'undefined' && window.gApp ? window.gApp.renderer : null);
+            if (rend && rend.addCombatEncounterVisual) {
+              rend.addCombatEncounterVisual(u2, u1, res, stepIndex, this);
+            }
+
             // ONLY LOG COMBAT IF ATTACKER TILE IS VISIBLE TO LOCAL PLAYER
             if (localVisionNow[u2.y][u2.x] || localVisionNow[u1.y][u1.x] || u2.owner === localSlot) {
               this.actionLogs.push({ ...res, turn: this.turnNumber, step: stepIndex });
@@ -3419,6 +3455,10 @@ class SketchRenderer {
 
     this.selectedTile = null;
     this.hoveredTile = null;
+    this.combatTracers = [];
+    this.combatParticles = [];
+    this.combatFloaters = [];
+    this.unitRecoilOffsets = new Map();
   }
 
   render(engine) {
@@ -3670,7 +3710,21 @@ class SketchRenderer {
 
       if (isVisibleToLocal) {
         const pos = this.getScreenCoords(unit.renderX, unit.renderY);
-        this.drawUnit(unit, pos.x, pos.y, engine);
+        let recoilX = 0, recoilY = 0;
+        if (this.unitRecoilOffsets && this.unitRecoilOffsets.has(unit.id)) {
+          const nowRec = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+          const rec = this.unitRecoilOffsets.get(unit.id);
+          const elapsed = nowRec - rec.startTime;
+          if (elapsed < rec.duration) {
+            const p = elapsed / rec.duration;
+            const decay = 1 - Math.sin((p * Math.PI) / 2);
+            recoilX = rec.dx * decay;
+            recoilY = rec.dy * decay;
+          } else {
+            this.unitRecoilOffsets.delete(unit.id);
+          }
+        }
+        this.drawUnit(unit, pos.x + recoilX, pos.y + recoilY, engine);
       }
     });
 
@@ -3999,6 +4053,9 @@ class SketchRenderer {
     // 14. OFFICER BOOTCAMP TACTICAL GUIDANCE OVERLAYS
     this.drawBootcampGuidance(engine);
 
+    // 15. KINETIC COMBAT PLAYBACK VISUALS & COMBAT EFFECTS
+    this.renderCombatEffects(engine);
+
     this.ctx.restore();
   }
 
@@ -4100,6 +4157,342 @@ class SketchRenderer {
       this.ctx.moveTo(tPos.x + 6, tPos.y + 64 - bLen); this.ctx.lineTo(tPos.x + 6, tPos.y + 64); this.ctx.lineTo(tPos.x + 6 + bLen, tPos.y + 64);
       // Bottom-Right
       this.ctx.moveTo(tPos.x + 64 - bLen, tPos.y + 64); this.ctx.lineTo(tPos.x + 64, tPos.y + 64); this.ctx.lineTo(tPos.x + 64, tPos.y + 64 - bLen);
+      this.ctx.stroke();
+
+      this.ctx.restore();
+    }
+  }
+
+  addCombatEncounterVisual(u1, u2, res, stepIndex, engine) {
+    if (!u1 || !u2 || !res) return;
+    const localSlot = engine.localPlayerSlot || 1;
+    const isTerrainView = engine.phase === 'GAME_OVER' || engine.isReconPhase;
+    const localVision = isTerrainView ? Array(8).fill(null).map(() => Array(8).fill(true)) : engine.calculateVision(localSlot);
+
+    // Fog of war check: only render combat FX if at least one unit or tile is visible
+    const u1Vis = isTerrainView || u1.owner === localSlot || (localVision[u1.y] && localVision[u1.y][u1.x]);
+    const u2Vis = isTerrainView || u2.owner === localSlot || (localVision[u2.y] && localVision[u2.y][u2.x]);
+    if (!u1Vis && !u2Vis) return;
+
+    const p1 = this.getScreenCoords(u1.renderX !== undefined ? u1.renderX : u1.x, u1.renderY !== undefined ? u1.renderY : u1.y);
+    const p2 = this.getScreenCoords(u2.renderX !== undefined ? u2.renderX : u2.x, u2.renderY !== undefined ? u2.renderY : u2.y);
+    const c1 = { x: p1.x + 35, y: p1.y + 35 };
+    const c2 = { x: p2.x + 35, y: p2.y + 35 };
+
+    const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+    const isHeavy = u1.id === 'HEAVY_SIEGE_TANK' || u1.category === 'VEHICLE';
+
+    // 1. Ballistic Tracer
+    this.combatTracers.push({
+      x1: c1.x,
+      y1: c1.y,
+      x2: c2.x,
+      y2: c2.y,
+      color: u1.owner === 1 ? '#f59e0b' : '#ef4444',
+      isHeavy: isHeavy,
+      isAmbush: !!res.isAmbushStrike,
+      startTime: now,
+      duration: isHeavy ? 520 : 380
+    });
+
+    // 2. Attacker Recoil Kickback
+    const angle = Math.atan2(c2.y - c1.y, c2.x - c1.x);
+    const kick = isHeavy ? 6 : 3.5;
+    this.unitRecoilOffsets.set(u1.id, {
+      dx: -Math.cos(angle) * kick,
+      dy: -Math.sin(angle) * kick,
+      startTime: now,
+      duration: 220
+    });
+
+    // 3. Defender Hit Sparks
+    const sparkCount = isHeavy ? 12 : 6;
+    for (let i = 0; i < sparkCount; i++) {
+      const pAngle = Math.random() * Math.PI * 2;
+      const pSpeed = Math.random() * (isHeavy ? 3.5 : 2.2) + 0.8;
+      this.combatParticles.push({
+        x: c2.x,
+        y: c2.y,
+        vx: Math.cos(pAngle) * pSpeed,
+        vy: Math.sin(pAngle) * pSpeed - 0.6,
+        size: Math.random() * 2.5 + 1.5,
+        color: Math.random() > 0.4 ? '#f59e0b' : '#e2e8f0',
+        startTime: now,
+        duration: Math.random() * 250 + 250,
+        gravity: 0.05
+      });
+    }
+
+    // 4. Floating Damage Text
+    if (res.damageDealt > 0) {
+      let sub = '';
+      if (res.isAmbushStrike) sub = 'AMBUSH CRIT!';
+      else if (res.defenderTerrainCoverBonus > 0) sub = 'COVER DEF';
+
+      this.combatFloaters.push({
+        x: c2.x + (Math.random() * 10 - 5),
+        y: c2.y - 12,
+        text: `-${res.damageDealt}`,
+        subText: sub,
+        color: res.isAmbushStrike ? '#ec4899' : '#ef4444',
+        startTime: now,
+        duration: 950
+      });
+    }
+
+    // 5. Defender Death Eraser Crumble
+    if (res.defenderDied) {
+      for (let i = 0; i < 22; i++) {
+        const pAngle = Math.random() * Math.PI * 2;
+        const pSpeed = Math.random() * 3.8 + 1.0;
+        this.combatParticles.push({
+          x: c2.x,
+          y: c2.y,
+          vx: Math.cos(pAngle) * pSpeed,
+          vy: Math.sin(pAngle) * pSpeed - 1.2,
+          size: Math.random() * 3.5 + 2,
+          color: i % 3 === 0 ? '#f43f5e' : (i % 2 === 0 ? '#475569' : '#0f172a'),
+          rotation: Math.random() * Math.PI,
+          vRot: (Math.random() - 0.5) * 0.2,
+          startTime: now,
+          duration: Math.random() * 400 + 450,
+          gravity: 0.12
+        });
+      }
+    }
+  }
+
+  addArtilleryBlastVisual(artX, artY, engine) {
+    const localSlot = engine.localPlayerSlot || 1;
+    const isTerrainView = engine.phase === 'GAME_OVER' || engine.isReconPhase;
+    const localVision = isTerrainView ? Array(8).fill(null).map(() => Array(8).fill(true)) : engine.calculateVision(localSlot);
+
+    if (!isTerrainView && !localVision[artY][artX]) return;
+
+    const p = this.getScreenCoords(artX, artY);
+    const cx = p.x + 35;
+    const cy = p.y + 35;
+    const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+
+    // Expanding shockwave particle
+    this.combatParticles.push({
+      x: cx,
+      y: cy,
+      isShockwave: true,
+      maxRadius: 75,
+      startTime: now,
+      duration: 500,
+      color: 'rgba(239, 68, 68, 0.85)'
+    });
+
+    // Blast shrapnel particles
+    for (let i = 0; i < 26; i++) {
+      const pAngle = Math.random() * Math.PI * 2;
+      const pSpeed = Math.random() * 4.5 + 1.2;
+      this.combatParticles.push({
+        x: cx,
+        y: cy,
+        vx: Math.cos(pAngle) * pSpeed,
+        vy: Math.sin(pAngle) * pSpeed - 1.0,
+        size: Math.random() * 4 + 2,
+        color: i % 3 === 0 ? '#f97316' : (i % 2 === 0 ? '#ef4444' : '#1e293b'),
+        startTime: now,
+        duration: Math.random() * 400 + 400,
+        gravity: 0.1
+      });
+    }
+
+    this.combatFloaters.push({
+      x: cx,
+      y: cy - 20,
+      text: 'BARRAGE!',
+      subText: 'ARTILLERY STRIKE',
+      color: '#f97316',
+      startTime: now,
+      duration: 1100
+    });
+  }
+
+  renderCombatEffects(engine) {
+    const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+
+    // 1. Tracers
+    this.combatTracers = this.combatTracers.filter(t => {
+      const elapsed = now - t.startTime;
+      if (elapsed >= t.duration) return false;
+      const progress = elapsed / t.duration;
+      const alpha = 1 - progress;
+
+      this.ctx.save();
+      // Outer glow / tracer smoke
+      this.ctx.strokeStyle = t.color;
+      this.ctx.globalAlpha = alpha * 0.85;
+      this.ctx.lineWidth = t.isHeavy ? 4.5 : 2.5;
+      if (!t.isHeavy) this.ctx.setLineDash([8, 5]);
+      this.ctx.beginPath();
+      this.ctx.moveTo(t.x1, t.y1);
+      this.ctx.lineTo(t.x2, t.y2);
+      this.ctx.stroke();
+
+      // White-hot core beam
+      this.ctx.strokeStyle = '#ffffff';
+      this.ctx.globalAlpha = alpha;
+      this.ctx.lineWidth = t.isHeavy ? 2 : 1;
+      this.ctx.setLineDash([]);
+      this.ctx.beginPath();
+      this.ctx.moveTo(t.x1, t.y1);
+      this.ctx.lineTo(t.x2, t.y2);
+      this.ctx.stroke();
+
+      // Muzzle flash burst at origin (first 140ms)
+      if (elapsed < 140) {
+        const mAlpha = 1 - (elapsed / 140);
+        this.ctx.fillStyle = '#fde047';
+        this.ctx.globalAlpha = mAlpha;
+        this.ctx.beginPath();
+        this.ctx.arc(t.x1, t.y1, t.isHeavy ? 12 : 7, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.beginPath();
+        this.ctx.arc(t.x1, t.y1, t.isHeavy ? 6 : 3.5, 0, Math.PI * 2);
+        this.ctx.fill();
+      }
+
+      // Impact blast at target (first 200ms)
+      if (elapsed < 200) {
+        const iAlpha = 1 - (elapsed / 200);
+        this.ctx.strokeStyle = t.color;
+        this.ctx.globalAlpha = iAlpha;
+        this.ctx.lineWidth = 1.5;
+        this.ctx.beginPath();
+        this.ctx.arc(t.x2, t.y2, 10 + (elapsed / 200) * 12, 0, Math.PI * 2);
+        this.ctx.stroke();
+      }
+
+      this.ctx.restore();
+      return true;
+    });
+
+    // 2. Particles
+    this.combatParticles = this.combatParticles.filter(p => {
+      const elapsed = now - p.startTime;
+      if (elapsed >= p.duration) return false;
+      const progress = elapsed / p.duration;
+      const alpha = 1 - progress;
+
+      this.ctx.save();
+      if (p.isShockwave) {
+        const rad = (p.maxRadius || 60) * Math.sin((progress * Math.PI) / 2);
+        this.ctx.strokeStyle = p.color || '#ef4444';
+        this.ctx.globalAlpha = alpha;
+        this.ctx.lineWidth = 2.5 * alpha;
+        this.ctx.beginPath();
+        this.ctx.arc(p.x, p.y, rad, 0, Math.PI * 2);
+        this.ctx.stroke();
+      } else {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += (p.gravity || 0);
+
+        this.ctx.fillStyle = p.color;
+        this.ctx.globalAlpha = alpha;
+        if (p.rotation !== undefined) {
+          p.rotation += (p.vRot || 0.05);
+          this.ctx.translate(p.x, p.y);
+          this.ctx.rotate(p.rotation);
+          this.ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+        } else {
+          this.ctx.beginPath();
+          this.ctx.arc(p.x, p.y, p.size / 2, 0, Math.PI * 2);
+          this.ctx.fill();
+        }
+      }
+      this.ctx.restore();
+      return true;
+    });
+
+    // 3. Floating Damage Numbers & Combat Tags
+    this.combatFloaters = this.combatFloaters.filter(f => {
+      const elapsed = now - f.startTime;
+      if (elapsed >= f.duration) return false;
+      const progress = elapsed / f.duration;
+      const alpha = progress < 0.15 ? (progress / 0.15) : (1 - (progress - 0.15) / 0.85);
+      const yOffset = (elapsed * 0.038);
+
+      this.ctx.save();
+      this.ctx.globalAlpha = alpha;
+      this.ctx.font = '900 15px "JetBrains Mono", monospace';
+      this.ctx.textAlign = 'center';
+
+      // Heavy dark contrast outline
+      this.ctx.strokeStyle = 'rgba(11, 18, 32, 0.95)';
+      this.ctx.lineWidth = 3.5;
+      this.ctx.strokeText(f.text, f.x, f.y - yOffset);
+
+      // Core colored text
+      this.ctx.fillStyle = f.color;
+      this.ctx.fillText(f.text, f.x, f.y - yOffset);
+
+      // Subtext tag (e.g. AMBUSH CRIT!, COVER DEF)
+      if (f.subText) {
+        this.ctx.font = '800 8.5px "JetBrains Mono", monospace';
+        this.ctx.strokeStyle = 'rgba(11, 18, 32, 0.95)';
+        this.ctx.lineWidth = 2.5;
+        this.ctx.strokeText(f.subText, f.x, f.y - yOffset + 11);
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.fillText(f.subText, f.x, f.y - yOffset + 11);
+      }
+
+      this.ctx.restore();
+      return true;
+    });
+
+    // 4. Cinema Combat Atmosphere (When PLAYBACK is active)
+    if (engine && engine.phase === 'PLAYBACK') {
+      this.ctx.save();
+
+      // Top-left LIVE COMBAT teletype with blinking REC dot
+      const blink = Math.floor(now / 500) % 2 === 0;
+      this.ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+      this.ctx.fillRect(this.offsetX + 2, this.offsetY + 2, 175, 18);
+      this.ctx.strokeStyle = 'rgba(239, 68, 68, 0.6)';
+      this.ctx.lineWidth = 1;
+      this.ctx.strokeRect(this.offsetX + 2, this.offsetY + 2, 175, 18);
+
+      // Blinking REC dot
+      this.ctx.fillStyle = blink ? '#ef4444' : '#7f1d1d';
+      this.ctx.beginPath();
+      this.ctx.arc(this.offsetX + 10, this.offsetY + 11, 4, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // Step indicator label
+      const stepNum = (engine.currentPlaybackStep !== undefined ? engine.currentPlaybackStep : 0) + 1;
+      this.ctx.font = 'bold 8px "JetBrains Mono", monospace';
+      this.ctx.fillStyle = '#fca5a5';
+      this.ctx.textAlign = 'left';
+      this.ctx.fillText(`LIVE COMBAT // STEP ${stepNum}/4`, this.offsetX + 18, this.offsetY + 14);
+
+      // Four glowing red corner brackets
+      const bLen = 16;
+      this.ctx.strokeStyle = 'rgba(239, 68, 68, 0.85)';
+      this.ctx.lineWidth = 2;
+      this.ctx.beginPath();
+      // TL
+      this.ctx.moveTo(this.offsetX + 2, this.offsetY + 2 + bLen);
+      this.ctx.lineTo(this.offsetX + 2, this.offsetY + 2);
+      this.ctx.lineTo(this.offsetX + 2 + bLen, this.offsetY + 2);
+      // TR
+      this.ctx.moveTo(this.offsetX + 558 - bLen, this.offsetY + 2);
+      this.ctx.lineTo(this.offsetX + 558, this.offsetY + 2);
+      this.ctx.lineTo(this.offsetX + 558, this.offsetY + 2 + bLen);
+      // BL
+      this.ctx.moveTo(this.offsetX + 2, this.offsetY + 558 - bLen);
+      this.ctx.lineTo(this.offsetX + 2, this.offsetY + 558);
+      this.ctx.lineTo(this.offsetX + 2 + bLen, this.offsetY + 558);
+      // BR
+      this.ctx.moveTo(this.offsetX + 558 - bLen, this.offsetY + 558);
+      this.ctx.lineTo(this.offsetX + 558, this.offsetY + 558);
+      this.ctx.lineTo(this.offsetX + 558, this.offsetY + 558 - bLen);
       this.ctx.stroke();
 
       this.ctx.restore();
@@ -5538,7 +5931,10 @@ class UIManager {
         this.phaseBadge.textContent = `Planning Phase — ${engine.planningTimeRemaining}s`;
         this.phaseBadge.className = 'phase-badge';
         this.phaseBadge.style.background = '';
-        if (this.timerBarFill) this.timerBarFill.classList.remove('timer-enemy-ready');
+        if (this.timerBarFill) {
+          this.timerBarFill.classList.remove('timer-enemy-ready');
+          this.timerBarFill.classList.remove('timer-combat-fill');
+        }
       }
       const maxPlanningSecs = engine.planningDurationConfig || 40;
       this.timerBarFill.style.width = `${Math.min(100, Math.max(0, (engine.planningTimeRemaining / maxPlanningSecs) * 100))}%`;
@@ -5547,10 +5943,13 @@ class UIManager {
       if (dialog) dialog.style.display = 'none';
       if (pointer) pointer.style.display = 'none';
     } else if (engine.phase === 'PLAYBACK') {
-      this.phaseBadge.textContent = `Combat Playback — ${engine.playbackTimeRemaining}s`;
-      this.phaseBadge.className = 'phase-badge';
+      this.phaseBadge.textContent = `⚡ Combat Playback — ${engine.playbackTimeRemaining}s`;
+      this.phaseBadge.className = 'phase-badge phase-badge-combat';
       this.phaseBadge.style.background = '';
-      if (this.timerBarFill) this.timerBarFill.classList.remove('timer-enemy-ready');
+      if (this.timerBarFill) {
+        this.timerBarFill.classList.remove('timer-enemy-ready');
+        this.timerBarFill.classList.add('timer-combat-fill');
+      }
       const maxPlaybackSecs = engine.playbackDurationConfig || 3;
       this.timerBarFill.style.width = `${(engine.playbackTimeRemaining / maxPlaybackSecs) * 100}%`;
       const dialog = document.getElementById('bootcamp-instructor-dialog');
@@ -5560,7 +5959,10 @@ class UIManager {
     } else if (engine.phase === 'GAME_OVER') {
       this.phaseBadge.textContent = `Game Over`;
       this.phaseBadge.className = 'phase-badge';
-      if (this.timerBarFill) this.timerBarFill.classList.remove('timer-enemy-ready');
+      if (this.timerBarFill) {
+        this.timerBarFill.classList.remove('timer-enemy-ready');
+        this.timerBarFill.classList.remove('timer-combat-fill');
+      }
       this.timerBarFill.style.width = '0%';
     }
 
@@ -5633,10 +6035,18 @@ class UIManager {
         mobEndBtn.innerHTML = 'END TURN &#9654;&#9654;';
         mobEndBtn.disabled = false;
         mobEndBtn.style.opacity = '1';
+        mobEndBtn.classList.remove('in-combat-playback');
+      } else if (engine.phase === 'PLAYBACK') {
+        const stepNum = (engine.currentPlaybackStep !== undefined ? engine.currentPlaybackStep : 0) + 1;
+        mobEndBtn.innerHTML = `&#x2694; COMBAT [${stepNum}/4]`;
+        mobEndBtn.disabled = true;
+        mobEndBtn.style.opacity = '1';
+        mobEndBtn.classList.add('in-combat-playback');
       } else {
         mobEndBtn.innerHTML = 'IN COMBAT...';
         mobEndBtn.disabled = true;
         mobEndBtn.style.opacity = '0.5';
+        mobEndBtn.classList.remove('in-combat-playback');
       }
     }
 
@@ -5654,6 +6064,7 @@ class UIManager {
       });
       const endTurnBtn = document.getElementById('btn-end-turn');
       if (endTurnBtn) {
+        endTurnBtn.classList.remove('in-combat-playback');
         endTurnBtn.innerHTML = '<span class="btn-end-title">DEPLOY NOW</span> <span class="hotkey-pill hotkey-pill-light">Space / E</span>';
         endTurnBtn.classList.add('btn-accent');
         endTurnBtn.classList.remove('btn-enemy-ready-highlight');
@@ -5670,20 +6081,38 @@ class UIManager {
       this.phaseBadge.style.background = 'rgba(234, 179, 8, 0.25)';
       const endTurnBtn = document.getElementById('btn-end-turn');
       if (endTurnBtn) {
+        endTurnBtn.classList.remove('in-combat-playback');
         endTurnBtn.innerHTML = '<span class="btn-end-title">WAITING FOR ENEMY...</span>';
         endTurnBtn.classList.remove('btn-enemy-ready-highlight');
         endTurnBtn.disabled = true;
         endTurnBtn.style.opacity = '0.5';
         endTurnBtn.style.pointerEvents = 'none';
       }
+    } else if (engine.phase === 'PLAYBACK') {
+      actionBtnIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.disabled = true; el.style.opacity = '0.35'; el.style.pointerEvents = 'none'; }
+      });
+      const endTurnBtn = document.getElementById('btn-end-turn');
+      if (endTurnBtn) {
+        endTurnBtn.classList.add('in-combat-playback');
+        endTurnBtn.classList.remove('btn-accent', 'btn-enemy-ready-highlight');
+        endTurnBtn.disabled = true;
+        endTurnBtn.style.pointerEvents = 'none';
+        const stepNum = (engine.currentPlaybackStep !== undefined ? engine.currentPlaybackStep : 0) + 1;
+        endTurnBtn.innerHTML = `<span class="btn-end-title">&#x2694; EXECUTING ORDERS [STEP ${stepNum}/4]</span>`;
+      }
     } else {
-      // Normal PLANNING or PLAYBACK phase
+      // Normal PLANNING phase
       actionBtnIds.forEach(id => {
         const el = document.getElementById(id);
         if (el) { el.disabled = false; el.style.opacity = ''; el.style.pointerEvents = ''; }
       });
       const endTurnBtn = document.getElementById('btn-end-turn');
       if (endTurnBtn) {
+        endTurnBtn.classList.remove('in-combat-playback');
+        endTurnBtn.disabled = false;
+        endTurnBtn.style.pointerEvents = 'auto';
         endTurnBtn.innerHTML = '<span class="btn-end-title">END PHASE &#9654;&#9654;</span> <span class="hotkey-pill hotkey-pill-light">Space / E</span>';
         if (engine.isMultiplayer && engine.isOpponentReadyThisTurn) {
           endTurnBtn.classList.add('btn-enemy-ready-highlight');
@@ -5692,6 +6121,35 @@ class UIManager {
         }
         endTurnBtn.classList.remove('btn-accent');
       }
+    }
+
+    // Sync Action Phase Visual Atmosphere (Canvas wrapper & Action Banner)
+    const actionBanner = document.getElementById('battlefield-action-banner');
+    const canvasWrapper = document.querySelector('.canvas-wrapper');
+    const sitrepEl = document.getElementById('canvas-sitrep-text');
+    if (engine.phase === 'PLAYBACK') {
+      if (canvasWrapper) canvasWrapper.classList.add('in-combat-playback');
+      if (actionBanner) {
+        actionBanner.style.display = 'flex';
+        const curStep = engine.currentPlaybackStep !== undefined ? engine.currentPlaybackStep : 0;
+        for (let s = 0; s < 4; s++) {
+          const chip = document.getElementById(`action-step-${s}`);
+          if (chip) {
+            if (s === curStep) chip.className = 'action-step-chip active-step';
+            else if (s < curStep) chip.className = 'action-step-chip completed-step';
+            else chip.className = 'action-step-chip';
+          }
+        }
+      }
+      if (sitrepEl) {
+        const stepNames = ['MANEUVER', 'CLASH', 'ARTILLERY', 'CONSOLIDATION'];
+        const curStep = engine.currentPlaybackStep !== undefined ? engine.currentPlaybackStep : 0;
+        sitrepEl.innerHTML = `<span style="color:#ef4444; font-weight:800;">⚡ LIVE COMBAT PLAYBACK</span> &bull; <strong>STEP ${curStep + 1}/4: ${stepNames[curStep] || ''}</strong> &bull; SIMULTANEOUS ORDERS`;
+      }
+    } else {
+      if (canvasWrapper) canvasWrapper.classList.remove('in-combat-playback');
+      if (actionBanner) actionBanner.style.display = 'none';
+      if (mobEndBtn) mobEndBtn.classList.remove('in-combat-playback');
     }
 
     // Top Bar In-Game Menu Button is always active & accessible during gameplay
@@ -8393,7 +8851,8 @@ class App {
         aiDifficulty: 'RECRUIT',
         planningDuration: 40,
         playbackDuration: 3,
-        audio: this.audio
+        audio: this.audio,
+        renderer: this.renderer
       });
 
       this.engine.stop(); // Stop all background timers and set phase to MENU
@@ -8553,7 +9012,8 @@ class App {
         bootcampLesson: lessonId,
         aiDifficulty: 'RECRUIT',
         playbackDuration: 3,
-        audio: this.audio
+        audio: this.audio,
+        renderer: this.renderer
       });
 
       this.engine.bootcampLesson = lessonId;
@@ -8616,7 +9076,8 @@ class App {
         aiDifficulty: aiDiff,
         planningDuration: timerDuration,
         playbackDuration: playbackDuration,
-        audio: this.audio
+        audio: this.audio,
+        renderer: this.renderer
       });
 
       this.engine.bootcampLesson = null;
@@ -8682,7 +9143,8 @@ class App {
         localPlayerSlot: mySlot,
         planningDuration: timerDuration,
         playbackDuration: playbackDuration,
-        audio: this.audio
+        audio: this.audio,
+        renderer: this.renderer
       });
 
       this.engine.roomId = room.id;
@@ -8794,6 +9256,9 @@ class App {
     eng.playbackTimeRemaining = eng.playbackDurationConfig;
     eng.currentPlaybackStep = 0;
     try { if (eng.audio) eng.audio.playActionWhistle(); } catch(err){}
+    if (this.ui && this.ui.showToast) {
+      this.ui.showToast('Combat Engaged', 'Simultaneous multiplayer orders executing across the grid!');
+    }
 
     eng.getAllUnits().forEach(u => {
       u.prevX = u.x; u.prevY = u.y;
