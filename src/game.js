@@ -7389,68 +7389,167 @@ class UIManager {
           }
 
           if (isVictory) {
+            const victoryBadges = [
+              'MISSION ACCOMPLISHED',
+              'VICTORY CONFIRMED',
+              'SECTOR SECURED',
+              'HIGH COMMAND COMMENDATION'
+            ];
             if (badge) {
-              badge.textContent = 'MISSION ACCOMPLISHED';
+              badge.textContent = victoryBadges[Math.floor(Math.random() * victoryBadges.length)];
               badge.style.background = 'rgba(74, 222, 128, 0.15)';
               badge.style.color = '#4ade80';
               badge.style.borderColor = 'rgba(74, 222, 128, 0.4)';
             }
             if (title) {
-              title.textContent = engine.winReason === 'BASE_CAPTURE' ? 'DECISIVE BREAKTHROUGH' : 'TOTAL ANNIHILATION';
+              if (engine.winReason === 'BASE_CAPTURE') {
+                const hqCaptureTitles = [
+                  'DECISIVE BREAKTHROUGH',
+                  'HEADQUARTERS OVERRUN',
+                  'COMMAND SECTOR CAPTURED',
+                  'HOSTILE HQ SECURED'
+                ];
+                title.textContent = hqCaptureTitles[Math.floor(Math.random() * hqCaptureTitles.length)];
+              } else {
+                const wipeoutTitles = [
+                  'TOTAL ANNIHILATION',
+                  'BATTLEGROUP ELIMINATED',
+                  'SECTOR CLEANSED',
+                  'DECISIVE WIPE-OUT'
+                ];
+                title.textContent = wipeoutTitles[Math.floor(Math.random() * wipeoutTitles.length)];
+              }
               title.style.color = '#4ade80';
             }
             if (sub) {
-              sub.textContent = engine.winReason === 'BASE_CAPTURE'
-                ? 'Enemy Command Headquarters successfully captured!'
-                : 'All hostile combat battalions eliminated from the sector!';
+              if (engine.winReason === 'BASE_CAPTURE') {
+                const hqCaptureSubs = [
+                  'Enemy Command Headquarters breached and forced into total surrender!',
+                  'Hostile Command HQ occupied — enemy communication grid dismantled.',
+                  'A surgical spearhead seized the enemy headquarters and ended the conflict.',
+                  'Forward allied squads claimed the enemy flag in their command bunker!'
+                ];
+                sub.textContent = hqCaptureSubs[Math.floor(Math.random() * hqCaptureSubs.length)];
+              } else {
+                const wipeoutSubs = [
+                  'All hostile combat battalions eliminated from the operational sector!',
+                  'Hostile army dismantled to the last vehicle and rifle squad.',
+                  'Zero enemy resistance remains on the battlefield grid.',
+                  'Complete tactical elimination — the sector is firmly under allied control.'
+                ];
+                sub.textContent = wipeoutSubs[Math.floor(Math.random() * wipeoutSubs.length)];
+              }
             }
 
             if (debriefBox) debriefBox.className = 'victory-debrief-quote';
-            if (debriefSender) debriefSender.textContent = 'HIGH COMMAND DISPATCH';
+            const senders = [
+              'HIGH COMMAND DISPATCH',
+              'THE WAR ROOM • PRIORITY CABLE',
+              'FIELD MARSHAL COMMENDATION',
+              'THE GENERAL STAFF • DESPATCH',
+              'INTELLIGENCE BUREAU • EVALUATION'
+            ];
+            if (debriefSender) debriefSender.textContent = senders[Math.floor(Math.random() * senders.length)];
 
             // Grade logic for Victory
             if (localLosses === 0) {
               if (gradeStamp) { gradeStamp.textContent = 'S'; gradeStamp.classList.add('grade-s'); }
-              if (evalTitle) evalTitle.textContent = 'RANK S — MASTER STRATEGIST';
-              if (evalSub) evalSub.textContent = 'Flawless offensive — Zero allied casualties recorded!';
+              const sTitles = [
+                'RANK S — MASTER STRATEGIST',
+                'RANK S — GRAND CONDUCTOR',
+                'RANK S — FLAWLESS SUPREMACY',
+                'RANK S — WAR CHESS GRANDMASTER'
+              ];
+              if (evalTitle) evalTitle.textContent = sTitles[Math.floor(Math.random() * sTitles.length)];
+              const sSubs = [
+                'Flawless offensive — Zero allied casualties recorded!',
+                'Pristine operational record: full battlegroup preservation achieved.',
+                'Untouchable tactical execution from deployment to final objective.',
+                'Complete battlefield domination with 100% force retention.'
+              ];
+              if (evalSub) evalSub.textContent = sSubs[Math.floor(Math.random() * sSubs.length)];
               const sVictoryQuotes = [
                 '"An exceptional tactical masterclass. You preserved every single chassis and squad under your command. High Command salutes your discipline."',
                 '"Flawless execution from vanguard to rear-guard. Not a single dropship or tread was sacrificed today."',
                 '"Textbook precision. You dismantled the hostile front while keeping your entire battlegroup pristine."',
-                '"Supreme battlefield command. High Command is drafting your commendation as we speak."'
+                '"Supreme battlefield command. High Command is drafting your commendation as we speak."',
+                '"Inconceivable elegance in warfare. Every maneuver anticipated enemy fire with uncanny perfection."',
+                '"Zero losses on the ledger. The field medics spent the entire battle playing cards in the barracks."'
               ];
               if (debriefText) debriefText.textContent = sVictoryQuotes[Math.floor(Math.random() * sVictoryQuotes.length)];
               if (statEfficiency) statEfficiency.textContent = '100% (FLAWLESS)';
             } else if (localLosses <= 1 && turns <= 6) {
               if (gradeStamp) { gradeStamp.textContent = 'A'; gradeStamp.classList.add('grade-a'); }
-              if (evalTitle) evalTitle.textContent = 'RANK A — BLITZKRIEG VANGUARD';
-              if (evalSub) evalSub.textContent = `Rapid breakthrough in ${turns} turns with minimal casualties.`;
+              const aTitles = [
+                'RANK A — BLITZKRIEG VANGUARD',
+                'RANK A — TEMPO SPECIALIST',
+                'RANK A — RAPID BREACH DOCTRINE',
+                'RANK A — APEX PREDATOR'
+              ];
+              if (evalTitle) evalTitle.textContent = aTitles[Math.floor(Math.random() * aTitles.length)];
+              const aSubs = [
+                `Rapid breakthrough in ${turns} turns with minimal casualties.`,
+                `Crushed enemy defensive line in just ${turns} turns with surgical precision.`,
+                `Lightning advance — high tempo shattered hostile counter-attacks.`,
+                `High-velocity assault secured decisive victory with only 1 allied casualty.`
+              ];
+              if (evalSub) evalSub.textContent = aSubs[Math.floor(Math.random() * aSubs.length)];
               const aVictoryQuotes = [
                 '"Swift, surgical, and overwhelming. The enemy front collapsed before they could coordinate an effective counter-offensive."',
                 '"Aggressive momentum broke the enemy lines before their logistics could respond. Outstanding offensive work."',
-                '"The enemy was still setting up defensive angles when our forward squads tore through their lines. Superb tempo."'
+                '"The enemy was still setting up defensive angles when our forward squads tore through their lines. Superb tempo."',
+                '"High-velocity armor strikes combined with infantry suppression. Textbook modern mechanized warfare."',
+                '"You seized the initiative on Turn 1 and never loosened your grip. A ferocious, decisive victory!"'
               ];
               if (debriefText) debriefText.textContent = aVictoryQuotes[Math.floor(Math.random() * aVictoryQuotes.length)];
               if (statEfficiency) statEfficiency.textContent = '92% (SUPERIOR)';
             } else if (localLosses <= 3 || turns <= 10) {
               if (gradeStamp) { gradeStamp.textContent = 'B'; gradeStamp.classList.add('grade-b'); }
-              if (evalTitle) evalTitle.textContent = 'RANK B — VETERAN TACTICIAN';
-              if (evalSub) evalSub.textContent = 'Sector secured through sustained fire superiority and zone control.';
+              const bTitles = [
+                'RANK B — VETERAN TACTICIAN',
+                'RANK B — IRON RESOLVE',
+                'RANK B — GROUND POUNDER',
+                'RANK B — COMBINED ARMS EXPERT'
+              ];
+              if (evalTitle) evalTitle.textContent = bTitles[Math.floor(Math.random() * bTitles.length)];
+              const bSubs = [
+                'Sector secured through sustained fire superiority and zone control.',
+                `Decisive victory achieved after a contested ${turns}-turn campaign.`,
+                'Tactical superiority maintained despite heavy frontline clashes.',
+                'Methodical sector pacification backed by steady attrition pressure.'
+              ];
+              if (evalSub) evalSub.textContent = bSubs[Math.floor(Math.random() * bSubs.length)];
               const bVictoryQuotes = [
                 '"Solid execution across all sectors. Hostile positions dismantled with textbook dieselpunk grit. Commendable work, Commander!"',
                 '"A hard-fought sector grind. You maintained line discipline under heavy fire and claimed the ground."',
-                '"Attrition was fierce, but our firepower dictated the outcome. Well-earned ground."'
+                '"Attrition was fierce, but our firepower dictated the outcome. Well-earned ground."',
+                '"The enemy gave ground reluctantly, but your combined-arms pressure broke their will. Strong leadership."',
+                '"Not without scars, but victory belongs to those who hold the line. Good work, Commander."'
               ];
               if (debriefText) debriefText.textContent = bVictoryQuotes[Math.floor(Math.random() * bVictoryQuotes.length)];
               if (statEfficiency) statEfficiency.textContent = '78% (COMMENDED)';
             } else {
               if (gradeStamp) { gradeStamp.textContent = 'C'; gradeStamp.classList.add('grade-c'); }
-              if (evalTitle) evalTitle.textContent = 'RANK C — PYRRHIC VICTORY';
-              if (evalSub) evalSub.textContent = 'Objective secured at steep material and squad attrition.';
+              const cTitles = [
+                'RANK C — PYRRHIC VICTORY',
+                'RANK C — SCARRED TRIUMPH',
+                'RANK C — WAR OF ATTRITION',
+                'RANK C — SCRAPHEAP SURVIVOR'
+              ];
+              if (evalTitle) evalTitle.textContent = cTitles[Math.floor(Math.random() * cTitles.length)];
+              const cSubs = [
+                'Objective secured at steep material and squad attrition.',
+                `Bitterly contested victory after a grinding ${turns}-turn bloodbath.`,
+                'Severe losses sustained across both light vehicles and infantry squads.',
+                'The sector is ours, but the cost in diesel and blood was immense.'
+              ];
+              if (evalSub) evalSub.textContent = cSubs[Math.floor(Math.random() * cSubs.length)];
               const cVictoryQuotes = [
                 '"We hold the ground, but our scrap yards are overflowing with shattered armor. A victory nonetheless, but tighten your recon doctrines."',
                 '"The sector is ours, but the casualty ledger is painful to read. Review unit positioning before next deployment."',
-                '"Victory was wrenched from the teeth of disaster. Salvage crews will be busy for weeks."'
+                '"Victory was wrenched from the teeth of disaster. Salvage crews will be busy for weeks."',
+                '"A win on paper, a bloodbath on the ground. Drill your scouts on line-of-sight safety immediately."',
+                '"Our flag flies over the sector, but we barely have enough functional chassis left to stand guard. Tighten your tactics!"'
               ];
               if (debriefText) debriefText.textContent = cVictoryQuotes[Math.floor(Math.random() * cVictoryQuotes.length)];
               if (statEfficiency) statEfficiency.textContent = '60% (COSTLY)';
