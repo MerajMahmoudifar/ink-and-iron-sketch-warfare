@@ -7643,13 +7643,11 @@ class UIManager {
     const sel = this.app.renderer.selectedTile;
     const statusBadge = document.getElementById('inspector-status-badge');
     const secInspector = document.getElementById('sec-inspector');
-    const secRecruit = document.getElementById('sec-recruitment');
 
     if (!sel) {
       if (statusBadge) statusBadge.textContent = 'SECTOR INTEL';
       // Auto-collapse Tactical Inspector when no grid sector is selected
       if (secInspector && !engine?.isReconPhase) secInspector.classList.add('collapsed');
-      if (secRecruit) secRecruit.classList.remove('collapsed');
 
       if (engine && engine.isReconPhase) {
         const mapSelect = document.getElementById('select-map');
@@ -7729,13 +7727,10 @@ class UIManager {
     if (statusBadge) {
       if (isBubblyOnTile) {
         statusBadge.textContent = 'TACTICAL ANOMALY';
-        if (secRecruit) secRecruit.classList.add('collapsed');
       } else if (unitOnTile) {
         statusBadge.textContent = unitOnTile.owner === localSlot ? 'ALLIED SQUAD' : 'ENEMY CONTACT';
-        if (secRecruit) secRecruit.classList.add('collapsed');
       } else {
         statusBadge.textContent = `${colLetter}${rowNum} TERRAIN`;
-        if (secRecruit) secRecruit.classList.remove('collapsed');
       }
     }
 
