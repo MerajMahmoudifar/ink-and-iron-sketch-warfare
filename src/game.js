@@ -7409,29 +7409,50 @@ class UIManager {
             if (debriefSender) debriefSender.textContent = 'HIGH COMMAND DISPATCH';
 
             // Grade logic for Victory
-            if (p1Losses === 0) {
+            if (localLosses === 0) {
               if (gradeStamp) { gradeStamp.textContent = 'S'; gradeStamp.classList.add('grade-s'); }
               if (evalTitle) evalTitle.textContent = 'RANK S — MASTER STRATEGIST';
               if (evalSub) evalSub.textContent = 'Flawless offensive — Zero allied casualties recorded!';
-              if (debriefText) debriefText.textContent = '"An exceptional tactical masterclass. You preserved every single chassis and squad under your command. High Command salutes your discipline."';
+              const sVictoryQuotes = [
+                '"An exceptional tactical masterclass. You preserved every single chassis and squad under your command. High Command salutes your discipline."',
+                '"Flawless execution from vanguard to rear-guard. Not a single dropship or tread was sacrificed today."',
+                '"Textbook precision. You dismantled the hostile front while keeping your entire battlegroup pristine."',
+                '"Supreme battlefield command. High Command is drafting your commendation as we speak."'
+              ];
+              if (debriefText) debriefText.textContent = sVictoryQuotes[Math.floor(Math.random() * sVictoryQuotes.length)];
               if (statEfficiency) statEfficiency.textContent = '100% (FLAWLESS)';
-            } else if (p1Losses <= 1 && turns <= 6) {
+            } else if (localLosses <= 1 && turns <= 6) {
               if (gradeStamp) { gradeStamp.textContent = 'A'; gradeStamp.classList.add('grade-a'); }
               if (evalTitle) evalTitle.textContent = 'RANK A — BLITZKRIEG VANGUARD';
               if (evalSub) evalSub.textContent = `Rapid breakthrough in ${turns} turns with minimal casualties.`;
-              if (debriefText) debriefText.textContent = '"Swift, surgical, and overwhelming. The enemy front collapsed before they could coordinate an effective counter-offensive."';
+              const aVictoryQuotes = [
+                '"Swift, surgical, and overwhelming. The enemy front collapsed before they could coordinate an effective counter-offensive."',
+                '"Aggressive momentum broke the enemy lines before their logistics could respond. Outstanding offensive work."',
+                '"The enemy was still setting up defensive angles when our forward squads tore through their lines. Superb tempo."'
+              ];
+              if (debriefText) debriefText.textContent = aVictoryQuotes[Math.floor(Math.random() * aVictoryQuotes.length)];
               if (statEfficiency) statEfficiency.textContent = '92% (SUPERIOR)';
-            } else if (p1Losses <= 3 || turns <= 10) {
+            } else if (localLosses <= 3 || turns <= 10) {
               if (gradeStamp) { gradeStamp.textContent = 'B'; gradeStamp.classList.add('grade-b'); }
               if (evalTitle) evalTitle.textContent = 'RANK B — VETERAN TACTICIAN';
               if (evalSub) evalSub.textContent = 'Sector secured through sustained fire superiority and zone control.';
-              if (debriefText) debriefText.textContent = '"Solid execution across all sectors. Hostile positions dismantled with textbook dieselpunk grit. Commendable work, Commander!"';
+              const bVictoryQuotes = [
+                '"Solid execution across all sectors. Hostile positions dismantled with textbook dieselpunk grit. Commendable work, Commander!"',
+                '"A hard-fought sector grind. You maintained line discipline under heavy fire and claimed the ground."',
+                '"Attrition was fierce, but our firepower dictated the outcome. Well-earned ground."'
+              ];
+              if (debriefText) debriefText.textContent = bVictoryQuotes[Math.floor(Math.random() * bVictoryQuotes.length)];
               if (statEfficiency) statEfficiency.textContent = '78% (COMMENDED)';
             } else {
               if (gradeStamp) { gradeStamp.textContent = 'C'; gradeStamp.classList.add('grade-c'); }
               if (evalTitle) evalTitle.textContent = 'RANK C — PYRRHIC VICTORY';
               if (evalSub) evalSub.textContent = 'Objective secured at steep material and squad attrition.';
-              if (debriefText) debriefText.textContent = '"We hold the ground, but our scrap yards are overflowing with shattered armor. A victory nonetheless, but tighten your recon doctrines."';
+              const cVictoryQuotes = [
+                '"We hold the ground, but our scrap yards are overflowing with shattered armor. A victory nonetheless, but tighten your recon doctrines."',
+                '"The sector is ours, but the casualty ledger is painful to read. Review unit positioning before next deployment."',
+                '"Victory was wrenched from the teeth of disaster. Salvage crews will be busy for weeks."'
+              ];
+              if (debriefText) debriefText.textContent = cVictoryQuotes[Math.floor(Math.random() * cVictoryQuotes.length)];
               if (statEfficiency) statEfficiency.textContent = '60% (COSTLY)';
             }
           } else {
@@ -7454,18 +7475,46 @@ class UIManager {
             if (debriefBox) debriefBox.className = 'victory-debrief-quote defeat';
             if (debriefSender) debriefSender.textContent = 'CASUALTY REPORT • FIELD DISPATCH';
 
-            if (p2Losses >= 2 || turns >= 5) {
+            if (oppLosses >= 2 || turns >= 6) {
+              // Valiant Resistance / War of Attrition Defeat (D)
               if (gradeStamp) { gradeStamp.textContent = 'D'; gradeStamp.classList.add('grade-defeat'); }
-              if (evalTitle) evalTitle.textContent = 'VALIANT LAST STAND';
-              if (evalSub) evalSub.textContent = `Held the line for ${turns} turns, neutralizing ${p2Losses} hostile units.`;
-              if (debriefText) debriefText.textContent = '"Our frontline was overwhelmed, but your troops fought with iron resolve until the last cartridge. Regroup and rethink your defensive stance."';
-              if (statEfficiency) statEfficiency.textContent = '42% (VALIANT)';
-            } else {
+              if (evalTitle) evalTitle.textContent = 'RANK D — VALIANT RESISTANCE';
+              if (evalSub) evalSub.textContent = `Contested sector for ${turns} turns, eliminating ${oppLosses} hostile units.`;
+              const dDefeatQuotes = [
+                '"Our frontline was overwhelmed, but your troops fought with iron resolve until the last cartridge. Regroup and rethink your defensive stance."',
+                '"You made the enemy bleed for every meter of advance. Fortify your base approaches and counter-attack!"',
+                '"Fierce resistance held their vanguard at bay, but defensive depth gave way. Fall back to secondary rally points."',
+                '"Honor in the grit: your squads gave as good as they got before the line buckled. Regroup and strike back."'
+              ];
+              if (debriefText) debriefText.textContent = dDefeatQuotes[Math.floor(Math.random() * dDefeatQuotes.length)];
+              const calcEff = Math.max(18, Math.min(48, Math.round((oppLosses / (localLosses + oppLosses + 1)) * 100)));
+              if (statEfficiency) statEfficiency.textContent = `${calcEff}% (CONTESTED)`;
+            } else if (engine.winReason === 'BASE_CAPTURE') {
+              // Swift HQ infiltration / Backdoor Infiltration Defeat (F)
               if (gradeStamp) { gradeStamp.textContent = 'F'; gradeStamp.classList.add('grade-defeat'); }
-              if (evalTitle) evalTitle.textContent = 'TACTICAL COLLAPSE';
-              if (evalSub) evalSub.textContent = 'Perimeter breached rapidly before defensive lines could stabilize.';
-              if (debriefText) debriefText.textContent = '"Hostile forces outmaneuvered our line and seized the objective before reinforcements could deploy. Study your scouting manual and redeploy!"';
-              if (statEfficiency) statEfficiency.textContent = '15% (OVERRUN)';
+              if (evalTitle) evalTitle.textContent = 'RANK F — PERIMETER BREACH';
+              if (evalSub) evalSub.textContent = `Command Headquarters infiltrated on Turn ${turns} with perimeter left unguarded.`;
+              const breachQuotes = [
+                '"Hostile infiltration caught our rear guard completely off-guard. Keep a defensive garrison on your Command HQ!"',
+                '"An enemy spearhead slipped right through our flanks straight into Command HQ. Never leave home base unprotected."',
+                '"Disaster at the command tent. While forces were deployed forward, hostile infiltrators captured the base uncontested."',
+                '"The perimeter collapsed before our heavy armor could reposition. Station a defensive squad on the HQ next deployment!"'
+              ];
+              if (debriefText) debriefText.textContent = breachQuotes[Math.floor(Math.random() * breachQuotes.length)];
+              if (statEfficiency) statEfficiency.textContent = '10% (BREACHED)';
+            } else {
+              // Complete Total Elimination / Rapid Overrun Defeat (F)
+              if (gradeStamp) { gradeStamp.textContent = 'F'; gradeStamp.classList.add('grade-defeat'); }
+              if (evalTitle) evalTitle.textContent = 'RANK F — TACTICAL COLLAPSE';
+              if (evalSub) evalSub.textContent = 'Combat battlegroup neutralized before defensive lines could stabilize.';
+              const fDefeatQuotes = [
+                '"Hostile forces outmaneuvered our line and shattered all units in the sector. Study your scouting manual and redeploy!"',
+                '"Catastrophic breakdown in frontline fire coordination. Review firing ranges, cover bonuses, and strike again."',
+                '"Our battlegroup was caught in the open and systematically dismantled. Seek forest cover and avoid exposed skirmishes."',
+                '"The enemy seized complete tactical initiative from the opening salvo. Regroup at the staging ground and reform your doctrine."'
+              ];
+              if (debriefText) debriefText.textContent = fDefeatQuotes[Math.floor(Math.random() * fDefeatQuotes.length)];
+              if (statEfficiency) statEfficiency.textContent = '8% (OVERRUN)';
             }
           }
 
